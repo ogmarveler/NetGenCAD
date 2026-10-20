@@ -16,6 +16,10 @@
 		<TrimmerSingleWarn>false</TrimmerSingleWarn>
 		<ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
 		<WindowsSdkPackageVersion>10.0.26100.53</WindowsSdkPackageVersion>
+		<PublishAot>true</PublishAot>
+		<UseOptimizedPublish>false</UseOptimizedPublish>
+		<!-- Add to all projects/libraries in use, to ensure AOT compatibility -->
+		<IsAotCompatible>true</IsAotCompatible>
 		<Platforms>x64</Platforms>
 	</PropertyGroup>
 
@@ -56,8 +60,8 @@
 	<PropertyGroup>
 		<!-- Enable trim analysis to see warnings at build time -->
 		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-		<PublishReadyToRun>true</PublishReadyToRun>
-		<PublishReadyToRunShowWarnings>true</PublishReadyToRunShowWarnings>
+		<PublishReadyToRun>false</PublishReadyToRun>
+		<PublishReadyToRunShowWarnings>false</PublishReadyToRunShowWarnings>
 		<DebuggerSupport>false</DebuggerSupport>
 		<!-- Remove debugger support -->
 		<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
@@ -73,15 +77,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <None Remove="NetGenCAD-0.0.5-winx64.7z" />
-	  <None Remove="NetGenCAD-0.1.0-win-x64.7z" />
-	  <None Remove="NetGenCAD-0.2.0-winx64.7z" />
-	  <None Remove="NetGenCAD-0.2.1-winx64.7z" />
-	  <None Remove="NetGenCAD-0.2.2-winx64.7z" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<PackageReference Include="Avalonia.Desktop" Version="11.3.10" />
+		<PackageReference Include="Avalonia" Version="12.1.4" />
+		<PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+		<PackageReference Include="Tmds.DBus.Protocol" Version="0.95.1" />
 		<FrameworkReference Include="Microsoft.Windows.SDK.NET.Ref" />
 	</ItemGroup>
 
