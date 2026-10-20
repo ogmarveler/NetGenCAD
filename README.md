@@ -3,9 +3,11 @@
 #### Description
 This application is a no-code tool for generating custom objects used in OpenSCAD, a solid 3D CAD modeler. **It is assumed that users have a basic understanding of OpenSCAD and its functionalities.** 
 ###### 
+#### Updates
+Image processing now uses SkiaSharp instead of ImageSharp. Application file size reduced with AOT instead of R2R. Libraries optimized for .NET 10.
 #### Prerequisites
 * **You need a CAD renderer installed (OpenSCAD recommended):** [OpenSCAD](https://openscad.org/downloads.html)
-* [NetGenCAD for Windows (x64)](NetGenCAD.UI/NetGenCAD.UI.Windows/NetGenCAD-0.0.6-winx64.7z)
+* [NetGenCAD for Windows (x64)](NetGenCAD.UI/NetGenCAD.UI.Windows/NetGenCAD-0.0.9-winx64.7z)
 * **NetGenCAD for Linux (x64 & arm64)** Coming Soon!
 * **NetGenCAD for MacOS (x64 & arm64)** Coming Soon!
 
@@ -22,6 +24,10 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 
 ###### 
 #### Examples of Objects Created
+###### 
+![Hydra](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/hydraCollector.PNG)
+![Hydra Create Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/hydraCollectorCreate.PNG)
+
 ###### 
 ![Bullion](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/bullionBars.png)
 ![Bullion Create Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/bullionBarsCreateDark.png)
