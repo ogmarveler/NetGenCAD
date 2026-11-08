@@ -4,7 +4,7 @@
 This application is a no-code tool for generating custom objects used in OpenSCAD, a solid 3D CAD modeler. **It is assumed that users have a basic understanding of OpenSCAD and its functionalities.** 
 ###### 
 #### Updates
-Image processing now uses SkiaSharp instead of ImageSharp. Application file size reduced with AOT instead of R2R. Libraries optimized for .NET 10.
+Image processing now uses SkiaSharp instead of ImageSharp. Application file size reduced by removing R2R. Libraries optimized for .NET 10.
 #### Prerequisites
 * **You need a CAD renderer installed (OpenSCAD recommended):** [OpenSCAD](https://openscad.org/downloads.html)
 * [NetGenCAD for Windows (x64)](NetGenCAD.UI/NetGenCAD.UI.Windows/NetGenCAD-0.0.9-winx64.7z)
