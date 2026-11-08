@@ -1,0 +1,370 @@
+syntax = "proto3";
+
+package shapeScad;
+
+option csharp_namespace = "NetGenCAD.Designer.Api.Grpc.Protobuf";
+
+import "Api/Grpc/Protobuf/createAxes.proto";
+import "Api/Grpc/Protobuf/objectScad.proto";
+import "google/api/annotations.proto";
+
+// ShapeDimensions from NetGenCAD.Designer.Repositories.ShapeDimensions
+message ShapeDimensions {
+  int32 id = 1;
+  string name = 2;
+  string description = 3;
+
+  // Bounding box
+  double box_length_mm = 4;
+  double box_width_mm = 5;
+  double box_height_mm = 6;
+
+  // Imperial computed
+  double box_length_in = 7;
+  double box_width_in = 8;
+  double box_height_in = 9;
+
+  int32 number_of_vertices = 10;
+  int32 number_of_faces = 11;
+  int32 number_of_edges = 12;
+  int32 convexity = 13;
+  double volume_cm3 = 14;
+  double volume_in3 = 15;
+  double surface_area_cm2 = 16;
+  double surface_area_in2 = 17;
+  string oscad_method = 18;
+  int64 created_at_unix = 19;
+}
+
+// PolyhedronDimensions from NetGenCAD.Designer.Repositories.PolyhedronDimensions
+message PolyhedronDimensions {
+  int32 id = 1;
+  string name = 2;
+  string description = 3;
+  string polyhedron_operation_type = 4;  // "Points" or "Faces"
+
+  // Points
+  double point_x_mm = 5;
+  double point_y_mm = 6;
+  double point_z_mm = 7;
+  double point_x_in = 8;
+  double point_y_in = 9;
+  double point_z_in = 10;
+  int32 points_id = 11;
+
+  // Faces
+  string face = 12;     // e.g. comma-separated or JSON of indices
+  int32 face_id = 13;
+
+  string oscad_method = 14;
+  int64 created_at_unix = 15;
+}
+
+// Point helper for polyhedron points
+message PolyhedronPoint {
+  int32 id = 1;
+  double x_mm = 2;
+  double y_mm = 3;
+  double z_mm = 4;
+}
+
+// Face helper
+message PolyhedronFace {
+  int32 id = 1;
+  repeated int32 point_indices = 2;
+}
+
+// Request helpers for ShapeScadFunctions
+message ConvertPointRequest {
+  double point_x = 1;
+  double point_y = 2;
+  double point_z = 3;
+  int32 decimal_places = 4;
+  bool to_imperial = 5;  // true = mm->in, false = in->mm
+}
+
+message PolyhedronCalculationResult {
+  ShapeDimensions shape = 1;
+  repeated PolyhedronDimensions points = 2;
+  repeated PolyhedronDimensions faces = 3;
+  double volume_cm3 = 4;
+  double surface_area_cm2 = 5;
+}
+
+// ---------------------------------------------------------------------------
+// Services
+// ---------------------------------------------------------------------------
+
+service ShapeScadService {
+  // Unit conversion for points
+  rpc ConvertPointToImperial (ConvertPointRequest) returns (ConvertPointResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/points/convert/imperial"
+      body: "*"
+    };
+  }
+
+  rpc ConvertPointToMetric (ConvertPointRequest) returns (ConvertPointResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/points/convert/metric"
+      body: "*"
+    };
+  }
+
+  rpc StreamConvertPoints (stream ConvertPointRequest) returns (stream ConvertPointResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/points/convert/stream"
+      body: "*"
+    };
+  }
+
+  // Polyhedron / shape creation
+  rpc CreatePolyhedron (CreatePolyhedronRequest) returns (CreatePolyhedronResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/polyhedrons"
+      body: "*"
+    };
+  }
+
+  rpc StreamCreatePolyhedron (stream CreatePolyhedronRequest) returns (stream PolyhedronProgress) {
+    option (google.api.http) = {
+      post: "/v1/shapes/polyhedrons/stream"
+      body: "*"
+    };
+  }
+
+  rpc CreateNewShapeModule (CreateNewShapeModuleRequest) returns (CreateNewShapeModuleResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/modules"
+      body: "*"
+    };
+  }
+
+  rpc StreamCreateNewShapeModule (CreateNewShapeModuleRequest) returns (stream ShapeProgress) {
+    option (google.api.http) = {
+      post: "/v1/shapes/modules/stream"
+      body: "*"
+    };
+  }
+
+  // Generation & preview
+  rpc GenerateOSCADShape (GenerateOSCADShapeRequest) returns (GenerateOSCADShapeResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/generate-os-cad"
+      body: "*"
+    };
+  }
+
+  rpc GenerateOSCADShapePreview (GenerateOSCADShapePreviewRequest) returns (GenerateOSCADShapePreviewResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/generate-os-cad/preview"
+      body: "*"
+    };
+  }
+
+  rpc ShapeToScadPreview (ShapeToScadPreviewRequest) returns (ShapeToScadPreviewResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/preview"
+      body: "*"
+    };
+  }
+
+  // Calculations
+  rpc CalculatePolyhedronDimensions (CalculatePolyhedronDimensionsRequest) returns (CalculatePolyhedronDimensionsResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/polyhedrons/dimensions"
+      body: "*"
+    };
+  }
+
+  rpc CalculatePolyhedronSurfaceArea (CalculatePolyhedronSurfaceAreaRequest) returns (CalculatePolyhedronSurfaceAreaResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/polyhedrons/surface-area"
+      body: "*"
+    };
+  }
+
+  // Queries
+  rpc GetDimensionPolyhedronParts (GetDimensionPolyhedronPartsRequest) returns (GetDimensionPolyhedronPartsResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/polyhedrons/parts"
+      body: "*"
+    };
+  }
+
+  rpc StreamDimensionPolyhedronParts (GetDimensionPolyhedronPartsRequest) returns (stream PolyhedronDimensions) {
+    option (google.api.http) = {
+      post: "/v1/shapes/polyhedrons/parts/stream"
+      body: "*"
+    };
+  }
+
+  rpc GetShapeDimensionsByName (GetShapeDimensionsByNameRequest) returns (GetShapeDimensionsByNameResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/dimensions/by-name"
+      body: "*"
+    };
+  }
+
+  rpc StreamShapeDimensionsByName (GetShapeDimensionsByNameRequest) returns (stream ShapeDimensions) {
+    option (google.api.http) = {
+      post: "/v1/shapes/dimensions/by-name/stream"
+      body: "*"
+    };
+  }
+
+  rpc UpdateSolidDimensionsWithShape (UpdateSolidDimensionsWithShapeRequest) returns (UpdateSolidDimensionsWithShapeResponse) {
+    option (google.api.http) = {
+      post: "/v1/shapes/update-solid-dimensions"
+      body: "*"
+    };
+  }
+}
+
+message ConvertPointResponse {
+  double point_x = 1;
+  double point_y = 2;
+  double point_z = 3;
+}
+
+message CreatePolyhedronRequest {
+  string name = 1;
+  string description = 2;
+  string polyhedron_operation_type = 3;
+  double point_x_mm = 4;
+  double point_y_mm = 5;
+  double point_z_mm = 6;
+  int32 points_id = 7;
+  string face = 8;
+  int32 face_id = 9;
+  createAxes.UnitSystem selected_unit = 10;
+  int32 decimal_places = 11;
+}
+
+message CreatePolyhedronResponse {
+  int32 polyhedron_id = 1;
+  PolyhedronDimensions created = 2;
+}
+
+message CreateNewShapeModuleRequest {
+  string shape_name = 1;
+  string shape_description = 2;
+  string shape_scad_code = 3;
+  repeated PolyhedronDimensions polyhedron_dimensions = 4;
+  int32 convexity = 5;
+}
+
+message CreateNewShapeModuleResponse {
+  int32 shape_id = 1;
+  ShapeDimensions shape = 2;
+}
+
+message GenerateOSCADShapeRequest {
+  string object_name = 1;
+  repeated PolyhedronDimensions polyhedron_dimensions = 2;
+  int32 convexity = 3;
+}
+
+message GenerateOSCADShapeResponse {
+  string oscad_code = 1;
+}
+
+message GenerateOSCADShapePreviewRequest {
+  string object_name = 1;
+  string shape_scad_code = 2;
+  repeated PolyhedronDimensions polyhedron_dimensions = 3;
+  objectScad.AxisDimensions axis_dimensions = 4;
+  double axis_x_position_mm = 5;
+  double axis_y_position_mm = 6;
+  double axis_z_position_mm = 7;
+}
+
+message GenerateOSCADShapePreviewResponse {
+  string preview_code = 1;
+}
+
+message ShapeToScadPreviewRequest {
+  string shape_name = 1;
+  string shape_scad_code = 2;
+  string object_file_path = 3;
+  createAxes.UnitSystem axis_unit = 4;
+  repeated PolyhedronDimensions polyhedron_dimensions = 5;
+  objectScad.AxisDimensions axis_dimensions = 6;
+  double axis_x_position_mm = 7;
+  double axis_y_position_mm = 8;
+  double axis_z_position_mm = 9;
+}
+
+message ShapeToScadPreviewResponse {
+  string preview_file_path = 1;
+}
+
+message CalculatePolyhedronDimensionsRequest {
+  repeated PolyhedronDimensions polyhedron_dimensions = 1;
+}
+
+message CalculatePolyhedronDimensionsResponse {
+  double length = 1;
+  double width = 2;
+  double height = 3;
+}
+
+message CalculatePolyhedronSurfaceAreaRequest {
+  repeated PolyhedronDimensions polyhedron_dimensions = 1;
+}
+
+message CalculatePolyhedronSurfaceAreaResponse {
+  double surface_area_cm2 = 1;
+  double surface_area_in2 = 2;
+}
+
+message GetDimensionPolyhedronPartsRequest {
+  string object_name = 1;
+}
+
+message GetDimensionPolyhedronPartsResponse {
+  repeated PolyhedronDimensions parts = 1;
+}
+
+message GetShapeDimensionsByNameRequest {
+  string shape_name = 1;
+}
+
+message GetShapeDimensionsByNameResponse {
+  repeated ShapeDimensions shapes = 1;
+}
+
+message UpdateSolidDimensionsWithShapeRequest {
+  string shape_name = 1;
+  string new_shape_scad_code = 2;
+  double box_length_mm = 3;
+  double box_width_mm = 4;
+  double box_height_mm = 5;
+  double volume_cm3 = 6;
+  double box_length_in = 7;
+  double box_width_in = 8;
+  double box_height_in = 9;
+  double volume_in3 = 10;
+}
+
+message UpdateSolidDimensionsWithShapeResponse {
+  int32 updated_count = 1;
+}
+
+message PolyhedronProgress {
+  string stage = 1;
+  int32 percent_complete = 2;
+  string message = 3;
+  PolyhedronDimensions partial = 4;
+  bool is_complete = 5;
+  string error = 6;
+}
+
+message ShapeProgress {
+  string stage = 1;
+  int32 percent_complete = 2;
+  string message = 3;
+  ShapeDimensions partial = 4;
+  bool is_complete = 5;
+  string error = 6;
+}

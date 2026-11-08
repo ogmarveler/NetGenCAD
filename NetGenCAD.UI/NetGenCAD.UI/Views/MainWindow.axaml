@@ -1,0 +1,121 @@
+<Window
+    x:Class="NetGenCAD.UI.Views.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:NetGenCAD.UI.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:NetGenCAD.UI.Views"
+    xmlns:vm="using:NetGenCAD.UI.ViewModels"
+    Title="NetGenCAD"
+    d:DesignHeight="720"
+    d:DesignWidth="1280"
+    x:CompileBindings="True"
+    x:DataType="vm:MainWindowViewModel"
+    Background="{DynamicResource WindowBackground}"
+    Icon="/Assets/Images/logo.png"
+    mc:Ignorable="d">
+
+    <Design.DataContext>
+        <!--
+            This only sets the DataContext for the previewer in an IDE,
+            to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs)
+        -->
+        <vm:MainWindowViewModel />
+    </Design.DataContext>
+
+    <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <Menu DockPanel.Dock="Top">
+            <!--  File and Folder Explorer  -->
+            <MenuItem Header="_Open">
+                <MenuItem Command="{Binding OpenFolderCommand}" Header="_SCAD Folder">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource folder_open_regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+				<ToolTip.Tip>
+					<TextBlock Text="Opens the folder containing the SCAD assets and database." />
+				</ToolTip.Tip>
+            </MenuItem>
+            <!--  Create Axes, Object, or Shape  -->
+            <MenuItem Header="_Create">
+                <MenuItem Command="{Binding NewAxesCommand}" Header="_Axes">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource arrow_expand_regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Command="{Binding NewObjectCommand}" Header="_Object">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource cube_regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Command="{Binding NewShapeCommand}" Header="_Shape">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource select_object_regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+				<ToolTip.Tip>
+					<TextBlock Text="Create custom axes, objects, and/or custom shapes." />
+				</ToolTip.Tip>
+            </MenuItem>
+            <!--  Change Theme  -->
+            <MenuItem Header="_Appearance">
+                <MenuItem Command="{Binding ToggleCommand}" Header="_Switch Theme">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource dark_theme_regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+				<ToolTip.Tip>
+					<TextBlock Text="Switch between Dark and Light background themes. Default is System." />
+				</ToolTip.Tip>
+            </MenuItem>
+            <MenuItem Header="_Guides">
+                <MenuItem Command="{Binding MainViewCommand}" Header="_Getting Started">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource book_question_mark_regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Command="{Binding AxisViewCommand}" Header="_Custom Axis">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource book_question_mark_regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Command="{Binding DesignerViewCommand}" Header="_Object Designer">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource book_question_mark_regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Command="{Binding ShapeViewCommand}" Header="_Shape Designer">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource book_question_mark_regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+				<ToolTip.Tip>
+					<TextBlock Text="Tutorials on how to use each module within NetGenCAD" />
+				</ToolTip.Tip>
+            </MenuItem>
+			<MenuItem Command="{Binding RefreshAllCommand}" Header="_Refresh">
+				<MenuItem.Icon>
+					<PathIcon Data="{StaticResource arrow_sync_circle_regular}" />
+				</MenuItem.Icon>
+				<ToolTip.Tip>
+					<TextBlock Text="Updates the UI with any data that has been created from API usage" />
+				</ToolTip.Tip>
+			</MenuItem>
+
+        </Menu>
+
+		
+
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <ContentControl
+                Margin="10"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                Content="{Binding MainViewContent}" />
+        </ScrollViewer>
+
+    </DockPanel>
+</Window>

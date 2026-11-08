@@ -1,0 +1,74 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<PublishTrimmed>true</PublishTrimmed>
+		<TrimMode>link</TrimMode>
+		<SignAssembly>True</SignAssembly>
+		<Platforms>x64;ARM64</Platforms>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+		<DebugType>none</DebugType>
+		<DebugSymbols>false</DebugSymbols>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+	  <DebugType>none</DebugType>
+	  <IsTrimmable>True</IsTrimmable>
+	  <Optimize>True</Optimize>
+	  <IsAotCompatible>True</IsAotCompatible>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+	  <DebugType>full</DebugType>
+		<DebugSymbols>false</DebugSymbols>
+	  <IsTrimmable>True</IsTrimmable>
+	  <Optimize>True</Optimize>
+	  <IsAotCompatible>True</IsAotCompatible>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+	  <DebugType>none</DebugType>
+	  <DebugSymbols>false</DebugSymbols>
+	  <IsTrimmable>True</IsTrimmable>
+	  <IsAotCompatible>True</IsAotCompatible>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+	  <DebugType>none</DebugType>
+	  <DebugSymbols>false</DebugSymbols>
+	  <IsTrimmable>True</IsTrimmable>
+	  <IsAotCompatible>True</IsAotCompatible>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="Google.Api.CommonProtos" Version="2.17.0" />
+	  <PackageReference Include="Grpc.AspNetCore" Version="2.85.0" />
+	  <PackageReference Include="Grpc.Tools" Version="2.85.0">
+	    <PrivateAssets>all</PrivateAssets>
+	    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	  </PackageReference>
+	  <PackageReference Include="Microsoft.AspNetCore.Grpc.JsonTranscoding" Version="10.0.14" />
+	  <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+	  <PackageReference Include="System.Drawing.Common" Version="10.0.14" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Protobuf Include="Api\Grpc\Protobuf\createAxes.proto" GrpcServices="Server" />
+		<Protobuf Include="Api\Grpc\Protobuf\objectScad.proto" GrpcServices="Server" />
+		<Protobuf Include="Api\Grpc\Protobuf\shapeScad.proto" GrpcServices="Server" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<IncludeHttpRuleProtos>true</IncludeHttpRuleProtos>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\NetGenCAD.Axis\NetGenCAD.Axis.csproj" />
+	  <ProjectReference Include="..\NetGenCAD.Core\NetGenCAD.Core.csproj" />
+	</ItemGroup>
+
+</Project>

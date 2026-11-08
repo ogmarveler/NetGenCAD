@@ -1,0 +1,252 @@
+syntax = "proto3";
+
+package createAxes;
+
+option csharp_namespace = "NetGenCAD.Designer.Api.Grpc.Protobuf";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+// Enums from NetGenCAD.Core.Measurements.Selector and related
+enum UnitSystem {
+  UNIT_SYSTEM_UNSPECIFIED = 0;
+  METRIC = 1;      // Metric (mm)
+  IMPERIAL = 2;    // Imperial (in)
+}
+
+enum BackgroundType {
+  BACKGROUND_TYPE_UNSPECIFIED = 0;
+  LIGHT = 1;       // Light Theme
+  DARK = 2;        // Dark Theme
+}
+
+// Simplified OpenScadColor - common ones used; full list is large, extend as needed
+enum OpenScadColor {
+  OPEN_SCAD_COLOR_UNSPECIFIED = 0;
+  BLACK = 1;
+  WHITE = 2;
+  // Add more as needed from Colors.OpenScadColor
+}
+
+// Model: GeneratedModule from NetGenCAD.Axis.Scad.Models.GeneratedModule
+message GeneratedModule {
+  string calling_method = 1;
+  string unit = 2;          // e.g. "Metric"
+  string theme = 3;         // e.g. "Light"
+  double range_x = 4;
+  double range_y = 5;
+  double range_z = 6;
+  double min_x = 7;
+  double max_x = 8;
+  double min_y = 9;
+  double max_y = 10;
+  double min_z = 11;
+  double max_z = 12;
+  string volume = 13;
+}
+
+// Model: AxisValidationResult from CreateAxesFunctions
+message AxisValidationResult {
+  bool is_valid = 1;
+  bool x_axis_valid = 2;
+  bool y_axis_valid = 3;
+  bool z_axis_valid = 4;
+  map<string, string> error_messages = 5;  // keyed by property name like "minX", "maxX_range"
+}
+
+// Model: AxisConversionResult from CreateAxesFunctions
+message AxisConversionResult {
+  double min_x = 1;
+  double max_x = 2;
+  double min_y = 3;
+  double max_y = 4;
+  double min_z = 5;
+  double max_z = 6;
+  double volume = 7;
+  double volume_scale = 8;
+}
+
+// Model: AxisSettings from AxisConfig.AxisSettings
+message AxisSettings {
+  string output_directory = 1;
+  BackgroundType background_type = 2;
+  UnitSystem unit_system = 3;
+  double min_x = 4;
+  double max_x = 5;
+  double min_y = 6;
+  double max_y = 7;
+  double min_z = 8;
+  double max_z = 9;
+  OpenScadColor open_scad_color = 10;
+  double axis_color_alpha = 11;
+  // Computed increments (for reference; can be recalculated)
+  double increment_x = 12;
+  double increment_y = 13;
+  double increment_z = 14;
+  double increment_x2 = 15;
+  double increment_y2 = 16;
+  double increment_z2 = 17;
+  double increment_x3 = 18;
+  double increment_y3 = 19;
+  double increment_z3 = 20;
+  double increment_x4 = 21;
+  double increment_y4 = 22;
+  double increment_z4 = 23;
+  string unit = 24;  // "mm" or "in"
+}
+
+// Model: CustomAxis from AxisConfig.CustomAxis
+message CustomAxis {
+  //string axis_module = 1;          // Generated SCAD module content
+  AxisSettings settings = 2;
+  string calling_method = 3;
+  string module_name = 4;
+  //string main_file_instruction = 5;
+  double total_cubic_volume = 6;
+  string total_cubic_volume_unit = 7;
+  double total_cubic_volume_scale = 8;
+  string total_cubic_volume_scale_unit = 9;
+}
+
+// Request/Response helpers for common operations in CreateAxesFunctions
+message ValidateAxesRequest {
+  double min_x = 1;
+  double max_x = 2;
+  double min_y = 3;
+  double max_y = 4;
+  double min_z = 5;
+  double max_z = 6;
+}
+
+message ConvertUnitsRequest {
+  double min_x = 1;
+  double max_x = 2;
+  double min_y = 3;
+  double max_y = 4;
+  double min_z = 5;
+  double max_z = 6;
+  double volume = 7;
+  double volume_scale = 8;
+  int32 decimal_places = 9;
+  UnitSystem from_unit = 10;
+  UnitSystem to_unit = 11;
+}
+
+message CreateCustomAxisRequest {
+  double min_x = 1;
+  double max_x = 2;
+  double min_y = 3;
+  double max_y = 4;
+  double min_z = 5;
+  double max_z = 6;
+  UnitSystem selected_unit = 7;
+  BackgroundType selected_background = 8;
+  //int32 decimal_places = 9;
+  //bool unit_has_changed = 10;
+}
+
+// ---------------------------------------------------------------------------
+// Services
+// ---------------------------------------------------------------------------
+
+service AxesService {
+  // Retrieves and filters axes from axes.scad
+  rpc GetAxesList (google.protobuf.Empty) returns (GetAxesListResponse) {
+    option (google.api.http) = {
+      get: "/v1/axes"
+    };
+  }
+
+  rpc StreamAxesList (google.protobuf.Empty) returns (stream GeneratedModule) {
+    option (google.api.http) = {
+      get: "/v1/axes/stream"
+    };
+  }
+
+  // Unit conversions
+  rpc ConvertToImperial (ConvertUnitsRequest) returns (AxisConversionResult) {
+    option (google.api.http) = {
+      post: "/v1/axes/convert/imperial"
+      body: "*"
+    };
+  }
+
+  rpc ConvertToMetric (ConvertUnitsRequest) returns (AxisConversionResult) {
+    option (google.api.http) = {
+      post: "/v1/axes/convert/metric"
+      body: "*"
+    };
+  }
+
+  // Validation
+  rpc ValidateAxisRanges (ValidateAxesRequest) returns (AxisValidationResult) {
+    option (google.api.http) = {
+      post: "/v1/axes/validate/ranges"
+      body: "*"
+    };
+  }
+
+  rpc ValidateAllAxes (ValidateAxesRequest) returns (ValidateAllAxesResponse) {
+    option (google.api.http) = {
+      post: "/v1/axes/validate"
+      body: "*"
+    };
+  }
+
+  // Axis creation
+  rpc CreateCustomAxis (CreateCustomAxisRequest) returns (CustomAxis) {
+    option (google.api.http) = {
+      post: "/v1/axes/custom"
+      body: "*"
+    };
+  }
+
+  rpc StreamCreateCustomAxis (CreateCustomAxisRequest) returns (stream AxisProgress) {
+    option (google.api.http) = {
+      post: "/v1/axes/custom/stream"
+      body: "*"
+    };
+  }
+
+  // Helper
+  rpc GenerateAxisMethodCall (GenerateAxisMethodCallRequest) returns (GenerateAxisMethodCallResponse) {
+    option (google.api.http) = {
+      post: "/v1/axes/generate-call"
+      body: "*"
+    };
+  }
+}
+
+message GetAxesListResponse {
+  repeated GeneratedModule all_axes = 1;
+  repeated GeneratedModule metric_axes = 2;
+  repeated GeneratedModule imperial_axes = 3;
+}
+
+message ValidateAllAxesResponse {
+  bool all_valid = 1;
+  map<string, StringList> axis_errors = 2;  // X, Y, Z -> list of errors
+}
+
+message StringList {
+  repeated string values = 1;
+}
+
+message GenerateAxisMethodCallRequest {
+  string module_name = 1;
+  int32 calling_method_length = 2;
+}
+
+message GenerateAxisMethodCallResponse {
+  string calling_method = 1;
+  string include_file = 2;
+}
+
+message AxisProgress {
+  string stage = 1;          // e.g. "Validating", "Generating", "Writing files"
+  int32 percent_complete = 2;
+  string message = 3;
+  CustomAxis result = 4;     // populated on final message
+  bool is_complete = 5;
+  string error = 6;
+}

@@ -1,0 +1,481 @@
+syntax = "proto3";
+
+package objectScad;
+
+option csharp_namespace = "NetGenCAD.Designer.Api.Grpc.Protobuf";
+
+import "Api/Grpc/Protobuf/createAxes.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+// Enums
+enum OperationType {
+  OPERATION_TYPE_UNSPECIFIED = 0;
+  UNION = 1;
+  DIFFERENCE = 2;
+  INTERSECTION = 3;
+}
+
+enum SolidType {
+  SOLID_TYPE_UNSPECIFIED = 0;
+  CUBE = 1;
+  ROUND_CUBE = 2;
+  CYLINDER = 3;
+  ROUND_CYLINDER = 4;
+  SPHERE = 5;
+  POLYHEDRON = 6;
+  SURFACE = 7;
+  TEXT = 8;
+}
+
+// SolidDimensions from NetGenCAD.Designer.Repositories.SolidDimensions
+message SolidDimensions {
+  int32 id = 1;
+  int32 axis_dimensions_id = 2;
+  int32 module_dimensions_id = 3;
+  string name = 4;
+  string description = 5;
+  string shape_name = 6;
+  string material = 7;
+  string operation_type = 8;  // or use OperationType enum
+  string solid_type = 9;      // or use SolidType enum
+
+  // Cube / RoundCube
+  double length_mm = 10;
+  double width_mm = 11;
+  double height_mm = 12;
+  double thickness_mm = 13;
+
+  // Cylinder
+  double radius_mm = 14;
+  double radius1_mm = 15;
+  double radius2_mm = 16;
+  double cylinder_height_mm = 17;
+
+  // Transforms
+  double x_offset_mm = 18;
+  double y_offset_mm = 19;
+  double z_offset_mm = 20;
+  double x_rotate = 21;
+  double y_rotate = 22;
+  double z_rotate = 23;
+  double scale_x = 24;
+  double scale_y = 25;
+  double scale_z = 26;
+
+  // Rounding
+  double round_r_mm = 27;
+  double round_h_mm = 28;
+  int32 resolution = 29;
+
+  // Volumes
+  double volume_cm3 = 30;
+  double volume_in3 = 31;
+
+  // Imperial computed (optional to include)
+  double length_in = 32;
+  double width_in = 33;
+  double height_in = 34;
+  double thickness_in = 35;
+  double radius_in = 36;
+  double radius1_in = 37;
+  double radius2_in = 38;
+  double cylinder_height_in = 39;
+  double x_offset_in = 40;
+  double y_offset_in = 41;
+  double z_offset_in = 42;
+}
+
+// ModuleDimensions from NetGenCAD.Designer.Repositories.ModuleDimensions
+message ModuleDimensions {
+  int32 id = 1;
+  string name = 2;
+  string module_type = 3;     // "Union", "Difference", etc.
+  string solid_type = 4;
+  string object_name = 5;
+  string object_description = 6;
+  double x_offset_mm = 7;
+  double y_offset_mm = 8;
+  double z_offset_mm = 9;
+  double x_offset_in = 10;
+  double y_offset_in = 11;
+  double z_offset_in = 12;
+  double x_rotate = 13;
+  double y_rotate = 14;
+  double z_rotate = 15;
+  string include_method = 16;
+  string oscad_method = 17;
+  int64 created_at_unix = 18;  // DateTime as unix timestamp
+  int32 layer = 19;
+  string module_color = 20;
+}
+
+// AxisDimensions from NetGenCAD.Designer.Repositories.AxisDimensions
+message AxisDimensions {
+  int32 id = 1;
+  string theme = 2;
+  string unit = 3;
+  double min_x = 4;
+  double max_x = 5;
+  double min_y = 6;
+  double max_y = 7;
+  double min_z = 8;
+  double max_z = 9;
+  string oscad_method = 10;
+  string include_method = 11;
+  int64 created_at_unix = 12;
+}
+
+// Request helpers for ObjectScadFunctions
+message CreateAxisRequest {
+  createAxes.GeneratedModule selected_axis = 1;
+  createAxes.UnitSystem selected_axis_unit = 2;
+  double axis_x_position_mm = 3;
+  double axis_y_position_mm = 4;
+  double axis_z_position_mm = 5;
+  int32 decimal_places = 6;
+  string object_file_path = 7;
+}
+
+message UpdateSolidRequest {
+  SolidDimensions solid = 1;
+  // Add other params as needed
+}
+
+// ---------------------------------------------------------------------------
+// Services
+// ---------------------------------------------------------------------------
+
+service ObjectScadService {
+  // Axis operations on objects
+  rpc CreateAxis (CreateAxisRequest) returns (CreateAxisResponse) {
+    option (google.api.http) = {
+      post: "/v1/objects/axes"
+      body: "*"
+    };
+  }
+
+  rpc UpdateAxisTranslate (UpdateAxisTranslateRequest) returns (UpdateAxisTranslateResponse) {
+    option (google.api.http) = {
+      post: "/v1/objects/axes/translate"
+      body: "*"
+    };
+  }
+
+  // Object creation & management
+  rpc CreateObject (CreateObjectRequest) returns (CreateObjectResponse) {
+    option (google.api.http) = {
+      post: "/v1/objects"
+      body: "*"
+    };
+  }
+
+  rpc StreamCreateObject (CreateObjectRequest) returns (stream ObjectProgress) {
+    option (google.api.http) = {
+      post: "/v1/objects/stream"
+      body: "*"
+    };
+  }
+
+  rpc CopyObject (CopyObjectRequest) returns (CopyObjectResponse) {
+    option (google.api.http) = {
+      post: "/v1/objects/copy"
+      body: "*"
+    };
+  }
+
+  rpc DeleteSelectedItem (DeleteSelectedItemRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/objects/delete"
+      body: "*"
+    };
+  }
+
+  // SCAD generation
+  rpc GenerateOSCAD (GenerateOSCADRequest) returns (GenerateOSCADResponse) {
+    option (google.api.http) = {
+      post: "/v1/objects/generate-os-cad"
+      body: "*"
+    };
+  }
+
+  rpc PartsToScadFiles (PartsToScadFilesRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/objects/parts-to-scad"
+      body: "*"
+    };
+  }
+
+  rpc ObjectToScadFiles (ObjectToScadFilesRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/objects/to-scad"
+      body: "*"
+    };
+  }
+
+  // Boolean modules
+  rpc CreateUnionModule (CreateBooleanModuleRequest) returns (ModuleDimensions) {
+    option (google.api.http) = {
+      post: "/v1/objects/boolean/union"
+      body: "*"
+    };
+  }
+
+  rpc CreateDifferenceModule (CreateBooleanModuleRequest) returns (ModuleDimensions) {
+    option (google.api.http) = {
+      post: "/v1/objects/boolean/difference"
+      body: "*"
+    };
+  }
+
+  rpc CreateIntersectionModule (CreateBooleanModuleRequest) returns (ModuleDimensions) {
+    option (google.api.http) = {
+      post: "/v1/objects/boolean/intersection"
+      body: "*"
+    };
+  }
+
+  // Queries & helpers
+  rpc GetDimensionsParts (GetDimensionsPartsRequest) returns (GetDimensionsPartsResponse) {
+    option (google.api.http) = {
+      post: "/v1/objects/dimensions"
+      body: "*"
+    };
+  }
+
+  rpc StreamDimensionsParts (GetDimensionsPartsRequest) returns (stream DimensionsPart) {
+    option (google.api.http) = {
+      post: "/v1/objects/dimensions/stream"
+      body: "*"
+    };
+  }
+
+  rpc GetFilteredAxesList (GetFilteredAxesListRequest) returns (GetFilteredAxesListResponse) {
+    option (google.api.http) = {
+      post: "/v1/objects/axes/filtered"
+      body: "*"
+    };
+  }
+
+  rpc ConvertInputsToImperial (ConvertSolidInputsRequest) returns (ConvertSolidInputsResponse) {
+    option (google.api.http) = {
+      post: "/v1/objects/convert/imperial"
+      body: "*"
+    };
+  }
+
+  rpc ConvertInputsToMetric (ConvertSolidInputsRequest) returns (ConvertSolidInputsResponse) {
+    option (google.api.http) = {
+      post: "/v1/objects/convert/metric"
+      body: "*"
+    };
+  }
+
+  rpc ExportToStl (ExportToStlRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/objects/export/stl"
+      body: "*"
+    };
+  }
+
+  rpc StreamExportToStl (ExportToStlRequest) returns (stream ExportProgress) {
+    option (google.api.http) = {
+      post: "/v1/objects/export/stl/stream"
+      body: "*"
+    };
+  }
+}
+
+message CreateAxisResponse {
+  int32 axis_id = 1;
+  AxisDimensions axis_dimensions = 2;
+  double axis_x_position_mm = 3;
+  double axis_y_position_mm = 4;
+  double axis_z_position_mm = 5;
+  string object_axis_display = 6;
+  string object_axis_unit_display = 7;
+  createAxes.UnitSystem selected_unit_value = 8;
+}
+
+message UpdateAxisTranslateRequest {
+  bool axis_stored = 1;
+  AxisDimensions axis_dimensions = 2;
+  createAxes.GeneratedModule selected_axis = 3;
+  double axis_x_position_mm = 4;
+  double axis_y_position_mm = 5;
+  double axis_z_position_mm = 6;
+  createAxes.UnitSystem selected_axis_unit = 7;
+  int32 decimal_places = 8;
+  bool remove_axis = 9;
+  string object_file_path = 10;
+}
+
+message UpdateAxisTranslateResponse {
+  // Callback results - expand as needed
+  bool success = 1;
+  string message = 2;
+}
+
+message CreateObjectRequest {
+  string selected_solid_type = 1;
+  string name = 2;
+  string description = 3;
+  string selected_filament = 4;
+  OperationType selected_operation_type = 5;
+  SolidDimensions dimensions = 6;  // carries most numeric params
+  // Additional flags and text/surface params can be added here
+  int32 layer = 7;
+  double alpha = 8;
+  createAxes.UnitSystem selected_unit = 9;
+  int32 decimal_places = 10;
+  int32 axis_id = 11;
+  bool append_object = 12;
+}
+
+message CreateObjectResponse {
+  int32 object_id = 1;
+  SolidDimensions created_solid = 2;
+}
+
+message CopyObjectRequest {
+  string source_object_name = 1;
+}
+
+message CopyObjectResponse {
+  repeated SolidDimensions solids = 1;
+  repeated ModuleDimensions modules = 2;
+}
+
+message DeleteSelectedItemRequest {
+  string item_type = 1;  // "Solid" or "Module"
+  int32 item_id = 2;
+}
+
+message GenerateOSCADRequest {
+  SolidDimensions solid = 1;
+  bool is_cube_selected = 2;
+  bool is_round_cube_selected = 3;
+  bool is_surface_selected = 4;
+  bool is_cylinder_selected = 5;
+  bool is_sphere_selected = 6;
+  bool is_text_selected = 7;
+  createAxes.UnitSystem selected_unit = 8;
+  int32 decimal_places = 9;
+  // surface / text params
+  double surface_scale_x = 10;
+  double surface_scale_y = 11;
+  double surface_scale_z = 12;
+  string surface_file_path = 13;
+  string text_input = 14;
+  double text_size = 15;
+  string font_input = 16;
+}
+
+message GenerateOSCADResponse {
+  string oscad_method = 1;
+}
+
+message PartsToScadFilesRequest {
+  string object_name = 1;
+  string object_description = 2;
+  string object_file_path = 3;
+  repeated SolidDimensions solid_dimensions = 4;
+  repeated ModuleDimensions module_dimensions = 5;
+}
+
+message ObjectToScadFilesRequest {
+  string object_file_path = 1;
+  repeated ModuleDimensions module_dimensions = 2;
+  double x_mirror = 3;
+  double y_mirror = 4;
+  double z_mirror = 5;
+}
+
+message CreateBooleanModuleRequest {
+  string object_name = 1;
+  string object_description = 2;
+  repeated SolidDimensions solid_dimensions = 3;
+  repeated ModuleDimensions module_dimensions = 4;
+  bool is_pre_rendered = 5;
+}
+
+message GetDimensionsPartsRequest {
+  string object_name = 1;
+}
+
+message GetDimensionsPartsResponse {
+  repeated SolidDimensions solids = 1;
+  repeated ModuleDimensions modules = 2;
+}
+
+message GetFilteredAxesListRequest {
+  createAxes.UnitSystem selected_axis_unit = 1;
+  repeated createAxes.GeneratedModule axes_modules_list = 2;
+  bool axis_stored = 3;
+  string selected_axis_value = 4;
+}
+
+message GetFilteredAxesListResponse {
+  repeated string filtered_axes = 1;
+  string selected_axis_value = 2;
+  createAxes.GeneratedModule selected_axis = 3;
+}
+
+message ConvertSolidInputsRequest {
+  double length = 1;
+  double width = 2;
+  double height = 3;
+  double thickness = 4;
+  double radius = 5;
+  double radius1 = 6;
+  double radius2 = 7;
+  double cylinder_height = 8;
+  double x_offset = 9;
+  double y_offset = 10;
+  double z_offset = 11;
+  int32 decimal_places = 12;
+}
+
+message ConvertSolidInputsResponse {
+  double length = 1;
+  double width = 2;
+  double height = 3;
+  double thickness = 4;
+  double radius = 5;
+  double radius1 = 6;
+  double radius2 = 7;
+  double cylinder_height = 8;
+  double x_offset = 9;
+  double y_offset = 10;
+  double z_offset = 11;
+}
+
+message ExportToStlRequest {
+  string object_file_path = 1;
+  bool should_restore_axis = 2;
+}
+
+message ObjectProgress {
+  string stage = 1;
+  int32 percent_complete = 2;
+  string message = 3;
+  SolidDimensions partial_result = 4;
+  bool is_complete = 5;
+  string error = 6;
+}
+
+message DimensionsPart {
+  oneof part {
+    SolidDimensions solid = 1;
+    ModuleDimensions module = 2;
+  }
+}
+
+message ExportProgress {
+  string stage = 1;          // e.g. "Rendering", "Writing STL"
+  int32 percent_complete = 2;
+  string message = 3;
+  string output_path = 4;
+  bool is_complete = 5;
+  string error = 6;
+}
