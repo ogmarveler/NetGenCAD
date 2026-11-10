@@ -17,7 +17,7 @@
 		<ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
 		<WindowsSdkPackageVersion>10.0.26100.53</WindowsSdkPackageVersion>
 		<PublishAot>false</PublishAot>
-		<UseOptimizedPublish>false</UseOptimizedPublish>
+		<UseOptimizedPublish>true</UseOptimizedPublish>
 		<!-- Add to all projects/libraries in use, to ensure AOT compatibility -->
 		<IsAotCompatible>true</IsAotCompatible>
 		<Platforms>x64</Platforms>

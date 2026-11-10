@@ -55,9 +55,13 @@ namespace NetGenCAD.UI.ViewModels
 
         public async Task RefreshFromApiAsync()
         {
+            // Refresh Axes List for all views that depend on it
             await App.Services!.GetRequiredService<CreateAxesViewModel>().GetAxesList();  // Refresh Axes List on Create Axes View
             App.Services!.GetRequiredService<ScadObjectViewModel>().GetAxesList();  // Refresh Axes List on Create Object View
             App.Services!.GetRequiredService<ScadShapeViewModel>().GetAxesList();  // Refresh Axes List on Create Shape View
+
+            // Refresh Objects List for all views that depend on it
+            //App.Services!.GetRequiredService<ScadObjectViewModel>().GetDimensionsParts(); // Refresh Object List on Create Object View
         }
 
         // Menu Commands

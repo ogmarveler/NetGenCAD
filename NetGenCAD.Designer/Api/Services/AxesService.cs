@@ -3,6 +3,7 @@ using Grpc.Core;
 using NetGenCAD.Core.Measurements;
 using NetGenCAD.Designer.Api.Grpc.Protobuf;
 using NetGenCAD.Designer.Functions;
+using NetGenCAD.Designer.Utility;
 
 namespace NetGenCAD.Designer.Api.Services
 {
@@ -23,17 +24,6 @@ namespace NetGenCAD.Designer.Api.Services
             response.ImperialAxes.AddRange(imperial.Select(ToProto));
 
             return Task.FromResult(response);
-        }
-
-        public override async Task StreamAxesList(Empty request, IServerStreamWriter<Api.Grpc.Protobuf.GeneratedModule> responseStream, ServerCallContext context)
-        {
-            var (all, _, _) = CreateAxesFunctions.GetAxesList();
-            foreach (var axis in all)
-            {
-                if (context.CancellationToken.IsCancellationRequested)
-                    break;
-                await responseStream.WriteAsync(ToProto(axis));
-            }
         }
 
         public override Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToImperial(ConvertUnitsRequest request, ServerCallContext context)
@@ -82,7 +72,7 @@ namespace NetGenCAD.Designer.Api.Services
             {
                 var list = new StringList();
                 list.Values.AddRange(kvp.Value);
-                response.AxisErrors[kvp.Key] = list;
+                response.AxisErrors[kvp.Key] = list;    
             }
 
             return Task.FromResult(response);
@@ -96,8 +86,8 @@ namespace NetGenCAD.Designer.Api.Services
                 request.MinX, request.MaxX,
                 request.MinY, request.MaxY,
                 request.MinZ, request.MaxZ,
-                ToCoreUnitSystem(request.SelectedUnit),
-                ToCoreBackgroundType(request.SelectedBackground),
+                GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit),
+                GrpcUtilities.ToCoreBackgroundType(request.SelectedBackground),
                 2, // request.DecimalPlaces,
                 false, //request.UnitHasChanged,
                 async (customAxis, minX, maxX, minY, maxY, minZ, maxZ, callingMethodLength, unitHasChanged) =>
@@ -110,52 +100,6 @@ namespace NetGenCAD.Designer.Api.Services
                 throw new RpcException(new Status(StatusCode.Internal, "Axis creation failed"));
 
             return ToProto(created);
-        }
-
-        public override async Task StreamCreateCustomAxis(CreateCustomAxisRequest request, IServerStreamWriter<AxisProgress> responseStream, ServerCallContext context)
-        {
-            var progress = new AxisProgress { Stage = "Starting", PercentComplete = 0, Message = "Initializing axis creation" };
-            await responseStream.WriteAsync(progress);
-
-            Axis.SCAD.Utility.AxisConfig.CustomAxis? created = null;
-
-            try
-            {
-                progress.Stage = "Validating";
-                progress.PercentComplete = 20;
-                progress.Message = "Validating ranges";
-                await responseStream.WriteAsync(progress);
-
-                await CreateAxesFunctions.CreateCustomAxisWithCallbackAsync(
-                    request.MinX, request.MaxX,
-                    request.MinY, request.MaxY,
-                    request.MinZ, request.MaxZ,
-                    ToCoreUnitSystem(request.SelectedUnit),
-                    ToCoreBackgroundType(request.SelectedBackground),
-                    2, // request.DecimalPlaces,
-                    false, //request.UnitHasChanged,
-                    async (customAxis, minX, maxX, minY, maxY, minZ, maxZ, callingMethodLength, unitHasChanged) =>
-                    {
-                        created = customAxis;
-                        await Task.CompletedTask;
-                    });
-
-                progress.Stage = "Complete";
-                progress.PercentComplete = 100;
-                progress.IsComplete = true;
-                progress.Message = "Axis created successfully";
-                if (created != null)
-                    progress.Result = ToProto(created);
-
-                await responseStream.WriteAsync(progress);
-            }
-            catch (Exception ex)
-            {
-                progress.Stage = "Error";
-                progress.IsComplete = true;
-                progress.Error = ex.Message;
-                await responseStream.WriteAsync(progress);
-            }
         }
 
         public override Task<GenerateAxisMethodCallResponse> GenerateAxisMethodCall(GenerateAxisMethodCallRequest request, ServerCallContext context)
@@ -222,28 +166,6 @@ namespace NetGenCAD.Designer.Api.Services
             TotalCubicVolumeScale = src.TotalCubicVolumeScale,
             TotalCubicVolumeUnit = src.Settings.UnitSystem == Selector.UnitSystem.Imperial ? "in³" : "cm³",
             TotalCubicVolumeScaleUnit = src.Settings.UnitSystem == Selector.UnitSystem.Imperial ? "ft³" : "m³"
-        };
-
-        private static Core.Measurements.Selector.UnitSystem ToCoreUnitSystem(
-            Api.Grpc.Protobuf.UnitSystem value) => value switch
-        {
-            Api.Grpc.Protobuf.UnitSystem.Metric =>
-                Core.Measurements.Selector.UnitSystem.Metric,
-            Api.Grpc.Protobuf.UnitSystem.Imperial =>
-                Core.Measurements.Selector.UnitSystem.Imperial,
-            _ => throw new RpcException(
-                new Status(StatusCode.InvalidArgument, "A valid unit system is required"))
-        };
-
-        private static Core.Measurements.Selector.BackgroundType ToCoreBackgroundType(
-            Api.Grpc.Protobuf.BackgroundType value) => value switch
-        {
-            Api.Grpc.Protobuf.BackgroundType.Light =>
-                Core.Measurements.Selector.BackgroundType.Light,
-            Api.Grpc.Protobuf.BackgroundType.Dark =>
-                Core.Measurements.Selector.BackgroundType.Dark,
-            _ => throw new RpcException(
-                new Status(StatusCode.InvalidArgument, "A valid background type is required"))
         };
     }
 }

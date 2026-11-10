@@ -163,16 +163,9 @@ service ObjectScadService {
   }
 
   // Object creation & management
-  rpc CreateObject (CreateObjectRequest) returns (CreateObjectResponse) {
+  rpc CreateSolid (CreateSolidRequest) returns (CreateSolidResponse) {
     option (google.api.http) = {
       post: "/v1/objects"
-      body: "*"
-    };
-  }
-
-  rpc StreamCreateObject (CreateObjectRequest) returns (stream ObjectProgress) {
-    option (google.api.http) = {
-      post: "/v1/objects/stream"
       body: "*"
     };
   }
@@ -243,13 +236,6 @@ service ObjectScadService {
     };
   }
 
-  rpc StreamDimensionsParts (GetDimensionsPartsRequest) returns (stream DimensionsPart) {
-    option (google.api.http) = {
-      post: "/v1/objects/dimensions/stream"
-      body: "*"
-    };
-  }
-
   rpc GetFilteredAxesList (GetFilteredAxesListRequest) returns (GetFilteredAxesListResponse) {
     option (google.api.http) = {
       post: "/v1/objects/axes/filtered"
@@ -274,13 +260,6 @@ service ObjectScadService {
   rpc ExportToStl (ExportToStlRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/v1/objects/export/stl"
-      body: "*"
-    };
-  }
-
-  rpc StreamExportToStl (ExportToStlRequest) returns (stream ExportProgress) {
-    option (google.api.http) = {
-      post: "/v1/objects/export/stl/stream"
       body: "*"
     };
   }
@@ -316,7 +295,7 @@ message UpdateAxisTranslateResponse {
   string message = 2;
 }
 
-message CreateObjectRequest {
+message CreateSolidRequest {
   string selected_solid_type = 1;
   string name = 2;
   string description = 3;
@@ -330,9 +309,24 @@ message CreateObjectRequest {
   int32 decimal_places = 10;
   int32 axis_id = 11;
   bool append_object = 12;
+  string surface_file_path = 13;
+  bool surface_center = 14;
+  bool surface_invert = 15;
+  int32 surface_convexity = 16;
+  bool is_pre_rendered = 17;
+  double surface_scale_x = 18;
+  double surface_scale_y = 19;
+  double surface_scale_z = 20;
+  string text_input = 21;
+  double text_size = 22;
+  string font_input = 23;
+  string text_align = 24;
+  string vertical_align = 25;
+  string text_direction = 26;
+  string language_input = 27;
 }
 
-message CreateObjectResponse {
+message CreateSolidResponse {
   int32 object_id = 1;
   SolidDimensions created_solid = 2;
 }

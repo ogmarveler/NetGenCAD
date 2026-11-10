@@ -11,6 +11,8 @@ using NetGenCAD.UI.Views;
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using System.Diagnostics.CodeAnalysis;
+using Scalar.AspNetCore;
 
 namespace NetGenCAD.UI
 {
@@ -21,6 +23,8 @@ namespace NetGenCAD.UI
         // Static Host property to access DI container
         public override void Initialize() => AvaloniaXamlLoader.Load(this);
         public static IServiceProvider? Services { get; set; }
+
+        [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
         public override async void OnFrameworkInitializationCompleted()
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -44,6 +48,7 @@ namespace NetGenCAD.UI
         }
 
         // Api functionality built-in to the application for local use
+        [RequiresUnreferencedCode("Calls Microsoft.Extensions.DependencyInjection.IApiVersioningBuilderExtensions.extension(Asp.Versioning.IApiVersioningBuilder).AddGrpcApiExplorer()")]
         private async Task StartLocalApi(AxesServiceImpl axisState, ObjectScadServiceImpl objectState ,ShapeScadServiceImpl shapeState)
         {
             var builder = WebApplication.CreateBuilder();
@@ -80,12 +85,19 @@ namespace NetGenCAD.UI
             builder.Services.AddSingleton(objectState); // ObjectScadServiceImpl instance for DI
             builder.Services.AddSingleton(shapeState); // ShapeScadServiceImpl instance for DI
             builder.Services.AddGrpc().AddJsonTranscoding(); // Add JSON transcoding for RESTful endpoints
+            builder.Services.AddApiVersioning()
+                .AddApiExplorer()
+                .AddGrpc()
+                .AddGrpcApiExplorer()
+                .AddOpenApi(options => options.Document.AddScalarTransformers());
 
             app = builder.Build();
+            app.MapOpenApi();
+            app.MapScalarApiReference();
+
             app.MapGrpcService<AxesServiceImpl>();
             app.MapGrpcService<ObjectScadServiceImpl>();
             app.MapGrpcService<ShapeScadServiceImpl>();
-
             await app.RunAsync();
         }
     }

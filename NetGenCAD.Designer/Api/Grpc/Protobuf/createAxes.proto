@@ -157,12 +157,6 @@ service AxesService {
     };
   }
 
-  rpc StreamAxesList (google.protobuf.Empty) returns (stream GeneratedModule) {
-    option (google.api.http) = {
-      get: "/v1/axes/stream"
-    };
-  }
-
   // Unit conversions
   rpc ConvertToImperial (ConvertUnitsRequest) returns (AxisConversionResult) {
     option (google.api.http) = {
@@ -197,13 +191,6 @@ service AxesService {
   rpc CreateCustomAxis (CreateCustomAxisRequest) returns (CustomAxis) {
     option (google.api.http) = {
       post: "/v1/axes/custom"
-      body: "*"
-    };
-  }
-
-  rpc StreamCreateCustomAxis (CreateCustomAxisRequest) returns (stream AxisProgress) {
-    option (google.api.http) = {
-      post: "/v1/axes/custom/stream"
       body: "*"
     };
   }
