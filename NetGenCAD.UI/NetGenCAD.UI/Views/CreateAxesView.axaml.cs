@@ -127,7 +127,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
 
         var sb = new StringBuilder();
         sb.AppendLine("// Custom axis scad file");
-        sb.AppendLine("use <Axes/axes.scad>;");
+        sb.AppendLine("use <../Axes/axes.scad>;");  // For NetGenCAD.UI where nested folder scad files are used. NetGenCAD-Axis may be slightly different.
         sb.AppendLine();
         sb.AppendLine("// Translate: move axis around object");
         sb.AppendLine($"translate ([0, 0, 0])  {callingMethod}");
@@ -210,7 +210,8 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     /// MVU-style: Simple column customization without adding custom columns
     /// Avoids stateful column tracking and duplication issues
     /// </summary>
-    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+    [RequiresDynamicCode("Calls Avalonia.Data.Binding.Binding(String)")]
+    [RequiresUnreferencedCode("Calls Avalonia.Data.Binding.Binding(String)")]
     private void DataGrid_AutoGeneratingColumnImperial(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
         // Customize CallingMethod column to show formatted axis display
@@ -225,6 +226,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
                 IsReadOnly = true,
                 Binding = new Binding(nameof(Axis.Scad.Models.GeneratedModule.CallingMethod))
                 {
+                    Mode = BindingMode.OneWay,
                     Converter = new AxisDisplayConverter()
                 }
             };
@@ -257,6 +259,8 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
         e.Column.CanUserResize = false;
     }
 
+    [RequiresUnreferencedCode("Calls NetGenCAD.UI.Views.CreateAxesView.DataGrid_AutoGeneratingColumnImperial(Object, DataGridAutoGeneratingColumnEventArgs)")]
+    [RequiresDynamicCode("Calls NetGenCAD.UI.Views.CreateAxesView.DataGrid_AutoGeneratingColumnImperial(Object, DataGridAutoGeneratingColumnEventArgs)")]
     private void DataGrid_AutoGeneratingColumnMetric(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
         // Same logic for both grids

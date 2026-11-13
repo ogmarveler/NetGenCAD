@@ -141,8 +141,8 @@ message CreateCustomAxisRequest {
   double max_z = 6;
   UnitSystem selected_unit = 7;
   BackgroundType selected_background = 8;
-  //int32 decimal_places = 9;
-  //bool unit_has_changed = 10;
+  optional int32 decimal_places = 9;
+  optional bool unit_has_changed = 10;
 }
 
 // ---------------------------------------------------------------------------

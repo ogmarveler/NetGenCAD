@@ -293,7 +293,9 @@ namespace NetGenCAD.Designer.Functions
             string textAlign,
             string verticalAlign,
             string textDirection,
-            string languageInput)
+            string languageInput,
+            string objectFilePath = "", // Optional parameter for object file path, default is empty string
+            bool isPreRendered = false) // Optional parameter for pre-rendered flag, default is false
         {
             try
             {
@@ -571,6 +573,16 @@ namespace NetGenCAD.Designer.Functions
 
                 // Save to database
                 await solidObject.UpsertAsync(dbConnection);
+
+                await FinalizeSolidCreationAsync(
+                    name,
+                    description,
+                    objectFilePath,
+                    selectedOperationType,
+                    isPreRendered,
+                    dbConnection);
+
+                // Continue with the existing refresh, query, and callback.
 
                 // Refresh dimensions from database
                 await refreshDimensionsCallback();
@@ -1951,6 +1963,53 @@ namespace NetGenCAD.Designer.Functions
                 System.Diagnostics.Debug.WriteLine($"Error copying object: {ex.Message}");
                 return (new ObservableCollection<SolidDimensions>(), new ObservableCollection<ModuleDimensions>());
             }
+        }
+
+        public static async Task FinalizeSolidCreationAsync(string objectName,string objectDescription,string objectFilePath,OperationType operationType,bool isPreRendered,SqliteConnection dbConnection)
+        {
+            var (solids, modules) = await GetDimensionsPartsAsync(
+                dbConnection, objectName);
+
+            switch (operationType)
+            {
+                case OperationType.Union:
+                    await CreateDifferenceModuleAsync(
+                        objectName, objectDescription, solids, modules,
+                        dbConnection, isPreRendered);
+                    break;
+
+                case OperationType.Difference:
+                    // Difference needs the current union module as its base.
+                    await CreateUnionModuleAsync(
+                        objectName, objectDescription, solids, modules,
+                        dbConnection, isPreRendered);
+
+                    (solids, modules) = await GetDimensionsPartsAsync(
+                        dbConnection, objectName);
+
+                    await CreateDifferenceModuleAsync(
+                        objectName, objectDescription, solids, modules,
+                        dbConnection, isPreRendered);
+                    break;
+
+                case OperationType.Intersection:
+                    await CreateIntersectionModuleAsync(
+                        objectName, objectDescription, solids, modules,
+                        dbConnection, isPreRendered);
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(operationType));
+            }
+
+            // Module creation updates the solid's ModuleDimensionsId in the DB.
+            // Reload rather than using the earlier, stale collections.
+            (solids, modules) = await GetDimensionsPartsAsync(
+                dbConnection, objectName);
+
+            await PartsToScadFilesAsync(
+                objectName, objectDescription, objectFilePath,
+                dbConnection, solids, modules);
         }
     }
 }

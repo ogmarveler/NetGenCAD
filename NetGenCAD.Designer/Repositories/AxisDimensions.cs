@@ -53,7 +53,7 @@ namespace NetGenCAD.Designer.Repositories
             (nameof(AxisDimensions.MinZ), typeof(double), false),
             (nameof(AxisDimensions.MaxZ), typeof(double), false),
             (nameof(AxisDimensions.IncludeMethod), typeof(string), false),
-            (nameof(AxisDimensions.OSCADMethod), typeof(string), true),
+            (nameof(AxisDimensions.OSCADMethod), typeof(string), false),
             (nameof(AxisDimensions.CreatedAt), typeof(DateTime), false)
         ];
 
@@ -161,5 +161,15 @@ namespace NetGenCAD.Designer.Repositories
             await connection.QueryAsync<AxisDimensions>(
                 "SELECT * FROM AxisDimensions WHERE Theme = @Theme ORDER BY CreatedAt DESC",
                 new { Theme = theme });
+
+        // Get the most recently saved axis by its calling method
+        public static async Task<int?> GetIdByCallingMethodAsync(this AxisDimensions _, SqliteConnection connection, string callingMethod) =>
+            await connection.QuerySingleOrDefaultAsync<int?>(
+                @"SELECT Id
+                    FROM AxisDimensions
+                    WHERE TRIM(REPLACE(OSCADMethod,IncludeMethod,'')) = @CallingMethod
+                  ORDER BY CreatedAt DESC
+                  LIMIT 1",
+                new { CallingMethod = callingMethod.Trim() });
     }
 }

@@ -1,7 +1,5 @@
-﻿using Avalonia;
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using NetGenCAD.Axis.Scad.Models;
 using NetGenCAD.Axis.Scad.Utility;
 using NetGenCAD.Core.Interfaces;
@@ -22,6 +20,8 @@ using System.Threading.Tasks;
 using static NetGenCAD.Core.Measurements.Colors;
 using static NetGenCAD.Core.Measurements.Selector;
 using static NetGenCAD.Designer.Functions.ObjectScadFunctions;
+using AxisDimensionsExtensions = NetGenCAD.Designer.Repositories.AxisDimensionsExtensions;
+using AxisDimensionsEntity = NetGenCAD.Designer.Repositories.AxisDimensions;
 
 namespace NetGenCAD.UI.ViewModels
 {
@@ -120,7 +120,6 @@ namespace NetGenCAD.UI.ViewModels
         private int _surfaceConvexity = 1;
         private OpenScadColor[] _openScadColors = Enum.GetValues<OpenScadColor>();
         private OpenScadColor _selectedOpenScadColor = OpenScadColor.Silver;
-        private static readonly System.Text.RegularExpressions.Regex NameSanitizerRegex = new System.Text.RegularExpressions.Regex(@"[^a-z0-9]+", System.Text.RegularExpressions.RegexOptions.Compiled);
         private int _layerIntValue = 0;
         private double _alphaIntValue = 1;
         private bool _isSphereSelected = false;
@@ -534,6 +533,10 @@ namespace NetGenCAD.UI.ViewModels
                 _objectFilePath,
                 DbConnection!,
                 onAxisTranslateComplete);
+
+            // Update the display
+            ObjectAxisDisplay = StringFunctions.FormatAxisDisplay(SelectedAxisValue);
+            AxesSelectEnabled = false; // Disable the ComboBox after axis is created
         }
 
         public async Task CreateAxis()
@@ -1052,7 +1055,7 @@ namespace NetGenCAD.UI.ViewModels
             get => _name;
             set
             {
-                var sanitized = NameSanitizerRegex.Replace(value.Trim().ToLower(), "_");
+                var sanitized = StringFunctions.NameSanitize(value);
                 this.RaiseAndSetIfChanged(ref _name, sanitized);  // ← Use sanitized value
             }
         }
@@ -1444,8 +1447,20 @@ namespace NetGenCAD.UI.ViewModels
                 AxisZPositionMM = _selectedAxis != null ? _selectedAxis.MinZ : 0;
                 if (AxisStored)
                     UpdateAxisTranslate();
-                else if (_selectedAxis != null)
-                    _ = CreateAxis();
+                else if (_selectedAxis is not null)
+                {
+                    _axisId = AxisDimensionsExtensions.GetIdByCallingMethodAsync(new AxisDimensionsEntity(), _dbConnection, _selectedAxis.CallingMethod).Result;
+                    if (_axisId is null || _axisId == 0)
+                    {
+                        _ = CreateAxis();
+                    }
+                    else
+                    {
+                        _axisStored = true;
+                        this.RaisePropertyChanged(nameof(AxisStored));
+                        UpdateAxisTranslate();
+                    }
+                }
             }
         }
 

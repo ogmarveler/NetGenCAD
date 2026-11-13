@@ -1,9 +1,11 @@
 ﻿using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Microsoft.Data.Sqlite;
 using NetGenCAD.Core.Measurements;
 using NetGenCAD.Designer.Api.Grpc.Protobuf;
 using NetGenCAD.Designer.Functions;
 using NetGenCAD.Designer.Utility;
+using NetGenCAD.Designer.Repositories;
 
 namespace NetGenCAD.Designer.Api.Services
 {
@@ -13,6 +15,15 @@ namespace NetGenCAD.Designer.Api.Services
     /// </summary>
     public class AxesServiceImpl : AxesService.AxesServiceBase
     {
+
+        private readonly SqliteConnection _db;
+
+        // Constructor serves as DB initializer, and table dependency ensures tables exist before any calls are applied
+        public AxesServiceImpl(SqliteConnection db)
+        {
+            _db = db;
+            ObjectScadFunctions.GetDimensionsPartsAsync(_db, string.Empty).Wait(); // Make sure tables exist in the database before any calls are applied, patience can be a virtue
+        }
 
         public override Task<GetAxesListResponse> GetAxesList(Empty request, ServerCallContext context)
         {
@@ -88,8 +99,8 @@ namespace NetGenCAD.Designer.Api.Services
                 request.MinZ, request.MaxZ,
                 GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit),
                 GrpcUtilities.ToCoreBackgroundType(request.SelectedBackground),
-                2, // request.DecimalPlaces,
-                false, //request.UnitHasChanged,
+                request.HasDecimalPlaces ? request.DecimalPlaces : 3, // Default to 3 decimal places if not provided since base 2 and base 10 conversions can result in long decimal values
+                request.HasUnitHasChanged ? request.UnitHasChanged : false, // See Line 351 on CreateAxesFunctions, always true
                 async (customAxis, minX, maxX, minY, maxY, minZ, maxZ, callingMethodLength, unitHasChanged) =>
                 {
                     created = customAxis;
@@ -98,6 +109,9 @@ namespace NetGenCAD.Designer.Api.Services
 
             if (created == null)
                 throw new RpcException(new Status(StatusCode.Internal, "Axis creation failed"));
+
+            // Store the created axis in the database for later retrieval and use
+            var axisId = await CreateAxesFunctions.EnsureAxisStoredAsync(created, _db);
 
             return ToProto(created);
         }

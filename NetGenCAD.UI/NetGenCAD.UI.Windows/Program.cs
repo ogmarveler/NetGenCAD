@@ -23,6 +23,7 @@ namespace NetGenCAD
     internal sealed class Program
     {
         [STAThread]
+        [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
         public static void Main(string[] args)
         {
             var rid = GetRuntimeIdentifier(); // e.g., "win-x64"

@@ -28,62 +28,81 @@ enum SolidType {
   TEXT = 8;
 }
 
+enum ItemType {
+  ITEM_TYPE_UNSPECIFIED = 0;
+  SOLID = 1;
+  MODULE = 2;
+}
+
 // SolidDimensions from NetGenCAD.Designer.Repositories.SolidDimensions
+// ObjectScadFunctions should handle the optional params based on what type of solid is selected.
+// The service will validate the params for each solid type and return an error if any are missing.
+// Use for CRUD ops, match UI with unit measurement supplied in a GET request to return Imperial or Metric values. 
+// The service will convert to the selected unit system and return the converted values in the response.
 message SolidDimensions {
-  int32 id = 1;
-  int32 axis_dimensions_id = 2;
-  int32 module_dimensions_id = 3;
+  optional int32 id = 1;
+  optional int32 axis_dimensions_id = 2; // Lookup Logic handled in the service request
+  optional int32 module_dimensions_id = 3;
   string name = 4;
-  string description = 5;
-  string shape_name = 6;
-  string material = 7;
-  string operation_type = 8;  // or use OperationType enum
-  string solid_type = 9;      // or use SolidType enum
+  optional string description = 5;
+  optional string shape_name = 6;
+  optional string material = 7;  // Selected Filament
+  OperationType operation_type = 8;
+  SolidType solid_type = 9;
 
   // Cube / RoundCube
-  double length_mm = 10;
-  double width_mm = 11;
-  double height_mm = 12;
-  double thickness_mm = 13;
+  optional double length = 10;
+  optional double width = 11;
+  optional double height = 12;
+  optional double thickness = 13;
 
   // Cylinder
-  double radius_mm = 14;
-  double radius1_mm = 15;
-  double radius2_mm = 16;
-  double cylinder_height_mm = 17;
+  optional double radius = 14;
+  optional double radius1 = 15;
+  optional double radius2 = 16;
+  optional double cylinder_height = 17;
 
   // Transforms
-  double x_offset_mm = 18;
-  double y_offset_mm = 19;
-  double z_offset_mm = 20;
-  double x_rotate = 21;
-  double y_rotate = 22;
-  double z_rotate = 23;
-  double scale_x = 24;
-  double scale_y = 25;
-  double scale_z = 26;
+  optional double x_offset = 18;
+  optional double y_offset = 19;
+  optional double z_offset = 20;
+  optional double x_rotate = 21;
+  optional double y_rotate = 22;
+  optional double z_rotate = 23;
 
-  // Rounding
-  double round_r_mm = 27;
-  double round_h_mm = 28;
-  int32 resolution = 29;
+  // Rounding, if the user wants more flexibility than what is available in the UI
+  optional double round_r = 27;
+  optional double round_h = 28;
+  optional int32 resolution = 29;
 
-  // Volumes
-  double volume_cm3 = 30;
-  double volume_in3 = 31;
+  // Surface
+  optional string surface_file_path = 30;
+  optional bool surface_center = 31;
+  optional bool surface_invert = 32;
+  optional int32 surface_convexity = 33;
+  optional double surface_scale_x = 34;
+  optional double surface_scale_y = 35;
+  optional double surface_scale_z = 36;
 
-  // Imperial computed (optional to include)
-  double length_in = 32;
-  double width_in = 33;
-  double height_in = 34;
-  double thickness_in = 35;
-  double radius_in = 36;
-  double radius1_in = 37;
-  double radius2_in = 38;
-  double cylinder_height_in = 39;
-  double x_offset_in = 40;
-  double y_offset_in = 41;
-  double z_offset_in = 42;
+  // Text
+  optional string text_input = 37;
+  optional double text_size = 38;
+  optional string font_input = 39;
+  optional string text_align = 40;
+  optional string vertical_align = 41;
+  optional string text_direction = 42;
+  optional string language_input = 43; // May be available in future iterations
+
+  // Units
+  optional double volume_cm3 = 44;
+  optional double volume_in3 = 45;
+
+  // OSCAD
+  optional string oscad_method = 46;
+  optional bool is_pre_rendered = 47; // For adding this into the SCAd code itself
+
+  // Timestamp
+  optional string created_at = 48;
 }
 
 // ModuleDimensions from NetGenCAD.Designer.Repositories.ModuleDimensions
@@ -139,7 +158,6 @@ message CreateAxisRequest {
 
 message UpdateSolidRequest {
   SolidDimensions solid = 1;
-  // Add other params as needed
 }
 
 // ---------------------------------------------------------------------------
@@ -290,40 +308,25 @@ message UpdateAxisTranslateRequest {
 }
 
 message UpdateAxisTranslateResponse {
-  // Callback results - expand as needed
   bool success = 1;
   string message = 2;
 }
 
 message CreateSolidRequest {
-  string selected_solid_type = 1;
+  SolidType selected_solid_type = 1;
   string name = 2;
-  string description = 3;
-  string selected_filament = 4;
+  optional string description = 3;
+  optional string selected_filament = 4;
   OperationType selected_operation_type = 5;
-  SolidDimensions dimensions = 6;  // carries most numeric params
-  // Additional flags and text/surface params can be added here
+  SolidDimensions dimensions = 6;  // carries most numeric params, Imperial or Metric is converted based on selected_unit
   int32 layer = 7;
   double alpha = 8;
   createAxes.UnitSystem selected_unit = 9;
-  int32 decimal_places = 10;
-  int32 axis_id = 11;
+  optional int32 decimal_places = 10;
+  string axis_used_calling_method = 11; // Can be looked up in the list of axes on Create Axes tab (click clipboard)
   bool append_object = 12;
-  string surface_file_path = 13;
-  bool surface_center = 14;
-  bool surface_invert = 15;
-  int32 surface_convexity = 16;
-  bool is_pre_rendered = 17;
-  double surface_scale_x = 18;
-  double surface_scale_y = 19;
-  double surface_scale_z = 20;
-  string text_input = 21;
-  double text_size = 22;
-  string font_input = 23;
-  string text_align = 24;
-  string vertical_align = 25;
-  string text_direction = 26;
-  string language_input = 27;
+  optional string color_hex = 28; // if supplied in the request, then use instead of oscad_color
+  optional string oscad_color = 29; // OpenSCAD available colors; check UI for colors
 }
 
 message CreateSolidResponse {
@@ -341,7 +344,7 @@ message CopyObjectResponse {
 }
 
 message DeleteSelectedItemRequest {
-  string item_type = 1;  // "Solid" or "Module"
+  ItemType item_type = 1;  // "Solid" or "Module"
   int32 item_id = 2;
 }
 

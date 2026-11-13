@@ -61,7 +61,7 @@ namespace NetGenCAD.UI.ViewModels
             App.Services!.GetRequiredService<ScadShapeViewModel>().GetAxesList();  // Refresh Axes List on Create Shape View
 
             // Refresh Objects List for all views that depend on it
-            //App.Services!.GetRequiredService<ScadObjectViewModel>().GetDimensionsParts(); // Refresh Object List on Create Object View
+            App.Services!.GetRequiredService<ScadObjectViewModel>().GetDimensionsParts(); // Refresh Object List on Create Object View
         }
 
         // Menu Commands

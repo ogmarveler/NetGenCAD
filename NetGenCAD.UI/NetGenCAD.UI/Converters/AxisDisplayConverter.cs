@@ -23,7 +23,7 @@ namespace NetGenCAD.UI.Converters
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             // We don't need to convert back since the ComboBox stores the original CallingMethod value
-            throw new NotImplementedException("AxisDisplayConverter does not support ConvertBack");
+            return value;
         }
     }
 }

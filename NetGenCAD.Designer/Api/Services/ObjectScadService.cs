@@ -1,9 +1,18 @@
 ﻿using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
+using NetGenCAD.Axis.Scad.Utility;
+using NetGenCAD.Core.Interfaces;
+using NetGenCAD.Core.Measurements;
 using NetGenCAD.Designer.Api.Grpc.Protobuf;
 using NetGenCAD.Designer.Functions;
+using NetGenCAD.Designer.Repositories;
 using NetGenCAD.Designer.Utility;
+using AxisDimensionsEntity = NetGenCAD.Designer.Repositories.AxisDimensions;
+using AxisDimensionsExtensions = NetGenCAD.Designer.Repositories.AxisDimensionsExtensions;
+using ModuleDimensions = NetGenCAD.Designer.Api.Grpc.Protobuf.ModuleDimensions;
+using SolidDimensions = NetGenCAD.Designer.Api.Grpc.Protobuf.SolidDimensions;
 
 namespace NetGenCAD.Designer.Api.Services
 {
@@ -15,10 +24,14 @@ namespace NetGenCAD.Designer.Api.Services
     public class ObjectScadServiceImpl : ObjectScadService.ObjectScadServiceBase
     {
         private readonly SqliteConnection _db;
+        private readonly string _objectFilePath;
 
-        public ObjectScadServiceImpl(SqliteConnection db)
+        // Constructor serves as DB initializer, and table dependency ensures tables exist before any calls are applied
+        public ObjectScadServiceImpl(SqliteConnection db, IScadPathProvider scadPathProvider)
         {
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _db = db;
+            _objectFilePath = scadPathProvider.ScadPath;
+            ObjectScadFunctions.GetDimensionsPartsAsync(_db, string.Empty).Wait(); // Make sure tables exist in the database before any calls are applied, patience can be a virtue
         }
 
         public override async Task<UpdateAxisTranslateResponse> UpdateAxisTranslate(UpdateAxisTranslateRequest request, ServerCallContext context)
@@ -45,54 +58,87 @@ namespace NetGenCAD.Designer.Api.Services
 
         public override async Task<CreateSolidResponse> CreateSolid(CreateSolidRequest request, ServerCallContext context)
         {
-            var selectedSolidType = request.SelectedSolidType switch
-            {
-                "RoundCube" => "Round Cube",
-                "RoundCylinder" => "Round Cylinder",
-                var value => value
-            };
-            var selectedUnit = GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit);
+
             NetGenCAD.Designer.Repositories.SolidDimensions? created = null;
 
+            // Conversions of JSON supplied values to ObjectScadFunctions.CreateObjectWithCallbackAsync parameters are handled within the function itself, including default values and validation.
+            if (string.IsNullOrWhiteSpace(request.Name))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Name cannot be empty."));
+
+            if (request.Dimensions == null)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Dimensions cannot be null."));
+
+            if (request.Dimensions.Length <= 0 || request.Dimensions.Width <= 0 || request.Dimensions.Height <= 0)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Length, Width, and Height must be greater than zero."));
+
+            if (request.SelectedSolidType == 0) { throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid solid type.")); }
+
+            if (request.SelectedUnit == 0)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid unit type."));
+
+            // Convert the selected solid type from the gRPC request to the corresponding CoreSolidType enum value
+            var selectedSolidType = GrpcUtilities.ToCoreSolidType(request.SelectedSolidType);
+            var selectedUnit = GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit);
+            var selectedAxisId = 0;
+            var colorFromHex = string.Empty;
+
+            // Lookup the axis ID if an axis calling method is provided in the request
+            if (!string.IsNullOrWhiteSpace(request.AxisUsedCallingMethod))
+            {
+                selectedAxisId = await AxisDimensionsExtensions.GetIdByCallingMethodAsync(
+                    new AxisDimensionsEntity(), _db, request.AxisUsedCallingMethod)
+                    ?? throw new RpcException(new Status(StatusCode.NotFound, $"{request.AxisUsedCallingMethod} calling method was not found."));
+            }
+
+            // Lookup color or if hex color code provided, then use this.
+            if (!string.IsNullOrWhiteSpace(request.ColorHex))
+            {
+                // Validate hex color code
+                if (!System.Text.RegularExpressions.Regex.IsMatch(request.ColorHex, "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"))
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hex color code."));
+                else
+                    colorFromHex = request.ColorHex;
+            }
+
             var objectId = await ObjectScadFunctions.CreateObjectWithCallbackAsync(
-                selectedSolidType: selectedSolidType,
-                name: request.Name,
+                selectedSolidType: selectedSolidType.ToString(),
+                name: StringFunctions.NameSanitize(request.Name),
                 description: request.Description,
-                selectedFilament: Core.Material.FilamentType.Other,
+                selectedFilament: Core.Material.FilamentType.Other, // Filament option not in current UI, may add in future
                 selectedOperationType: GrpcUtilities.ToCoreOperationType(request.SelectedOperationType),
-                lengthMM: request.Dimensions.LengthMm,
-                widthMM: request.Dimensions.WidthMm,
-                heightMM: request.Dimensions.HeightMm,
-                thicknessMM: request.Dimensions.ThicknessMm,
-                radiusMM: request.Dimensions.RadiusMm,
-                radius1MM: request.Dimensions.Radius1Mm,
-                radius2MM: request.Dimensions.Radius2Mm,
-                cylinderHeightMM: request.Dimensions.CylinderHeightMm,
-                xOffsetMM: request.Dimensions.XOffsetMm,
-                yOffsetMM: request.Dimensions.YOffsetMm,
-                zOffsetMM: request.Dimensions.ZOffsetMm,
+                lengthMM: request.Dimensions.Length,
+                widthMM: request.Dimensions.Width,
+                heightMM: request.Dimensions.Height,
+                thicknessMM: request.Dimensions.Thickness,
+                radiusMM: request.Dimensions.Radius,
+                radius1MM: request.Dimensions.Radius1,
+                radius2MM: request.Dimensions.Radius2,
+                cylinderHeightMM: request.Dimensions.CylinderHeight,
+                xOffsetMM: request.Dimensions.XOffset,
+                yOffsetMM: request.Dimensions.YOffset,
+                zOffsetMM: request.Dimensions.ZOffset,
                 xRotate: request.Dimensions.XRotate,
                 yRotate: request.Dimensions.YRotate,
                 zRotate: request.Dimensions.ZRotate,
-                selectedOpenScadColor: default,
+                selectedOpenScadColor: Colors.OpenScadColor.Silver,  // ObjectScadFunctions will use colorFromHex if provided, otherwise this default color is used
                 layerIntValue: request.Layer,
                 alphaIntValue: request.Alpha,
-                surfaceFilePath: request.SurfaceFilePath,
-                surfaceCenter: request.SurfaceCenter ? 1 : 0,
-                surfaceInvert: request.SurfaceInvert ? 1 : 0,
-                isCubeSelected: selectedSolidType == "Cube",
-                isRoundCubeSelected: selectedSolidType == "Round Cube",
-                isSurfaceSelected: selectedSolidType == "Surface",
+                surfaceFilePath: request.Dimensions.SurfaceFilePath,
+                surfaceCenter: request.Dimensions.SurfaceCenter ? 1 : 0,
+                surfaceInvert: request.Dimensions.SurfaceInvert ? 1 : 0,
+                isCubeSelected: selectedSolidType == Selector.CoreSolidType.Cube,
+                isRoundCubeSelected: selectedSolidType == Selector.CoreSolidType.RoundCube,
+                isSurfaceSelected: selectedSolidType == Selector.CoreSolidType.Surface,
                 isRoundSurfaceSelected: false,
-                isCylinderSelected: selectedSolidType is "Cylinder" or "Round Cylinder",
-                isRoundCylinderSelected: selectedSolidType == "Round Cylinder",
-                isSphereSelected: selectedSolidType == "Sphere",
-                isPolyhedronSelected: selectedSolidType == "Polyhedron",
-                isTextSelected: selectedSolidType == "Text",
+                isCylinderSelected: selectedSolidType is Selector.CoreSolidType.Cylinder or Selector.CoreSolidType.RoundCylinder,
+                isRoundCylinderSelected: selectedSolidType == Selector.CoreSolidType.RoundCylinder,
+                isSphereSelected: selectedSolidType == Selector.CoreSolidType.Sphere,
+                isPolyhedronSelected: selectedSolidType == Selector.CoreSolidType.Polyhedron,
+                isTextSelected: selectedSolidType == Selector.CoreSolidType.Text,
                 selectedPolyhedron: null,
                 selectedUnit: selectedUnit,
                 decimalPlaces: request.DecimalPlaces,
-                axisId: request.AxisId == 0 ? null : request.AxisId,
+                axisId: selectedAxisId,
                 axesSelectEnabled: false,
                 appendObject: request.AppendObject,
                 dbConnection: _db,
@@ -101,30 +147,30 @@ namespace NetGenCAD.Designer.Api.Services
                     created = solid;
                     return ObjectScadFunctions.GenerateOSCADAsync(
                         oDim: solid,
-                        isCubeSelected: selectedSolidType == "Cube",
-                        isRoundCubeSelected: selectedSolidType == "Round Cube",
-                        isSurfaceSelected: selectedSolidType == "Surface",
+                        isCubeSelected: selectedSolidType == Selector.CoreSolidType.Cube,
+                        isRoundCubeSelected: selectedSolidType == Selector.CoreSolidType.RoundCube,
+                        isSurfaceSelected: selectedSolidType == Selector.CoreSolidType.Surface,
                         isRoundSurfaceSelected: false,
-                        isCylinderSelected: selectedSolidType is "Cylinder" or "Round Cylinder",
-                        isRoundCylinderSelected: selectedSolidType == "Round Cylinder",
-                        isSphereSelected: selectedSolidType == "Sphere",
-                        isTextSelected: selectedSolidType == "Text",
+                        isCylinderSelected: selectedSolidType is Selector.CoreSolidType.Cylinder or Selector.CoreSolidType.RoundCylinder,
+                        isRoundCylinderSelected: selectedSolidType == Selector.CoreSolidType.RoundCylinder,
+                        isSphereSelected: selectedSolidType == Selector.CoreSolidType.Sphere,
+                        isTextSelected: selectedSolidType == Selector.CoreSolidType.Text,
                         selectedUnit: selectedUnit,
                         decimalPlaces: request.DecimalPlaces,
-                        surfaceScaleX: request.SurfaceScaleX == 0 ? 1 : request.SurfaceScaleX,
-                        surfaceScaleY: request.SurfaceScaleY == 0 ? 1 : request.SurfaceScaleY,
-                        surfaceScaleZ: request.SurfaceScaleZ == 0 ? 1 : request.SurfaceScaleZ,
-                        surfaceFilePath: request.SurfaceFilePath,
-                        surfaceInvert: request.SurfaceInvert,
-                        surfaceCenter: request.SurfaceCenter,
-                        surfaceConvexity: request.SurfaceConvexity > 0 ? request.SurfaceConvexity : 1,
-                        isPreRendered: request.IsPreRendered,
-                        textInput: request.TextInput,
-                        textSize: request.TextSize,
-                        fontInput: request.FontInput,
-                        textAlign: request.TextAlign,
-                        verticalAlign: request.VerticalAlign,
-                        textDirection: request.TextDirection switch
+                        surfaceScaleX: request.Dimensions.SurfaceScaleX == 0 ? 1 : request.Dimensions.SurfaceScaleX,
+                        surfaceScaleY: request.Dimensions.SurfaceScaleY == 0 ? 1 : request.Dimensions.SurfaceScaleY,
+                        surfaceScaleZ: request.Dimensions.SurfaceScaleZ == 0 ? 1 : request.Dimensions.SurfaceScaleZ,
+                        surfaceFilePath: request.Dimensions.SurfaceFilePath,
+                        surfaceInvert: request.Dimensions.SurfaceInvert,
+                        surfaceCenter: request.Dimensions.SurfaceCenter,
+                        surfaceConvexity: request.Dimensions.SurfaceConvexity > 0 ? request.Dimensions.SurfaceConvexity : 1,
+                        isPreRendered: request.Dimensions.IsPreRendered,
+                        textInput: request.Dimensions.TextInput,
+                        textSize: request.Dimensions.TextSize,
+                        fontInput: request.Dimensions.FontInput,
+                        textAlign: request.Dimensions.TextAlign,
+                        verticalAlign: request.Dimensions.VerticalAlign,
+                        textDirection: request.Dimensions.TextDirection switch
                         {
                             "L-to-R" => "ltr",
                             "R-to-L" => "rtl",
@@ -133,31 +179,39 @@ namespace NetGenCAD.Designer.Api.Services
                             "" => "ltr",
                             var direction => direction
                         },
-                        languageInput: request.LanguageInput);
+                        languageInput: request.Dimensions.LanguageInput ?? String.Empty);
                 },
                 refreshDimensionsCallback: () => Task.CompletedTask,
                 currentAxisDisplay: string.Empty,
                 onObjectCreated: (_, _, _, _) => Task.CompletedTask,
-                isColorFromHex: false,
-                openScadColorHex: string.Empty,
-                surfaceScaleX: request.SurfaceScaleX == 0 ? 1 : request.SurfaceScaleX,
-                surfaceScaleY: request.SurfaceScaleY == 0 ? 1 : request.SurfaceScaleY,
-                surfaceScaleZ: request.SurfaceScaleZ == 0 ? 1 : request.SurfaceScaleZ,
-                textInput: request.TextInput,
-                textSize: request.TextSize,
-                fontInput: request.FontInput,
-                textAlign: request.TextAlign,
-                verticalAlign: request.VerticalAlign,
-                textDirection: request.TextDirection,
-                languageInput: request.LanguageInput);
+                isColorFromHex: request.HasColorHex,
+                openScadColorHex: colorFromHex,
+                surfaceScaleX: request.Dimensions.SurfaceScaleX == 0 ? 1 : request.Dimensions.SurfaceScaleX,
+                surfaceScaleY: request.Dimensions.SurfaceScaleY == 0 ? 1 : request.Dimensions.SurfaceScaleY,
+                surfaceScaleZ: request.Dimensions.SurfaceScaleZ == 0 ? 1 : request.Dimensions.SurfaceScaleZ,
+                textInput: request.Dimensions.TextInput,
+                textSize: request.Dimensions.TextSize,
+                fontInput: request.Dimensions.FontInput,
+                textAlign: request.Dimensions.TextAlign,
+                verticalAlign: request.Dimensions.VerticalAlign,
+                textDirection: request.Dimensions.TextDirection,
+                languageInput: request.Dimensions.LanguageInput ?? string.Empty,
+                objectFilePath: _objectFilePath ?? string.Empty,
+                isPreRendered: request.Dimensions.IsPreRendered);
 
             if (objectId == 0 || created == null)
                 throw new RpcException(new Status(StatusCode.Internal, "Object creation failed; no solid was saved."));
 
+            var savedSolid = await new NetGenCAD.Designer.Repositories.SolidDimensions().GetByIdAsync(_db, objectId);
+
+            if (savedSolid == null)
+                throw new RpcException(new Status(
+                    StatusCode.Internal, "The created solid could not be reloaded."));
+
             return new CreateSolidResponse
             {
                 ObjectId = objectId,
-                CreatedSolid = GrpcUtilities.ToProtoSolidDimensions(created)
+                CreatedSolid = GrpcUtilities.ToProtoSolidDimensions(savedSolid)
             };
         }
 
@@ -175,8 +229,8 @@ namespace NetGenCAD.Designer.Api.Services
         {
             object? item = request.ItemType switch
             {
-                "Solid" => new SolidDimensions { Id = request.ItemId },
-                "Module" => new ModuleDimensions { Id = request.ItemId },
+                ItemType.Solid => new SolidDimensions { Id = request.ItemId },
+                ItemType.Module => new ModuleDimensions { Id = request.ItemId },
                 _ => null
             };
 
@@ -366,13 +420,12 @@ namespace NetGenCAD.Designer.Api.Services
             Id = src.Id,
             Name = src.Name ?? string.Empty,
             Description = src.Description ?? string.Empty,
-            SolidType = src.SolidType ?? string.Empty,
-            LengthMm = src.LengthMm,
-            WidthMm = src.WidthMm,
-            HeightMm = src.HeightMm,
-            ThicknessMm = src.ThicknessMm,
-            RadiusMm = src.RadiusMm,
-            // ... map remaining fields
+            SolidType = src.SolidType,
+            Length = src.Length,
+            Width = src.Width,
+            Height = src.Height,
+            Thickness = src.Thickness,
+            Radius = src.Radius,
         };
 
         private static SolidDimensions ToDomain(SolidDimensions proto) => new()
@@ -381,10 +434,11 @@ namespace NetGenCAD.Designer.Api.Services
             Name = proto.Name,
             Description = proto.Description,
             SolidType = proto.SolidType,
-            LengthMm = proto.LengthMm,
-            WidthMm = proto.WidthMm,
-            HeightMm = proto.HeightMm,
-            // ... map remaining fields
+            Length = proto.Length,
+            Width = proto.Width,
+            Height = proto.Height,
+            Thickness = proto.Thickness,
+            Radius = proto.Radius,
         };
 
         private static ModuleDimensions ToProto(ModuleDimensions src) => new()
@@ -405,7 +459,7 @@ namespace NetGenCAD.Designer.Api.Services
             // ...
         };
 
-        private static AxisDimensions ToProto(AxisDimensions src) => new()
+        private static Grpc.Protobuf.AxisDimensions ToProto(Repositories.AxisDimensions src) => new()
         {
             Id = src.Id,
             Theme = src.Theme ?? string.Empty,

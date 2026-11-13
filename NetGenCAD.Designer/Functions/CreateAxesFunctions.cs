@@ -1,7 +1,10 @@
-﻿using NetGenCAD.Axis.Scad.Models;
+﻿using Microsoft.Data.Sqlite;
+using NetGenCAD.Axis.Scad.Models;
 using NetGenCAD.Axis.Scad.Utility;
+using NetGenCAD.Axis.SCAD.Utility;
 using NetGenCAD.Axis.SCAD.Modules;
 using NetGenCAD.Core.Measurements;
+using NetGenCAD.Designer.Repositories;
 using System.Collections.ObjectModel;
 using static NetGenCAD.Axis.SCAD.Utility.AxisConfig;
 using static NetGenCAD.Core.Measurements.Conversion;
@@ -514,6 +517,32 @@ namespace NetGenCAD.Designer.Functions
                 Volume = Math.Round(VolumeConverter.ConvertIn3ToCm3(volume), decimalPlaces),
                 VolumeScale = Math.Round(VolumeConverter.ConvertFt3ToM3(volumeScale), decimalPlaces)
             };
+        }
+
+        // Used in API to store a selected axis in the database for later retrieval and use
+        // UI driven model requires an axis be selected first when creating a new object, so this is a convenience method to store the selected axis in the database for object-driven creation through API
+        public static async Task<int> EnsureAxisStoredAsync(CustomAxis selectedAxis, SqliteConnection dbConnection)
+        {
+            if (selectedAxis == null)
+                throw new ArgumentNullException(nameof(selectedAxis));
+
+            // Use default IncludeMethod if not provided
+            var axis = new Repositories.AxisDimensions
+            {
+                Theme = selectedAxis.Settings.BackgroundType.ToString() ?? string.Empty,
+                Unit = selectedAxis.Settings.UnitSystem == Selector.UnitSystem.Imperial ? "in" : "mm",
+                MinX = selectedAxis.Settings.MinX,
+                MaxX = selectedAxis.Settings.MaxX,
+                MinY = selectedAxis.Settings.MinY,
+                MaxY = selectedAxis.Settings.MaxY,
+                MinZ = selectedAxis.Settings.MinZ,
+                MaxZ = selectedAxis.Settings.MaxZ,
+                OSCADMethod = selectedAxis.CallingMethod ?? string.Empty,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            axis.OSCADMethod = $"{axis.IncludeMethod} {selectedAxis.CallingMethod}";
+            return await axis.UpsertAsync(dbConnection);
         }
     }
 }
