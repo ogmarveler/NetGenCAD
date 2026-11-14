@@ -43,8 +43,8 @@ message SolidDimensions {
   optional int32 id = 1;
   optional int32 axis_dimensions_id = 2; // Lookup Logic handled in the service request
   optional int32 module_dimensions_id = 3;
-  string name = 4;
-  optional string description = 5;
+  //string name = 4;
+  string description = 5;
   optional string shape_name = 6;
   optional string material = 7;  // Selected Filament
   OperationType operation_type = 8;
@@ -315,7 +315,7 @@ message UpdateAxisTranslateResponse {
 message CreateSolidRequest {
   SolidType selected_solid_type = 1;
   string name = 2;
-  optional string description = 3;
+ // optional string description = 3;
   optional string selected_filament = 4;
   OperationType selected_operation_type = 5;
   SolidDimensions dimensions = 6;  // carries most numeric params, Imperial or Metric is converted based on selected_unit

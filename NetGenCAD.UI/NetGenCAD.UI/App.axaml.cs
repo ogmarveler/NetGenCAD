@@ -3,16 +3,18 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using NetGenCAD.Designer.Api.Services;
+using NetGenCAD.UI.Services;
 using NetGenCAD.UI.ViewModels;
 using NetGenCAD.UI.Views;
+using Scalar.AspNetCore;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading.Tasks;
-using System.Diagnostics.CodeAnalysis;
-using Scalar.AspNetCore;
 
 namespace NetGenCAD.UI
 {
@@ -84,12 +86,15 @@ namespace NetGenCAD.UI
             builder.Services.AddSingleton(axisState); // AxesServiceImpl instance for DI
             builder.Services.AddSingleton(objectState); // ObjectScadServiceImpl instance for DI
             builder.Services.AddSingleton(shapeState); // ShapeScadServiceImpl instance for DI
-            builder.Services.AddGrpc().AddJsonTranscoding(); // Add JSON transcoding for RESTful endpoints
             builder.Services.AddApiVersioning()
                 .AddApiExplorer()
                 .AddGrpc()
                 .AddGrpcApiExplorer()
                 .AddOpenApi(options => options.Document.AddScalarTransformers());
+
+            var notifications = Services!.GetRequiredService<ApiChangeNotifications>();
+            builder.Services.AddSingleton(notifications);
+            builder.Services.AddGrpc(options => options.Interceptors.Add<ApiChangeInterceptor>()).AddJsonTranscoding();
 
             app = builder.Build();
             app.MapOpenApi();
@@ -98,6 +103,34 @@ namespace NetGenCAD.UI
             app.MapGrpcService<AxesServiceImpl>();
             app.MapGrpcService<ObjectScadServiceImpl>();
             app.MapGrpcService<ShapeScadServiceImpl>();
+
+            app.Use(async (context, next) =>
+            {
+                await next(); // Run the API endpoint first.
+
+                if (!HttpMethods.IsPost(context.Request.Method) ||
+                    context.Response.StatusCode != StatusCodes.Status200OK)
+                    return;
+
+                var contentType = context.Request.ContentType;
+                if (contentType?.StartsWith(
+                        "application/grpc", StringComparison.OrdinalIgnoreCase) == true)
+                    return;
+
+                switch (context.Request.Path.Value)
+                {
+                    case "/v1/axes/custom":
+                        await Services!.GetRequiredService<MainWindowViewModel>().RefreshFromApiAsync().ConfigureAwait(false); // Refresh Axes List for all views that depend on it
+                        notifications.Publish("axes");
+                        break;
+
+                    case "/v1/objects":
+                        await Services!.GetRequiredService<MainWindowViewModel>().RefreshFromApiAsync().ConfigureAwait(false); // Refresh Objects for all views that depend on it
+                        notifications.Publish("objects");
+                        break;
+                }
+            });
+
             await app.RunAsync();
         }
     }

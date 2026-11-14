@@ -1,19 +1,20 @@
 ﻿using Avalonia;
 using Avalonia.Markup.Xaml;
-using NetGenCAD.Core.Interfaces;
-using NetGenCAD.Core.Models;
-using NetGenCAD.UI;
-using NetGenCAD.UI.ViewModels;
-using NetGenCAD.UI.Views;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using NetGenCAD.Core.Interfaces;
+using NetGenCAD.Core.Models;
+using NetGenCAD.Designer.Api.Grpc.Protobuf;
+using NetGenCAD.Designer.Api.Services;
+using NetGenCAD.UI;
+using NetGenCAD.UI.Services;
+using NetGenCAD.UI.ViewModels;
+using NetGenCAD.UI.Views;
 using ReactiveUI.Avalonia;
 using ReactiveUI.Avalonia.Splat; // Autofac, DryIoc, Ninject, Microsoft.Extensions.DependencyInjection integrations
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using NetGenCAD.Designer.Api.Services;
-using NetGenCAD.Designer.Api.Grpc.Protobuf;
 
 #pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace NetGenCAD
@@ -87,7 +88,7 @@ namespace NetGenCAD
                 services.AddSingleton<AxesServiceImpl>(); // Register API services for DI
                 services.AddSingleton<ObjectScadServiceImpl>();
                 services.AddSingleton<ShapeScadServiceImpl>();
-                services.AddGrpc();
+                services.AddSingleton<ApiChangeNotifications>();
                 services.AddSingleton<App>(); // Avalonia app
             },
             withResolver: sp =>

@@ -11,5 +11,8 @@ namespace NetGenCAD.Core.Utility
 
         [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
         public static IReadOnlyList<UnitSystem> UnitSystemValues => [.. Enum.GetValues(typeof(UnitSystem)).Cast<UnitSystem>()];
+
+        [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
+        public static IReadOnlyList<CoreSolidType> CoreSolidTypeValues => [.. Enum.GetValues(typeof(CoreSolidType)).Cast<CoreSolidType>()];
     }
 }

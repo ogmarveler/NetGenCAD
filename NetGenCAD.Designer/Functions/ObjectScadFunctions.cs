@@ -65,6 +65,7 @@ namespace NetGenCAD.Designer.Functions
             };
 
             axisDimensions.OSCADMethod = $"{axisDimensions.IncludeMethod} {selectedAxis.CallingMethod}";
+
             var axisId = await axisDimensions.UpsertAsync(dbConnection);
 
             if (axisId != null)

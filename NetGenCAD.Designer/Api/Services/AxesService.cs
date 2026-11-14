@@ -92,26 +92,31 @@ namespace NetGenCAD.Designer.Api.Services
         public override async Task<Api.Grpc.Protobuf.CustomAxis> CreateCustomAxis(CreateCustomAxisRequest request, ServerCallContext context)
         {
             Axis.SCAD.Utility.AxisConfig.CustomAxis? created = null;
+            var (_minX, _maxX, _minY, _maxY, _minZ, _maxZ) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
             await CreateAxesFunctions.CreateCustomAxisWithCallbackAsync(
-                request.MinX, request.MaxX,
-                request.MinY, request.MaxY,
-                request.MinZ, request.MaxZ,
-                GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit),
-                GrpcUtilities.ToCoreBackgroundType(request.SelectedBackground),
-                request.HasDecimalPlaces ? request.DecimalPlaces : 3, // Default to 3 decimal places if not provided since base 2 and base 10 conversions can result in long decimal values
-                request.HasUnitHasChanged ? request.UnitHasChanged : false, // See Line 351 on CreateAxesFunctions, always true
-                async (customAxis, minX, maxX, minY, maxY, minZ, maxZ, callingMethodLength, unitHasChanged) =>
+                minX: request.MinX, 
+                maxX: request.MaxX,
+                minY: request.MinY,
+                maxY: request.MaxY,
+                minZ: request.MinZ,
+                maxZ: request.MaxZ,
+                selectedUnit: GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit),
+                selectedBackground: GrpcUtilities.ToCoreBackgroundType(request.SelectedBackground),
+                decimalPlaces: request.HasDecimalPlaces ? request.DecimalPlaces : 3, // Default to 3 decimal places if not provided since base 2 and base 10 conversions can result in long decimal values
+                unitHasChanged: request.HasUnitHasChanged ? request.UnitHasChanged : false,
+                onAxisCreated: async (customAxis, minX, maxX, minY, maxY, minZ, maxZ, callingMethodLength, unitHasChanged) =>
                 {
                     created = customAxis;
+                    (_minX, _maxX, _minY, _maxY, _minZ, _maxZ) = (minX, maxX, minY, maxY, minZ, maxZ);
                     await Task.CompletedTask;
-                });
+                }); // See Line 351 on CreateAxesFunctions, always false for Api
 
             if (created == null)
                 throw new RpcException(new Status(StatusCode.Internal, "Axis creation failed"));
 
             // Store the created axis in the database for later retrieval and use
-            var axisId = await CreateAxesFunctions.EnsureAxisStoredAsync(created, _db);
+            var axisId = await CreateAxesFunctions.EnsureAxisStoredAsync(created, _minX, _maxX, _minY, _maxY, _minZ, _maxZ, _db);
 
             return ToProto(created);
         }

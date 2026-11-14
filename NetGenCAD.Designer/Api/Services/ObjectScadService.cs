@@ -9,6 +9,7 @@ using NetGenCAD.Designer.Api.Grpc.Protobuf;
 using NetGenCAD.Designer.Functions;
 using NetGenCAD.Designer.Repositories;
 using NetGenCAD.Designer.Utility;
+using static Google.Rpc.Context.AttributeContext.Types;
 using AxisDimensionsEntity = NetGenCAD.Designer.Repositories.AxisDimensions;
 using AxisDimensionsExtensions = NetGenCAD.Designer.Repositories.AxisDimensionsExtensions;
 using ModuleDimensions = NetGenCAD.Designer.Api.Grpc.Protobuf.ModuleDimensions;
@@ -68,8 +69,18 @@ namespace NetGenCAD.Designer.Api.Services
             if (request.Dimensions == null)
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Dimensions cannot be null."));
 
-            if (request.Dimensions.Length <= 0 || request.Dimensions.Width <= 0 || request.Dimensions.Height <= 0)
+            // Solid Validation - Cube and Round Cube
+            if ((request.SelectedSolidType == SolidType.Cube || request.SelectedSolidType == SolidType.RoundCube) && (request.Dimensions.Length <= 0 || request.Dimensions.Width <= 0 || request.Dimensions.Height <= 0))
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Length, Width, and Height must be greater than zero."));
+
+            // Solid Validation - Cylinder and Round Cylinder
+            if (request.Dimensions.HasRadius && request.Dimensions.Radius >= 0)  // If radius is present, then set Radius 1 and Radius 2 to same value
+            {
+                request.Dimensions.Radius1 = request.Dimensions.Radius;
+                request.Dimensions.Radius2 = request.Dimensions.Radius;
+            }
+            if ((request.SelectedSolidType == SolidType.Cylinder || request.SelectedSolidType == SolidType.RoundCylinder) && ((request.Dimensions.Radius <= 0 && !request.Dimensions.HasRadius1 && !request.Dimensions.HasRadius2) || ((request.Dimensions.Radius1 <= 0 || request.Dimensions.Radius2 <= 0) && !request.Dimensions.HasRadius) || request.Dimensions.CylinderHeight <= 0))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Radius or (Radius1 and Radius2) and Cylinder Height must be greater than zero."));
 
             if (request.SelectedSolidType == 0) { throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid solid type.")); }
 
@@ -78,9 +89,23 @@ namespace NetGenCAD.Designer.Api.Services
 
             // Convert the selected solid type from the gRPC request to the corresponding CoreSolidType enum value
             var selectedSolidType = GrpcUtilities.ToCoreSolidType(request.SelectedSolidType);
+            var selectedSolidTypeName =  selectedSolidType switch
+                {
+                    Selector.CoreSolidType.Cube => nameof(Selector.CoreSolidType.Cube),
+                    Selector.CoreSolidType.RoundCube => "Round Cube",
+                    Selector.CoreSolidType.Cylinder => nameof(Selector.CoreSolidType.Cylinder),
+                    Selector.CoreSolidType.RoundCylinder => "Round Cylinder",
+                    Selector.CoreSolidType.Polyhedron => nameof(Selector.CoreSolidType.Polyhedron),
+                    Selector.CoreSolidType.Sphere => nameof(Selector.CoreSolidType.Sphere),
+                    Selector.CoreSolidType.Surface => nameof(Selector.CoreSolidType.Surface),
+                    Selector.CoreSolidType.Text => nameof(Selector.CoreSolidType.Text),
+                    _ => throw new ArgumentException($"Unknown solid type: {selectedSolidType}", nameof(selectedSolidType))
+                };
+
             var selectedUnit = GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit);
             var selectedAxisId = 0;
             var colorFromHex = string.Empty;
+            var selectedOpenScadColor = Colors.OpenScadColor.Silver;
 
             // Lookup the axis ID if an axis calling method is provided in the request
             if (!string.IsNullOrWhiteSpace(request.AxisUsedCallingMethod))
@@ -90,42 +115,50 @@ namespace NetGenCAD.Designer.Api.Services
                     ?? throw new RpcException(new Status(StatusCode.NotFound, $"{request.AxisUsedCallingMethod} calling method was not found."));
             }
 
+            if (request.HasOscadColor)
+            {
+                if (!System.Enum.TryParse<Colors.OpenScadColor>(request.OscadColor, ignoreCase: true, out selectedOpenScadColor)
+                    || !System.Enum.IsDefined(selectedOpenScadColor)
+                    || !System.Enum.GetNames<Colors.OpenScadColor>().Contains(request.OscadColor, StringComparer.OrdinalIgnoreCase))
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid OpenSCAD color."));
+            }
+
             // Lookup color or if hex color code provided, then use this.
-            if (!string.IsNullOrWhiteSpace(request.ColorHex))
+            if (request.HasColorHex)
             {
                 // Validate hex color code
                 if (!System.Text.RegularExpressions.Regex.IsMatch(request.ColorHex, "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"))
                     throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hex color code."));
-                else
-                    colorFromHex = request.ColorHex;
+
+                colorFromHex = request.ColorHex;
             }
 
             var objectId = await ObjectScadFunctions.CreateObjectWithCallbackAsync(
-                selectedSolidType: selectedSolidType.ToString(),
+                selectedSolidType: selectedSolidTypeName,
                 name: StringFunctions.NameSanitize(request.Name),
-                description: request.Description,
+                description: request.Dimensions.Description,
                 selectedFilament: Core.Material.FilamentType.Other, // Filament option not in current UI, may add in future
                 selectedOperationType: GrpcUtilities.ToCoreOperationType(request.SelectedOperationType),
-                lengthMM: request.Dimensions.Length,
-                widthMM: request.Dimensions.Width,
-                heightMM: request.Dimensions.Height,
-                thicknessMM: request.Dimensions.Thickness,
-                radiusMM: request.Dimensions.Radius,
-                radius1MM: request.Dimensions.Radius1,
-                radius2MM: request.Dimensions.Radius2,
-                cylinderHeightMM: request.Dimensions.CylinderHeight,
-                xOffsetMM: request.Dimensions.XOffset,
-                yOffsetMM: request.Dimensions.YOffset,
-                zOffsetMM: request.Dimensions.ZOffset,
-                xRotate: request.Dimensions.XRotate,
-                yRotate: request.Dimensions.YRotate,
-                zRotate: request.Dimensions.ZRotate,
-                selectedOpenScadColor: Colors.OpenScadColor.Silver,  // ObjectScadFunctions will use colorFromHex if provided, otherwise this default color is used
+                lengthMM: request.Dimensions.HasLength ? request.Dimensions.Length : 0,
+                widthMM: request.Dimensions.HasWidth ? request.Dimensions.Width : 0,
+                heightMM: request.Dimensions.HasHeight ? request.Dimensions.Height : 0,
+                thicknessMM: request.Dimensions.HasThickness ? request.Dimensions.Thickness : 0,
+                radiusMM: request.Dimensions.HasRadius ? request.Dimensions.Radius : 0,
+                radius1MM: request.Dimensions.HasRadius1 ? request.Dimensions.Radius1 : 0,
+                radius2MM: request.Dimensions.HasRadius2 ? request.Dimensions.Radius2 : 0,
+                cylinderHeightMM: request.Dimensions.HasCylinderHeight ? request.Dimensions.CylinderHeight : 0,
+                xOffsetMM: request.Dimensions.HasXOffset ? request.Dimensions.XOffset : 0,
+                yOffsetMM: request.Dimensions.HasYOffset ? request.Dimensions.YOffset : 0,
+                zOffsetMM: request.Dimensions.HasZOffset ? request.Dimensions.ZOffset : 0,
+                xRotate: request.Dimensions.HasXRotate ? request.Dimensions.XRotate : 0,
+                yRotate: request.Dimensions.HasYRotate ? request.Dimensions.YRotate : 0,
+                zRotate: request.Dimensions.HasZRotate ? request.Dimensions.ZRotate : 0,
+                selectedOpenScadColor: selectedOpenScadColor,
                 layerIntValue: request.Layer,
                 alphaIntValue: request.Alpha,
                 surfaceFilePath: request.Dimensions.SurfaceFilePath,
-                surfaceCenter: request.Dimensions.SurfaceCenter ? 1 : 0,
-                surfaceInvert: request.Dimensions.SurfaceInvert ? 1 : 0,
+                surfaceCenter: request.Dimensions.HasSurfaceCenter ? 1 : 0,
+                surfaceInvert: request.Dimensions.HasSurfaceInvert ? 1 : 0,
                 isCubeSelected: selectedSolidType == Selector.CoreSolidType.Cube,
                 isRoundCubeSelected: selectedSolidType == Selector.CoreSolidType.RoundCube,
                 isSurfaceSelected: selectedSolidType == Selector.CoreSolidType.Surface,
@@ -418,7 +451,7 @@ namespace NetGenCAD.Designer.Api.Services
         private static SolidDimensions ToProto(SolidDimensions src) => new()
         {
             Id = src.Id,
-            Name = src.Name ?? string.Empty,
+            //Name = src.Name ?? string.Empty,
             Description = src.Description ?? string.Empty,
             SolidType = src.SolidType,
             Length = src.Length,
@@ -431,7 +464,7 @@ namespace NetGenCAD.Designer.Api.Services
         private static SolidDimensions ToDomain(SolidDimensions proto) => new()
         {
             Id = proto.Id,
-            Name = proto.Name,
+            //Name = proto.Name,
             Description = proto.Description,
             SolidType = proto.SolidType,
             Length = proto.Length,

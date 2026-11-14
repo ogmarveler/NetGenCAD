@@ -521,7 +521,7 @@ namespace NetGenCAD.Designer.Functions
 
         // Used in API to store a selected axis in the database for later retrieval and use
         // UI driven model requires an axis be selected first when creating a new object, so this is a convenience method to store the selected axis in the database for object-driven creation through API
-        public static async Task<int> EnsureAxisStoredAsync(CustomAxis selectedAxis, SqliteConnection dbConnection)
+        public static async Task<int> EnsureAxisStoredAsync(CustomAxis selectedAxis, double minX, double maxX, double minY, double maxY, double minZ, double maxZ, SqliteConnection dbConnection)
         {
             if (selectedAxis == null)
                 throw new ArgumentNullException(nameof(selectedAxis));
@@ -531,12 +531,12 @@ namespace NetGenCAD.Designer.Functions
             {
                 Theme = selectedAxis.Settings.BackgroundType.ToString() ?? string.Empty,
                 Unit = selectedAxis.Settings.UnitSystem == Selector.UnitSystem.Imperial ? "in" : "mm",
-                MinX = selectedAxis.Settings.MinX,
-                MaxX = selectedAxis.Settings.MaxX,
-                MinY = selectedAxis.Settings.MinY,
-                MaxY = selectedAxis.Settings.MaxY,
-                MinZ = selectedAxis.Settings.MinZ,
-                MaxZ = selectedAxis.Settings.MaxZ,
+                MinX = minX,
+                MaxX = maxX,
+                MinY = minY,
+                MaxY = maxY,
+                MinZ = minZ,
+                MaxZ = maxZ,
                 OSCADMethod = selectedAxis.CallingMethod ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };

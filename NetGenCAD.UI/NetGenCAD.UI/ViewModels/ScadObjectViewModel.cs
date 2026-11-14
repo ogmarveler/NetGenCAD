@@ -159,7 +159,8 @@ namespace NetGenCAD.UI.ViewModels
             DbConnection = App.Services!.GetRequiredService<SqliteConnection>(); // Get the DbConnection from the DI container
             ClearObject();
             GetAxesList();
-            AxisStored = false;
+            AxisStored = _axisStored;
+            AxesSelectEnabled = _axesSelectEnabled;
             _decimalPlaces = Designer.Repositories.SolidDimensions.OpenSCAD_DecimalPlaces;
             FilamentTypes = [.. Enum.GetValues<FilamentType>()];
             UnitSystemValues = [.. Enum.GetValues(typeof(UnitSystem)).Cast<UnitSystem>()];
@@ -291,8 +292,8 @@ namespace NetGenCAD.UI.ViewModels
                 return 0;
 
             // Ensure axis is created if needed
-            if (_axisId is null)
-                await CreateAxis();
+           /* if (_axisId is null)
+                await CreateAxis(); */
 
 
             // Clear out variables that are not applicable based on the selected solid type
@@ -534,9 +535,9 @@ namespace NetGenCAD.UI.ViewModels
                 DbConnection!,
                 onAxisTranslateComplete);
 
-            // Update the display
-            ObjectAxisDisplay = StringFunctions.FormatAxisDisplay(SelectedAxisValue);
-            AxesSelectEnabled = false; // Disable the ComboBox after axis is created
+            // Make sure display updates
+            ObjectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+            ObjectAxisUnitDisplay = _selectedAxis?.Unit == "in" ? $"{UnitSystem.Imperial.ToString()} (in)" : $"{UnitSystem.Metric.ToString()} (mm)";
         }
 
         public async Task CreateAxis()
@@ -1456,9 +1457,11 @@ namespace NetGenCAD.UI.ViewModels
                     }
                     else
                     {
-                        _axisStored = true;
-                        this.RaisePropertyChanged(nameof(AxisStored));
-                        UpdateAxisTranslate();
+                        // Update the display
+                        ObjectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+                        ObjectAxisUnitDisplay = _selectedAxis?.Unit == "in" ? $"{UnitSystem.Imperial.ToString()} (in)" : $"{UnitSystem.Metric.ToString()} (mm)";
+                        AxisStored = true;
+                        AxesSelectEnabled = false; // Disable the ComboBox after axis is created
                     }
                 }
             }
