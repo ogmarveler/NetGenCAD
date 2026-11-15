@@ -115,7 +115,7 @@
                         <TextBox
                             Classes="standardInput"
                             Text="{Binding MinXValue, Mode=TwoWay, Converter={StaticResource DoubleToNullableConverter}}"
-                            Watermark="{Binding MinXWatermark}" />
+                            PlaceholderText="{Binding MinXWatermark}" />
                     </StackPanel>
 
                     <!--  Max X  -->
@@ -129,7 +129,7 @@
                         <TextBox
                             Classes="standardInput"
                             Text="{Binding MaxXValue, Mode=TwoWay, Converter={StaticResource DoubleToNullableConverter}}"
-                            Watermark="{Binding MaxXWatermark}" />
+                            PlaceholderText="{Binding MaxXWatermark}" />
                     </StackPanel>
 
                     <!--  Min Y  -->
@@ -143,7 +143,7 @@
                         <TextBox
                             Classes="standardInput"
                             Text="{Binding MinYValue, Mode=TwoWay, Converter={StaticResource DoubleToNullableConverter}}"
-                            Watermark="{Binding MinYWatermark}" />
+                            PlaceholderText="{Binding MinYWatermark}" />
                     </StackPanel>
 
                     <!--  Max Y  -->
@@ -157,7 +157,7 @@
                         <TextBox
                             Classes="standardInput"
                             Text="{Binding MaxYValue, Mode=TwoWay, Converter={StaticResource DoubleToNullableConverter}}"
-                            Watermark="{Binding MaxYWatermark}" />
+                            PlaceholderText="{Binding MaxYWatermark}" />
                     </StackPanel>
 
                     <!--  Min Z  -->
@@ -171,7 +171,7 @@
                         <TextBox
                             Classes="standardInput"
                             Text="{Binding MinZValue, Mode=TwoWay, Converter={StaticResource DoubleToNullableConverter}}"
-                            Watermark="{Binding MinZWatermark}" />
+                            PlaceholderText="{Binding MinZWatermark}" />
                     </StackPanel>
 
                     <!--  Max Z  -->
@@ -185,7 +185,7 @@
                         <TextBox
                             Classes="standardInput"
                             Text="{Binding MaxZValue, Mode=TwoWay, Converter={StaticResource DoubleToNullableConverter}}"
-                            Watermark="{Binding MaxZWatermark}" />
+                            PlaceholderText="{Binding MaxZWatermark}" />
                     </StackPanel>
 
                     <!--  Unit Type ComboBox  -->

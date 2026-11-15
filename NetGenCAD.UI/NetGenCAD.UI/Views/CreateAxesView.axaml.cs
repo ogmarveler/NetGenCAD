@@ -15,6 +15,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using static NetGenCAD.Core.Measurements.Selector;
+using NetGenCAD.Designer.Repositories;
+using NetGenCAD.Axis.Scad.Models;
 
 namespace NetGenCAD.UI.Views;
 
@@ -33,6 +35,8 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     {
         InitializeComponent();
         DataContext = App.Services!.GetRequiredService<CreateAxesViewModel>();
+
+        // Wait for the control to be attached to the visual tree to access the parent window
         this.AttachedToVisualTree += CreateAxesView_AttachedToVisualTree;
 
         // Set fixed DataGrid widths after XAML is initialized
@@ -57,6 +61,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     {
         if (sender is DataGrid dataGrid && !_metricButtonColumnAdded)
         {
+            AddActionButtonColumnToAxesDataGrid(dataGrid);
             AddButtonColumn(dataGrid);
             _metricButtonColumnAdded = true;
         }
@@ -66,6 +71,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     {
         if (sender is DataGrid dataGrid && !_imperialButtonColumnAdded)
         {
+            AddActionButtonColumnToAxesDataGrid(dataGrid);
             AddButtonColumn(dataGrid);
             _imperialButtonColumnAdded = true;
         }
@@ -73,51 +79,56 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
 
     private void AddButtonColumn(DataGrid dataGrid)
     {
-        // Check if we haven't already added it (to prevent duplicates)
+        /* Check if we haven't already added it (to prevent duplicates)
         if (dataGrid.Columns.Any(c => c.Header?.ToString() == ""))
-            return;
+            return;*/
 
         // Create the button column with template
-        var buttonColumn = new DataGridTemplateColumn
+        var buttonTemplate = new FuncDataTemplate<Axis.Scad.Models.GeneratedModule>((module, _) =>
         {
-            Header = "",
-            Width = new DataGridLength(40),
-            CanUserResize = false,
-            CellTemplate = new FuncDataTemplate<Axis.Scad.Models.GeneratedModule>((module, _) =>
+            var button = new Button
             {
-                var button = new Button
+                // Use PathIcon with document/clipboard geometry
+                Content = new PathIcon
                 {
-                    // Use PathIcon with document/clipboard geometry
-                    Content = new PathIcon
-                    {
-                        Data = Geometry.Parse("M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V5H19V19H5V5H7V7M17,11H7V9H17V11M15,15H7V13H15V15Z"),
-                        Width = 15,
-                        Height = 15
-                    },
-                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                    HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                    VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                    Background = Brushes.Transparent,
-                    Padding = new Thickness(4),
-                    MinWidth = 40,
-                    Height = 28
-                };
+                    Data = Geometry.Parse("M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V5H19V19H5V5H7V7M17,11H7V9H17V11M15,15H7V13H15V15Z"),
+                    Width = 15,
+                    Height = 15
+                },
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Background = Brushes.Transparent,
+                Padding = new Thickness(4),
+                MinWidth = 40,
+                Height = 28
+            };
 
-                button.Click += (s, e) =>
+            button.Click += (s, e) =>
+            {
+                if (module?.CallingMethod != null)
                 {
-                    if (module?.CallingMethod != null)
-                    {
-                        ShowCallingMethodModal(module.CallingMethod);
-                    }
-                };
+                    ShowCallingMethodModal(module.CallingMethod);
+                }
+            };
 
-                return button;
-            })
+            return button;
+        });
+
+        // Create the template column
+        var actionColumn = new DataGridTemplateColumn
+        {
+            Header = "",  // Column header - empty for icon only
+            MaxWidth = 40,  // Limit max width to prevent excessive stretching
+            CellTemplate = buttonTemplate,
+            CanUserSort = false,  // Disable sorting if not needed
+            CanUserResize = false,  // Disable resizing if not needed
+            DisplayIndex = 1 // Always first column after trash bin icon
         };
 
-        // Insert at the beginning
-        dataGrid.Columns.Insert(0, buttonColumn);
+        // Insert at the beginning after the trash bin icon
+        dataGrid.Columns.Add(actionColumn);
     }
 
     private void ShowCallingMethodModal(string? callingMethod)
@@ -206,6 +217,73 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
 
     private async void ClearInputsAsync(object? sender, RoutedEventArgs e) => await ViewModel.ClearInputs();
 
+    private async void DeleteAxisButton_Click(object? sender, RoutedEventArgs e)
+    {
+        // Check each DataGrid for a selected item
+        object? selectedItem = AxesListMetric.SelectedItem
+                            ?? AxesListImperial.SelectedItem;
+
+        if (selectedItem != null)
+        {
+            await ViewModel.DeleteAxisAsync(selectedItem);
+        }
+    }
+
+    // New method to add the button column
+    private void AddActionButtonColumnToAxesDataGrid(DataGrid dataGrid)
+    {
+        // Define the cell template with a button
+        var buttonTemplate = new FuncDataTemplate<Axis.Scad.Models.GeneratedModule>((item, _) =>
+        {
+            var button = new Button
+            {
+                // Replace text content with an icon
+                Content = new PathIcon
+                {
+                    Data = Geometry.Parse("M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"),  // Trash bin icon path
+                    Width = 15,  // Adjust size to fit the small button
+                    Height = 15
+                },
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Background = Brushes.Transparent,
+                Padding = new Thickness(4),
+                MinWidth = 40,
+                Height = 28
+            };
+
+            // Handle the button click (replace with your logic)
+            button.Click += async (s, e) =>
+            {
+                if (item is GeneratedModule)
+                {
+                    // Example: Call a ViewModel method or perform an action
+                    // For instance, populate fields or delete the item
+                    await ViewModel.DeleteAxisAsync(item);
+                    // Or open an edit dialog, etc.
+                }
+            };
+
+            return button;
+        });
+
+        // Create the template column
+        var actionColumn = new DataGridTemplateColumn
+        {
+            Header = "",  // Column header - empty for icon only
+            MaxWidth = 40,  // Limit max width to prevent excessive stretching
+            CellTemplate = buttonTemplate,
+            CanUserSort = false,  // Disable sorting if not needed
+            CanUserResize = false,  // Disable resizing if not needed
+            DisplayIndex = 0 // Always first column
+        };
+
+        // Add the column to the DataGrid
+        dataGrid.Columns.Insert(0, actionColumn);
+    }
+
     /// <summary>
     /// MVU-style: Simple column customization without adding custom columns
     /// Avoids stateful column tracking and duplication issues
@@ -214,6 +292,21 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     [RequiresUnreferencedCode("Calls Avalonia.Data.Binding.Binding(String)")]
     private void DataGrid_AutoGeneratingColumnImperial(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
+        // List of columns to exclude from display - Hide Metric columns for Imperial view
+        var excludedColumns = new[] { "AxisId" };
+
+        if (excludedColumns.Contains(e.PropertyName))
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        if (ShouldExcludePropertyWithAllZeros(e.PropertyName))
+        {
+            e.Cancel = true;
+            return;
+        }
+
         // Customize CallingMethod column to show formatted axis display
         if (e.PropertyName == nameof(Axis.Scad.Models.GeneratedModule.CallingMethod))
         {

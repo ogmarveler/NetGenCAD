@@ -20,15 +20,15 @@ using System.Threading.Tasks;
 using static NetGenCAD.Core.Measurements.Colors;
 using static NetGenCAD.Core.Measurements.Selector;
 using static NetGenCAD.Designer.Functions.ObjectScadFunctions;
-using AxisDimensionsExtensions = NetGenCAD.Designer.Repositories.AxisDimensionsExtensions;
 using AxisDimensionsEntity = NetGenCAD.Designer.Repositories.AxisDimensions;
+using AxisDimensionsExtensions = NetGenCAD.Designer.Repositories.AxisDimensionsExtensions;
 
 namespace NetGenCAD.UI.ViewModels
 {
     public class ScadObjectViewModel : ValidatableBase
     {
         private ObservableCollection<SolidDimensions> _solidDimensions;
-        private ObservableCollection<GeneratedModule> _axesModulesList;
+        private ObservableCollection<GeneratedModule>? _axesModulesList;
         private ObservableCollection<ModuleDimensions> _moduleDimensions;
         private ObservableCollection<ModuleDimensions> _moduleDimensionsDifferences;
         private ObservableCollection<ModuleDimensions> _moduleDimensionsUnions;
@@ -290,11 +290,6 @@ namespace NetGenCAD.UI.ViewModels
             // Validate solid type selection
             if (string.IsNullOrEmpty(SelectedSolidType) || SelectedSolidType == "Select Solid")
                 return 0;
-
-            // Ensure axis is created if needed
-           /* if (_axisId is null)
-                await CreateAxis(); */
-
 
             // Clear out variables that are not applicable based on the selected solid type
             if (IsCubeSelected || IsRoundCubeSelected || IsSurfaceSelected || IsRoundSurfaceSelected || IsTextSelected || IsPolyhedronSelected)
@@ -798,7 +793,24 @@ namespace NetGenCAD.UI.ViewModels
 
             // Update ViewModel properties from the results
             AxesList = [.. filteredAxes];
-            
+
+            /* Set SelectedAxisUnitValue to SelectedUnitValue if object present but no axis exists; post delete of axis
+            if (AxesList?.Count == 1 && AxesList?.FirstOrDefault() == "Select Axis" && _axesModulesList?.Count == 0)
+            {
+                // Update the display
+                ObjectAxisDisplay = "No Axes Available";
+                //ObjectAxisUnitDisplay = SelectedAxisUnitValue == UnitSystem.Imperial ? $"{UnitSystem.Imperial.ToString()} (in)" : $"{UnitSystem.Metric.ToString()} (mm)";
+                ObjectAxisUnitDisplay = "Both (in) & (mm)";
+                AxisStored = false;
+                AxesSelectEnabled = false; // Disable the ComboBox after axis is created
+                _axisId = null;
+            }
+            // Assumes that user has stored an axis or that there are a list of axes available in one or the other measurement
+            else
+            {
+                AxesSelectEnabled = true;
+            }*/
+
             if (updatedAxisValue != SelectedAxisValue)
             {
                 SelectedAxisValue = updatedAxisValue;
@@ -919,26 +931,32 @@ namespace NetGenCAD.UI.ViewModels
             XOffsetMM = xOffset;
         }
 
-        // Method to show OSCAD methods
-        public void ShowOSCADMethods(ModuleDimensions module)
+        // Method to show OSCAD Module methods
+        public void ShowOSCADModuleMethod(Designer.Repositories.ModuleDimensions module)
         {
-            var solids = SolidDimensions.Where(s => s.ModuleDimensionsId == module.Id).ToList();
-
-            if (solids.Any())
-            {
-                var (title, content) = BuildOscadMethodsModal(module, solids);
+                var (title, content) = ObjectScadFunctions.BuildModuleMethodsModal(module);
 
                 ModalTitle = title;
                 ModalContent = content;
                 IsModalOpen = true;
-            }
+        }
+
+        // Method to show OSCAD Solid methods
+        public void ShowOSCADSolidMethod(Designer.Repositories.SolidDimensions solid)
+        {
+            var moduleName = ModuleDimensions.FirstOrDefault(m => m.Id == solid.ModuleDimensionsId)?.Name;
+            var (title, content) = ObjectScadFunctions.BuildSolidMethodsModal(solid, moduleName);
+
+                ModalTitle = title;
+                ModalContent = content;
+                IsModalOpen = true;
         }
 
         /// <summary>
         /// Updates the solid color in the database and regenerates with the new color.
         /// /// <param name="solidId">The ID of the solid to update</param>
         /// <param name="color">The selected OpenScad color</param>
-        public async Task UpdateSolidColorAsync(int solidId, OpenScadColor color)
+        public async Task UpdateSolidColorAsync(int solidId, Core.Measurements.Colors.OpenScadColor color)
         {
             try
             {
@@ -1450,7 +1468,9 @@ namespace NetGenCAD.UI.ViewModels
                     UpdateAxisTranslate();
                 else if (_selectedAxis is not null)
                 {
-                    _axisId = AxisDimensionsExtensions.GetIdByCallingMethodAsync(new AxisDimensionsEntity(), _dbConnection, _selectedAxis.CallingMethod).Result;
+                    var dbConnection = _dbConnection ?? throw new InvalidOperationException("Database connection is unavailable.");
+                    var callingMethod = _selectedAxis.CallingMethod ?? throw new InvalidOperationException("Selected axis has no calling method.");
+                    _axisId = AxisDimensionsExtensions.GetIdByCallingMethodAsync(new AxisDimensionsEntity(), dbConnection, callingMethod).Result;
                     if (_axisId is null || _axisId == 0)
                     {
                         _ = CreateAxis();
@@ -1462,6 +1482,7 @@ namespace NetGenCAD.UI.ViewModels
                         ObjectAxisUnitDisplay = _selectedAxis?.Unit == "in" ? $"{UnitSystem.Imperial.ToString()} (in)" : $"{UnitSystem.Metric.ToString()} (mm)";
                         AxisStored = true;
                         AxesSelectEnabled = false; // Disable the ComboBox after axis is created
+                        SelectedUnitValue = SelectedAxisUnitValue; // When setting the axis, adjust unit in solid creation to match 
                     }
                 }
             }

@@ -125,8 +125,8 @@ namespace NetGenCAD
 
         private static string GetDbPath()
         {
-            // Use bin directory for netscad.db
-            return Path.Combine(AppContext.BaseDirectory, "Data", "netscad.db");
+            // Use bin directory for netgencad.db
+            return Path.Combine(AppContext.BaseDirectory, "Data", "netgencad.db");
         }
     }
 }

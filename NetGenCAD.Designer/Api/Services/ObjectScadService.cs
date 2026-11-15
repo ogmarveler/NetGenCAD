@@ -1,7 +1,6 @@
 ﻿using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.DependencyInjection;
 using NetGenCAD.Axis.Scad.Utility;
 using NetGenCAD.Core.Interfaces;
 using NetGenCAD.Core.Measurements;
@@ -9,7 +8,6 @@ using NetGenCAD.Designer.Api.Grpc.Protobuf;
 using NetGenCAD.Designer.Functions;
 using NetGenCAD.Designer.Repositories;
 using NetGenCAD.Designer.Utility;
-using static Google.Rpc.Context.AttributeContext.Types;
 using AxisDimensionsEntity = NetGenCAD.Designer.Repositories.AxisDimensions;
 using AxisDimensionsExtensions = NetGenCAD.Designer.Repositories.AxisDimensionsExtensions;
 using ModuleDimensions = NetGenCAD.Designer.Api.Grpc.Protobuf.ModuleDimensions;
@@ -35,36 +33,14 @@ namespace NetGenCAD.Designer.Api.Services
             ObjectScadFunctions.GetDimensionsPartsAsync(_db, string.Empty).Wait(); // Make sure tables exist in the database before any calls are applied, patience can be a virtue
         }
 
-        public override async Task<UpdateAxisTranslateResponse> UpdateAxisTranslate(UpdateAxisTranslateRequest request, ServerCallContext context)
-        {
-            // Adapt callback; expand response as needed
-            await ObjectScadFunctions.UpdateAxisTranslateWithCallbackAsync(
-                axisStored: request.AxisStored,
-                axisDimensions: ToDomain(request.AxisDimensions),
-                selectedAxis: ToGeneratedModule(request.SelectedAxis),
-                axisXPositionMM: request.AxisXPositionMm,
-                axisYPositionMM: request.AxisYPositionMm,
-                axisZPositionMM: request.AxisZPositionMm,
-                selectedAxisUnit: GrpcUtilities.ToCoreUnitSystem(request.SelectedAxisUnit),
-                decimalPlaces: request.DecimalPlaces,
-                removeAxis: request.RemoveAxis,
-                originalRemoveAxis: false,
-                originalAxisCall: string.Empty,
-                objectFilePath: request.ObjectFilePath,
-                dbConnection: _db,
-                onAxisTranslateComplete: (_, _, _, _, _) => Task.CompletedTask);
-
-            return new UpdateAxisTranslateResponse { Success = true, Message = "Updated" };
-        }
-
-        public override async Task<CreateSolidResponse> CreateSolid(CreateSolidRequest request, ServerCallContext context)
+        public override async Task<CreateSolidResponse> CreateUpdateSolid(CreateSolidRequest request, ServerCallContext context)
         {
 
             NetGenCAD.Designer.Repositories.SolidDimensions? created = null;
 
             // Conversions of JSON supplied values to ObjectScadFunctions.CreateObjectWithCallbackAsync parameters are handled within the function itself, including default values and validation.
-            if (string.IsNullOrWhiteSpace(request.Name))
-                throw new RpcException(new Status(StatusCode.InvalidArgument, "Name cannot be empty."));
+            if (string.IsNullOrWhiteSpace(request.ObjectName))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Object name cannot be empty."));
 
             if (request.Dimensions == null)
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Dimensions cannot be null."));
@@ -103,17 +79,9 @@ namespace NetGenCAD.Designer.Api.Services
                 };
 
             var selectedUnit = GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit);
-            var selectedAxisId = 0;
             var colorFromHex = string.Empty;
-            var selectedOpenScadColor = Colors.OpenScadColor.Silver;
-
-            // Lookup the axis ID if an axis calling method is provided in the request
-            if (!string.IsNullOrWhiteSpace(request.AxisUsedCallingMethod))
-            {
-                selectedAxisId = await AxisDimensionsExtensions.GetIdByCallingMethodAsync(
-                    new AxisDimensionsEntity(), _db, request.AxisUsedCallingMethod)
-                    ?? throw new RpcException(new Status(StatusCode.NotFound, $"{request.AxisUsedCallingMethod} calling method was not found."));
-            }
+            var selectedOpenScadColor = Colors.OpenScadColor.Silver; // Default color if no other selected
+            var (selectedAxisId, callMethodFromAxisId) = await CreateAxesFunctions.GetAxisByIdAsync(request.AxisId, request.AxisUsedCallingMethod, _db);
 
             if (request.HasOscadColor)
             {
@@ -135,8 +103,8 @@ namespace NetGenCAD.Designer.Api.Services
 
             var objectId = await ObjectScadFunctions.CreateObjectWithCallbackAsync(
                 selectedSolidType: selectedSolidTypeName,
-                name: StringFunctions.NameSanitize(request.Name),
-                description: request.Dimensions.Description,
+                name: StringFunctions.NameSanitize(request.ObjectName),
+                description: request.Description,
                 selectedFilament: Core.Material.FilamentType.Other, // Filament option not in current UI, may add in future
                 selectedOperationType: GrpcUtilities.ToCoreOperationType(request.SelectedOperationType),
                 lengthMM: request.Dimensions.HasLength ? request.Dimensions.Length : 0,
@@ -155,8 +123,8 @@ namespace NetGenCAD.Designer.Api.Services
                 zRotate: request.Dimensions.HasZRotate ? request.Dimensions.ZRotate : 0,
                 selectedOpenScadColor: selectedOpenScadColor,
                 layerIntValue: request.Layer,
-                alphaIntValue: request.Alpha,
-                surfaceFilePath: request.Dimensions.SurfaceFilePath,
+                alphaIntValue: request.HasAlpha ? request.Alpha : 1,
+                surfaceFilePath: request.Dimensions.HasSurfaceFilePath ? request.Dimensions.SurfaceFilePath : string.Empty,
                 surfaceCenter: request.Dimensions.HasSurfaceCenter ? 1 : 0,
                 surfaceInvert: request.Dimensions.HasSurfaceInvert ? 1 : 0,
                 isCubeSelected: selectedSolidType == Selector.CoreSolidType.Cube,
@@ -170,10 +138,10 @@ namespace NetGenCAD.Designer.Api.Services
                 isTextSelected: selectedSolidType == Selector.CoreSolidType.Text,
                 selectedPolyhedron: null,
                 selectedUnit: selectedUnit,
-                decimalPlaces: request.DecimalPlaces,
+                decimalPlaces: request.HasDecimalPlaces ? request.DecimalPlaces : 2,
                 axisId: selectedAxisId,
                 axesSelectEnabled: false,
-                appendObject: request.AppendObject,
+                appendObject: request.HasAppendObject ? request.AppendObject : false,
                 dbConnection: _db,
                 generateOscadCallback: solid =>
                 {
@@ -189,21 +157,21 @@ namespace NetGenCAD.Designer.Api.Services
                         isSphereSelected: selectedSolidType == Selector.CoreSolidType.Sphere,
                         isTextSelected: selectedSolidType == Selector.CoreSolidType.Text,
                         selectedUnit: selectedUnit,
-                        decimalPlaces: request.DecimalPlaces,
-                        surfaceScaleX: request.Dimensions.SurfaceScaleX == 0 ? 1 : request.Dimensions.SurfaceScaleX,
-                        surfaceScaleY: request.Dimensions.SurfaceScaleY == 0 ? 1 : request.Dimensions.SurfaceScaleY,
-                        surfaceScaleZ: request.Dimensions.SurfaceScaleZ == 0 ? 1 : request.Dimensions.SurfaceScaleZ,
-                        surfaceFilePath: request.Dimensions.SurfaceFilePath,
-                        surfaceInvert: request.Dimensions.SurfaceInvert,
-                        surfaceCenter: request.Dimensions.SurfaceCenter,
-                        surfaceConvexity: request.Dimensions.SurfaceConvexity > 0 ? request.Dimensions.SurfaceConvexity : 1,
-                        isPreRendered: request.Dimensions.IsPreRendered,
-                        textInput: request.Dimensions.TextInput,
-                        textSize: request.Dimensions.TextSize,
-                        fontInput: request.Dimensions.FontInput,
-                        textAlign: request.Dimensions.TextAlign,
-                        verticalAlign: request.Dimensions.VerticalAlign,
-                        textDirection: request.Dimensions.TextDirection switch
+                        decimalPlaces: request.HasDecimalPlaces ? request.DecimalPlaces : 2,
+                        surfaceScaleX: request.Dimensions.HasSurfaceScaleX && request.Dimensions.SurfaceScaleX > 0 ? request.Dimensions.SurfaceScaleX : 1,
+                        surfaceScaleY: request.Dimensions.HasSurfaceScaleY && request.Dimensions.SurfaceScaleY > 0 ? request.Dimensions.SurfaceScaleY : 1,
+                        surfaceScaleZ: request.Dimensions.HasSurfaceScaleZ && request.Dimensions.SurfaceScaleZ > 0 ? request.Dimensions.SurfaceScaleZ : 1,
+                        surfaceFilePath: request.Dimensions.HasSurfaceFilePath ? request.Dimensions.SurfaceFilePath : string.Empty,
+                        surfaceInvert: request.Dimensions.HasSurfaceInvert ? request.Dimensions.SurfaceInvert : false,
+                        surfaceCenter: request.Dimensions.HasSurfaceCenter ? request.Dimensions.SurfaceCenter : false,
+                        surfaceConvexity: request.Dimensions.HasSurfaceConvexity && request.Dimensions.SurfaceConvexity > 0 ? request.Dimensions.SurfaceConvexity : 1,
+                        isPreRendered: request.HasIsPreRendered ? request.IsPreRendered : true,
+                        textInput: request.Dimensions.HasTextInput ? request.Dimensions.TextInput : string.Empty,
+                        textSize: request.Dimensions.HasTextSize ? request.Dimensions.TextSize : 0,
+                        fontInput: request.Dimensions.HasFontInput ? request.Dimensions.FontInput : string.Empty,
+                        textAlign: request.Dimensions.HasTextAlign ? request.Dimensions.TextAlign : string.Empty,
+                        verticalAlign: request.Dimensions.HasVerticalAlign ? request.Dimensions.VerticalAlign : string.Empty,
+                        textDirection: request.Dimensions.HasTextDirection ? request.Dimensions.TextDirection switch
                         {
                             "L-to-R" => "ltr",
                             "R-to-L" => "rtl",
@@ -211,26 +179,26 @@ namespace NetGenCAD.Designer.Api.Services
                             "B-to-T" => "btt",
                             "" => "ltr",
                             var direction => direction
-                        },
-                        languageInput: request.Dimensions.LanguageInput ?? String.Empty);
+                        } : "ltr",
+                        languageInput: request.Dimensions.HasLanguageInput ? request.Dimensions.LanguageInput : string.Empty);
                 },
                 refreshDimensionsCallback: () => Task.CompletedTask,
                 currentAxisDisplay: string.Empty,
                 onObjectCreated: (_, _, _, _) => Task.CompletedTask,
                 isColorFromHex: request.HasColorHex,
                 openScadColorHex: colorFromHex,
-                surfaceScaleX: request.Dimensions.SurfaceScaleX == 0 ? 1 : request.Dimensions.SurfaceScaleX,
-                surfaceScaleY: request.Dimensions.SurfaceScaleY == 0 ? 1 : request.Dimensions.SurfaceScaleY,
-                surfaceScaleZ: request.Dimensions.SurfaceScaleZ == 0 ? 1 : request.Dimensions.SurfaceScaleZ,
-                textInput: request.Dimensions.TextInput,
-                textSize: request.Dimensions.TextSize,
-                fontInput: request.Dimensions.FontInput,
-                textAlign: request.Dimensions.TextAlign,
-                verticalAlign: request.Dimensions.VerticalAlign,
-                textDirection: request.Dimensions.TextDirection,
-                languageInput: request.Dimensions.LanguageInput ?? string.Empty,
+                surfaceScaleX: request.Dimensions.HasSurfaceScaleX && request.Dimensions.SurfaceScaleX > 0 ? request.Dimensions.SurfaceScaleX : 1,
+                surfaceScaleY: request.Dimensions.HasSurfaceScaleY && request.Dimensions.SurfaceScaleY > 0 ? request.Dimensions.SurfaceScaleY : 1,
+                surfaceScaleZ: request.Dimensions.HasSurfaceScaleZ && request.Dimensions.SurfaceScaleZ > 0 ? request.Dimensions.SurfaceScaleZ : 1,
+                textInput: request.Dimensions.HasTextInput ? request.Dimensions.TextInput : string.Empty,
+                textSize: request.Dimensions.HasTextSize ? request.Dimensions.TextSize : 0,
+                fontInput: request.Dimensions.HasFontInput ? request.Dimensions.FontInput : string.Empty,
+                textAlign: request.Dimensions.HasTextAlign ? request.Dimensions.TextAlign : string.Empty,
+                verticalAlign: request.Dimensions.HasVerticalAlign ? request.Dimensions.VerticalAlign : string.Empty,
+                textDirection: request.Dimensions.HasTextDirection ? request.Dimensions.TextDirection : string.Empty,
+                languageInput: request.Dimensions.HasLanguageInput ? request.Dimensions.LanguageInput : string.Empty,
                 objectFilePath: _objectFilePath ?? string.Empty,
-                isPreRendered: request.Dimensions.IsPreRendered);
+                isPreRendered: request.HasIsPreRendered ? request.IsPreRendered : true);
 
             if (objectId == 0 || created == null)
                 throw new RpcException(new Status(StatusCode.Internal, "Object creation failed; no solid was saved."));
@@ -241,10 +209,17 @@ namespace NetGenCAD.Designer.Api.Services
                 throw new RpcException(new Status(
                     StatusCode.Internal, "The created solid could not be reloaded."));
 
+            var protoSolid = GrpcUtilities.ToProtoSolidDimensions(savedSolid, selectedUnit);
+
             return new CreateSolidResponse
             {
                 ObjectId = objectId,
-                CreatedSolid = GrpcUtilities.ToProtoSolidDimensions(savedSolid)
+                ObjectName = request.ObjectName,
+                SelectedUnit = request.SelectedUnit,
+                AxisId = protoSolid.AxisDimensionsId,
+                AxisUsedCallingMethod = callMethodFromAxisId,
+                AxisDisplayName = StringFunctions.FormatAxisDisplay(callMethodFromAxisId),
+                CreatedSolid = protoSolid
             };
         }
 
@@ -253,22 +228,28 @@ namespace NetGenCAD.Designer.Api.Services
             var (solids, modules) = await ObjectScadFunctions.CopyObjectWithCallbackAsync(request.SourceObjectName, _db);
 
             var response = new CopyObjectResponse();
-            response.Solids.AddRange(solids.Select(GrpcUtilities.ToProtoSolidDimensions));
+            response.Solids.AddRange(solids.Select(solid => GrpcUtilities.ToProtoSolidDimensions(solid, Core.Measurements.Selector.UnitSystem.Metric)));
             response.Modules.AddRange(modules.Select(GrpcUtilities.ToProtoModuleDimensions));
             return response;
         }
 
-        public override async Task<Empty> DeleteSelectedItem(DeleteSelectedItemRequest request, ServerCallContext context)
+        public override async Task<StringResponse> DeleteItem(DeleteItemRequest request, ServerCallContext context)
         {
-            object? item = request.ItemType switch
+            object item = request.ItemType switch
             {
-                ItemType.Solid => new SolidDimensions { Id = request.ItemId },
-                ItemType.Module => new ModuleDimensions { Id = request.ItemId },
-                _ => null
+                ItemType.Solid => new NetGenCAD.Designer.Repositories.SolidDimensions { Id = request.ItemId },
+                ItemType.Module => new NetGenCAD.Designer.Repositories.ModuleDimensions { Id = request.ItemId },
+                _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid item type."))
             };
 
-            await ObjectScadFunctions.DeleteSelectedItemAsync(item, _db);
-            return new Empty();
+            await ObjectScadFunctions.DeleteSelectedItemAsync(item, _db).ContinueWith(x => {
+                if (x.IsFaulted)
+                {
+                    throw new RpcException(new Status(StatusCode.Internal, $"Failed to delete {item.GetType().Name.Replace("Dimensions", "")} item: {x.Exception?.GetBaseException().Message}"));
+                }
+            });
+
+            return new StringResponse { Message = $"{item.GetType().Name.Replace("Dimensions", "")} item with {request.ItemId} deleted successfully." };
         }
 
         public override async Task<GenerateOSCADResponse> GenerateOSCAD(GenerateOSCADRequest request, ServerCallContext context)
@@ -293,7 +274,7 @@ namespace NetGenCAD.Designer.Api.Services
                 surfaceInvert: false,
                 surfaceCenter: false,
                 surfaceConvexity: 1,
-                isPreRendered: false,
+                isPreRendered: true,
                 textInput: request.TextInput,
                 textSize: request.TextSize,
                 fontInput: request.FontInput,
@@ -368,7 +349,7 @@ namespace NetGenCAD.Designer.Api.Services
         {
             var (solids, modules) = await ObjectScadFunctions.GetDimensionsPartsAsync(_db, request.ObjectName);
             var response = new GetDimensionsPartsResponse();
-            response.Solids.AddRange(solids.Select(GrpcUtilities.ToProtoSolidDimensions));
+            response.Solids.AddRange(solids.Select(solid => GrpcUtilities.ToProtoSolidDimensions(solid, Core.Measurements.Selector.UnitSystem.Metric)));
             response.Modules.AddRange(modules.Select(GrpcUtilities.ToProtoModuleDimensions));
             return response;
         }

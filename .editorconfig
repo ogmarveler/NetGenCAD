@@ -1,4 +1,0 @@
-﻿[*.cs]
-
-# IDE0032: Use auto property
-dotnet_diagnostic.IDE0032.severity = none

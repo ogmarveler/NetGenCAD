@@ -3,6 +3,7 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<LangVersion>preview</LangVersion>
+		<PlatformTarget>AnyCPU</PlatformTarget>
 		<InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.AspNetCore.OpenApi.Generated</InterceptorsNamespaces>
 		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 		<PublishTrimmed>true</PublishTrimmed>
@@ -50,7 +51,6 @@
 
 	<ItemGroup>
 		<AvaloniaResource Remove="Assets\Guides\Readme.markdown" />
-		<AvaloniaResource Remove="Data\netscad.db" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -77,7 +77,7 @@
 		<Compile Update="Views\ShapeView.axaml.cs">
 		  <DependentUpon>ShapeView.axaml</DependentUpon>
 		</Compile>
-		<None Update="Data\netscad.db">
+		<None Update="Data\netgencad.db">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Scad\Axes\axes.scad">

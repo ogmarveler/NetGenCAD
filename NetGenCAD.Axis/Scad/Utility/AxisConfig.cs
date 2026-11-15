@@ -125,9 +125,10 @@ namespace NetGenCAD.Axis.SCAD.Utility
             public AxisSettings Settings { get; set; } = new AxisSettings(outputDirectory: PathHelper.GetProjectRoot());
             public string CallingMethod { get; set; } = string.Empty;
             public string ModuleName { get; set; } = string.Empty;
-            public string MainFileInstruction = "use <Axes/axes.scad>;  // add to your main file";
+            public string MainFileInstruction = "use <../Axes/axes.scad>;  // add to your main file";
             public double TotalCubicVolume { get; set; } = 0;
             public double TotalCubicVolumeScale { get; set; } = 0;
+            public int AxisId { get; set; } = 0; // Unique identifier for this axis configuration; used in API and database operations
         }
     }
 }

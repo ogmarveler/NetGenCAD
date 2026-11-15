@@ -1,11 +1,14 @@
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
 using NetGenCAD.Axis.Scad.Models;
 using NetGenCAD.Designer.Functions;
+using NetGenCAD.Designer.Repositories;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
+using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reactive.Linq;
@@ -28,7 +31,6 @@ namespace NetGenCAD.UI.ViewModels
         private bool _unitHasChanged;
         private bool _isMetric;
         private bool _isImperial;
-        private CustomAxis? _customAxis;
         private bool _axisDetailsShown;
         private string _moduleName = string.Empty;
         private string _callingMethod = string.Empty;
@@ -50,11 +52,13 @@ namespace NetGenCAD.UI.ViewModels
         private string _modalTitle = string.Empty;
         private string _modalContent = string.Empty;
         private bool _isModalOpen;
+        private SqliteConnection? _dbConnection;
 
         [UnconditionalSuppressMessage("Trimming", "IL2026")]
         [UnconditionalSuppressMessage("AOT", "IL3050")]
         public CreateAxesViewModel()
         {
+            DbConnection = App.Services!.GetRequiredService<SqliteConnection>(); // Get the DbConnection from the DI container
             UnitSystemValues = [.. Enum.GetValues(typeof(UnitSystem)).Cast<UnitSystem>()];
             BackgroundTypeValues = [.. Enum.GetValues(typeof(BackgroundType)).Cast<BackgroundType>()];
             SelectedBackgroundValue = BackgroundType.Light;
@@ -90,6 +94,7 @@ namespace NetGenCAD.UI.ViewModels
             _ = GetAxesList();  // Get existing list of axes generated
         }
 
+        public SqliteConnection? DbConnection { get => _dbConnection; set => this.RaiseAndSetIfChanged(ref _dbConnection, value); }
         public void RaisePropertyChanged(string propertyName) { this.RaisePropertyChanged(propertyName); }
         public double MinXValue { get => _minX; set { this.RaiseAndSetIfChanged(ref _minX, value); _ = ValidateMinMax(); } }
         public double MaxXValue { get => _maxX; set { this.RaiseAndSetIfChanged(ref _maxX, value); _ = ValidateMinMax(); } }
@@ -191,7 +196,8 @@ namespace NetGenCAD.UI.ViewModels
                 _selectedBackground,
                 _decimalPlaces,
                 UnitHasChanged,
-                onAxisCreated);
+                onAxisCreated,
+                DbConnection);
 
             // Handle invalid input case
             if (!AxisDetailsShown)
@@ -224,6 +230,36 @@ namespace NetGenCAD.UI.ViewModels
             MinYValue = 0;
             MinZValue = 0;
             return Task.CompletedTask;
+        }
+
+        // Deletes the selected item from any DataGrid (Cube, Cylinder, or Module)
+        public async Task DeleteAxisAsync(object? selectedItem)
+        {
+            if (selectedItem == null) return;
+
+            // Remove from appropriate collection based on type
+            switch (selectedItem)
+            {
+                case GeneratedModule axis:
+
+                    // Call the static deletion function
+                    await CreateAxesFunctions.DeleteAxisAsync(axis.AxisId, axis.CallingMethod, DbConnection!);
+
+                    switch (axis.Unit)
+                    {
+                        case "Metric":
+                            AxesListMetric.Remove(axis);
+                            break;
+                        case "Imperial":
+                            AxesListImperial.Remove(axis);
+                            break;
+                    }
+                    AxesList.Remove(axis); // Remove from the main list as well
+                    break;
+            }
+
+            // Refresh the DataGrids and files after successful deletion
+            await GetAxesList();  // Get the updated list of axes after deletion
         }
 
         /**** Axes List DataGrid ****/

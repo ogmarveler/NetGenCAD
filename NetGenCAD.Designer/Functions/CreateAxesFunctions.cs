@@ -1,14 +1,20 @@
-﻿using Microsoft.Data.Sqlite;
+﻿using Grpc.Core;
+using Microsoft.Data.Sqlite;
 using NetGenCAD.Axis.Scad.Models;
 using NetGenCAD.Axis.Scad.Utility;
-using NetGenCAD.Axis.SCAD.Utility;
 using NetGenCAD.Axis.SCAD.Modules;
 using NetGenCAD.Core.Measurements;
 using NetGenCAD.Designer.Repositories;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using static Google.Rpc.Context.AttributeContext.Types;
 using static NetGenCAD.Axis.SCAD.Utility.AxisConfig;
 using static NetGenCAD.Core.Measurements.Conversion;
 using static NetGenCAD.Core.Measurements.Selector;
+using AxisDimensionsEntity = NetGenCAD.Designer.Repositories.AxisDimensions;
+using AxisDimensionsExtensions = NetGenCAD.Designer.Repositories.AxisDimensionsExtensions;
 
 namespace NetGenCAD.Designer.Functions
 {
@@ -324,7 +330,7 @@ namespace NetGenCAD.Designer.Functions
         /// <param name="unitHasChanged">Whether the unit system was just changed</param>
         /// <param name="onAxisCreated">Callback invoked with generated axis and converted values</param>
         /// <returns>Task representing the async axis generation operation</returns>
-        public static async Task CreateCustomAxisWithCallbackAsync(
+        public static async Task<int?> CreateCustomAxisWithCallbackAsync(
             double minX, double maxX,
             double minY, double maxY,
             double minZ, double maxZ,
@@ -332,7 +338,8 @@ namespace NetGenCAD.Designer.Functions
             BackgroundType selectedBackground,
             int decimalPlaces,
             bool unitHasChanged,
-            CreateCustomAxisCallbackAsync onAxisCreated)
+            CreateCustomAxisCallbackAsync onAxisCreated,
+            SqliteConnection? dbConnection = null)
         {
             // Validate input values are numeric
             if (double.IsNaN(minX) || double.IsNaN(maxX) ||
@@ -340,7 +347,7 @@ namespace NetGenCAD.Designer.Functions
                 double.IsNaN(minZ) || double.IsNaN(maxZ))
             {
                 // Invalid input - return early, ViewModel will show error message
-                return;
+                return -1;
             }
 
             try
@@ -384,7 +391,7 @@ namespace NetGenCAD.Designer.Functions
                 var customAxis = await GUI.SetAxis(axisSettings);
 
                 if (customAxis == null)
-                    return;
+                    return -1;
 
                 // Convert generated values back to display format
                 bool newUnitHasChanged = false;
@@ -425,10 +432,14 @@ namespace NetGenCAD.Designer.Functions
                     displayMaxZ,
                     callingMethodLength,
                     newUnitHasChanged);
+
+                // Store the created axis in the database for later retrieval and use
+                return await EnsureAxisStoredAsync(customAxis, displayMinX, displayMaxX, displayMinY, displayMaxY, displayMinZ, displayMaxZ, dbConnection);
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error creating custom axis: {ex.Message}");
+                return -1;
             }
         }
 
@@ -543,6 +554,68 @@ namespace NetGenCAD.Designer.Functions
 
             axis.OSCADMethod = $"{axis.IncludeMethod} {selectedAxis.CallingMethod}";
             return await axis.UpsertAsync(dbConnection);
+        }
+
+        public static async Task<IEnumerable<AxisDimensions>> GetAllAxesAsync(SqliteConnection dbConnection)
+        {
+            // Use default IncludeMethod if not provided
+            var axis = new Repositories.AxisDimensions();
+
+            // Implementation to retrieve all axes from the database
+            return await axis.GetAllAsync(dbConnection);
+        }
+
+        public static async Task<bool> DeleteAxisAsync(int axisId, string axisCallingMethod, SqliteConnection dbConnection)
+        {
+            var (selectedAxisId, callMethodFromAxisId) = await GetAxisByIdAsync(axisId, axisCallingMethod, dbConnection);
+
+            var filePath = await GUI.RemoveAxis(callMethodFromAxisId).ContinueWith(x => {
+                if (x.IsFaulted)
+                {
+                    throw new RpcException(new Status(StatusCode.Internal, $"Failed to delete axis: {x.Exception?.GetBaseException().Message} FilePath: {x.Result}"));
+                }
+                return x.Result;
+            });
+
+            if (filePath != null)
+                await AxisDimensionsExtensions.DeleteAsync(new AxisDimensionsEntity { Id = selectedAxisId }, dbConnection).ContinueWith(x => {
+                    if (x.IsFaulted)
+                    {
+                        throw new RpcException(new Status(StatusCode.Internal, $"Failed to delete axis: {x.Exception?.GetBaseException().Message}"));
+                    }
+                });
+
+            return true;
+        }
+
+        public static async Task<(int axisId, string callMethod)> GetAxisByIdAsync(int axisId, string axisCallingMethod, SqliteConnection dbConnection)
+        {
+            var selectedAxisId = axisId > 0 ? axisId : -1;
+            var callMethodFromAxisId = string.Empty;
+
+            // Only check to see if it is a valid axis_id if it is greater than 0; if wrong id supplied then exception will be thrown
+            if (selectedAxisId > 0)
+            {
+                var result = await AxisDimensionsExtensions.GetByIdAsync(
+                    new AxisDimensionsEntity(), dbConnection, selectedAxisId)
+                    ?? throw new RpcException(new Status(StatusCode.NotFound, $"axis_id: {selectedAxisId} was not found."));
+
+                callMethodFromAxisId = result.OSCADMethod.Replace(result.IncludeMethod, "").Trim();
+            }
+            // Lookup the axis_id if an axis calling method is provided in the request but doesn't have a valid axis_id; use the axis_id provided if it is valid
+            if (!string.IsNullOrWhiteSpace(axisCallingMethod) && (selectedAxisId < 1))
+            {
+                selectedAxisId = await AxisDimensionsExtensions.GetIdByCallingMethodAsync(
+                    new AxisDimensionsEntity(), dbConnection, axisCallingMethod)
+                    ?? throw new RpcException(new Status(StatusCode.NotFound, $"axis_calling_method: {axisCallingMethod} was not found."));
+
+                callMethodFromAxisId = axisCallingMethod;
+            }
+            // Verify that there is an axis already created
+            if (selectedAxisId == -1)
+                throw new RpcException(new Status(StatusCode.NotFound, $"axis_id or axis_calling_method was not found."));
+
+            return (selectedAxisId, callMethodFromAxisId);
         }
     }
 }

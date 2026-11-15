@@ -1,4 +1,5 @@
 ﻿using Grpc.Core;
+using NetGenCAD.Designer.Api.Grpc.Protobuf;
 using static NetGenCAD.Core.Measurements.Selector;
 
 namespace NetGenCAD.Designer.Utility
@@ -76,36 +77,35 @@ namespace NetGenCAD.Designer.Utility
         };
 
         public static Api.Grpc.Protobuf.SolidDimensions ToProtoSolidDimensions(
-            Repositories.SolidDimensions value) => new()
+            Repositories.SolidDimensions value, Core.Measurements.Selector.UnitSystem selectedUnit = Core.Measurements.Selector.UnitSystem.Metric) => new()
             {
                 Id = value.Id,
                 AxisDimensionsId = value.AxisDimensionsId ?? 0,
                 ModuleDimensionsId = value.ModuleDimensionsId ?? 0,
-                //Name = value.Name,
                 Description = value.Description ?? string.Empty,
                 ShapeName = value.ShapeName ?? string.Empty,
                 Material = value.Material ?? string.Empty,
                 OperationType = ToProtoOperationType(value.OperationType),
                 SolidType = ToProtoSolidType(value.SolidType),
-                Length = value.Length_MM,
-                Width = value.Width_MM,
-                Height = value.Height_MM,
-                Thickness = value.Thickness_MM,
-                Radius = value.Radius_MM,
-                Radius1 = value.Radius1_MM,
-                Radius2 = value.Radius2_MM,
-                CylinderHeight = value.CylinderHeight_MM,
-                XOffset = value.XOffset_MM,
-                YOffset = value.YOffset_MM,
-                ZOffset = value.ZOffset_MM,
+                Length = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Length_MM : value.Length_IN,
+                Width = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Width_MM : value.Width_IN,
+                Height = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Height_MM : value.Height_IN,
+                Thickness = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Thickness_MM : value.Thickness_IN,
+                Radius = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Radius_MM : value.Radius_IN,
+                Radius1 = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Radius1_MM : value.Radius1_IN,
+                Radius2 = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Radius2_MM : value.Radius2_IN,
+                CylinderHeight = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.CylinderHeight_MM : value.CylinderHeight_IN,
+                XOffset = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.XOffset_MM : value.XOffset_IN,
+                YOffset = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.YOffset_MM : value.YOffset_IN,
+                ZOffset = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.ZOffset_MM : value.ZOffset_IN,
                 XRotate = value.XRotate,
                 YRotate = value.YRotate,
                 ZRotate = value.ZRotate,
                 SurfaceScaleX = value.ScaleX,
                 SurfaceScaleY = value.ScaleY,
                 SurfaceScaleZ = value.ScaleZ,
-                RoundR = value.Round_r_MM,
-                RoundH = value.Round_h_MM,
+                RoundR = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Round_r_MM : value.Round_r_IN,
+                RoundH = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Round_h_MM : value.Round_h_IN,
                 Resolution = value.Resolution,
                 VolumeCm3 = value.Volume_CM3,
                 VolumeIn3 = value.Volume_IN3

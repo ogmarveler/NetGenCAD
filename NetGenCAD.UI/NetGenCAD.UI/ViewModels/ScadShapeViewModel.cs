@@ -288,7 +288,7 @@ namespace NetGenCAD.UI.ViewModels
         public bool IsImperial { get => _isImperial; set => this.RaiseAndSetIfChanged(ref _isImperial, value); }
         public List<PolyhedronOperationType> PolyhedronOperationTypes { get; } = new List<PolyhedronOperationType> { PolyhedronOperationType.Points, PolyhedronOperationType.Faces };
         public List<UnitSystem> UnitSystemValues { get; }
-        public List<OperationType> OperationTypes { get; }
+        public List<OperationType> OperationTypes { get; } = [];
         public PolyhedronOperationType SelectedPolyhedronOperationType { get => _selectedPolyhedronOperationType; set => this.RaiseAndSetIfChanged(ref _selectedPolyhedronOperationType, value); }
         // Temporary collection for polyhedron dimensions
         public ObservableCollection<PolyhedronDimensions> PolyhedronDimensions

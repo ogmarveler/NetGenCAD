@@ -1395,7 +1395,8 @@ namespace NetGenCAD.Core.Measurements
                 "Liberation Mono" => MonoWidthAdjustment,
                 "Liberation Mono:style=Bold" => MonoWidthAdjustment,
                 "Liberation Mono:style=Italic" => MonoWidthAdjustment,
-                "Liberation Mono:style=Bold Italic" => MonoWidthAdjustment
+                "Liberation Mono:style=Bold Italic" => MonoWidthAdjustment,
+                _ => 1.0
             };
 
             if (PerCharWidthTables.TryGetValue(fontString, out var table))

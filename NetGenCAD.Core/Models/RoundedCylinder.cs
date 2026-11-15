@@ -100,16 +100,24 @@ namespace NetGenCAD.Core.Models
             }
         }
 
-        public Dictionary<string, object> ToDbDictionary() => new()
+        public Dictionary<string, object> ToDbDictionary()
         {
-            { "type", "RoundedCylinder" },
-            { "r", Radius },
-            { "h", Height },
-            { "round_r", RoundRadius },
-            { "r1", Radius1 },
-            { "r2", Radius2 },
-            { "resolution", Resolution },
-            { "center", Center }
-        };
+            var parameters = new Dictionary<string, object>
+            {
+                { "type", "RoundedCylinder" },
+                { "r", Radius },
+                { "h", Height },
+                { "round_r", RoundRadius }
+            };
+
+            if (Radius1 is double radius1)
+                parameters.Add("r1", radius1);
+            if (Radius2 is double radius2)
+                parameters.Add("r2", radius2);
+
+            parameters.Add("resolution", Resolution);
+            parameters.Add("center", Center);
+            return parameters;
+        }
     }
 }

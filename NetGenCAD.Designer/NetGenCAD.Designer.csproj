@@ -4,6 +4,7 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<PlatformTarget>AnyCPU</PlatformTarget>
 		<PublishTrimmed>true</PublishTrimmed>
 		<TrimMode>link</TrimMode>
 		<SignAssembly>True</SignAssembly>

@@ -70,6 +70,9 @@ Varying axes of different sizes, measurement types, colors, and combinations of 
 
 ###### 
 #### Generated SCAD Files
+
+Code can remove a generated axis with `GUI.RemoveAxis(outputDirectory, callingMethod)`, using the calling method returned by `GUI.SetAxis` or retrieved from the database. It removes matching generated entries from `axes.scad` and deletes their included axis file; it does not change database records. Missing, malformed, or shared entries are reported rather than deleting a potentially unrelated file. If file deletion fails after the index is updated, the error is propagated and the axis file may need to be removed separately.
+
 | Files                                   | Usage In Your SCAD File / Description                  | Optional parameters | Render |
 | --------------------------------------- |:------------------------------------------------------:|:-------------------:|:------:|
 | Scad/Axes/axes.scad                     | Description: holds all stored axes used in 3D models   |                     |	No    |

@@ -30,12 +30,20 @@ namespace NetGenCAD.UI.Services
             {
                 switch (context.Method)
                 {
-                    case "/createAxes.AxesService/CreateCustomAxis":
+                    case "/createAxes.AxesService/CreateUpdateAxis":
                         _notifications.Publish("axes");
                         break;
 
-                    case "/objectScad.ObjectScadService/CreateSolid":
-                        _notifications.Publish("objects");
+                    case "/createAxes.AxesService/DeleteAxis":
+                        _notifications.Publish("axes");
+                        break;
+
+                    case "/objectScad.ObjectScadService/CreateUpdateSolid":
+                        _notifications.Publish("object");
+                        break;
+
+                    case "/objectScad.ObjectScadService/DeleteItem":
+                        _notifications.Publish("object");
                         break;
                 }
             }

@@ -50,7 +50,8 @@
             <SolidColorBrush x:Key="BlueBackground" Color="#617aaa" />
             <SolidColorBrush x:Key="RedBackground" Color="#fff4f4" />
             <SolidColorBrush x:Key="RedForeground" Color="#b4676b" />
-            <SolidColorBrush x:Key="GoldForeground" Color="#ffeecb" />
+			<SolidColorBrush x:Key="ElectricRed" Color="#e60000" />
+			<SolidColorBrush x:Key="GoldForeground" Color="#ffeecb" />
             <SolidColorBrush x:Key="GoldBackground" Color="#77623c" />
             <SolidColorBrush x:Key="SilverForeground" Color="#efefef" />
             <SolidColorBrush x:Key="SilverBackground" Color="#838383" />
@@ -71,6 +72,7 @@
             <SolidColorBrush x:Key="BlueBackground" Color="#dfe5f6" />
             <SolidColorBrush x:Key="BlueForeground" Color="#617aaa" />
             <SolidColorBrush x:Key="RedForeground" Color="#fff4f4" />
+			<SolidColorBrush x:Key="ElectricRed" Color="#e60000" />
             <SolidColorBrush x:Key="RedBackground" Color="#b4676b" />
             <SolidColorBrush x:Key="GoldBackground" Color="#ffeecb" />
             <SolidColorBrush x:Key="GoldForeground" Color="#77623c" />

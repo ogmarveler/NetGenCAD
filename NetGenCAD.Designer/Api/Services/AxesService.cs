@@ -1,11 +1,15 @@
 ﻿using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Data.Sqlite;
+
+using NetGenCAD.Core.Interfaces;
 using NetGenCAD.Core.Measurements;
 using NetGenCAD.Designer.Api.Grpc.Protobuf;
 using NetGenCAD.Designer.Functions;
-using NetGenCAD.Designer.Utility;
 using NetGenCAD.Designer.Repositories;
+using NetGenCAD.Designer.Utility;
+using System.Collections.ObjectModel;
+
 
 namespace NetGenCAD.Designer.Api.Services
 {
@@ -27,12 +31,15 @@ namespace NetGenCAD.Designer.Api.Services
 
         public override Task<GetAxesListResponse> GetAxesList(Empty request, ServerCallContext context)
         {
-            var (all, metric, imperial) = CreateAxesFunctions.GetAxesList();
+            // var (all, metric, imperial) = CreateAxesFunctions.GetAxesList(); // without axisId, from .scad files
+
+            // From DB
+            var allAxes = CreateAxesFunctions.GetAllAxesAsync(_db).Result;
 
             var response = new GetAxesListResponse();
-            response.AllAxes.AddRange(all.Select(ToProto));
-            response.MetricAxes.AddRange(metric.Select(ToProto));
-            response.ImperialAxes.AddRange(imperial.Select(ToProto));
+           // response.AllAxes.AddRange(all.Select(ToProto));
+            response.MetricAxes.AddRange(allAxes.Where(a => a.Unit == "mm").OrderBy(a => a.Id).Select(ToProto));
+            response.ImperialAxes.AddRange(allAxes.Where(a => a.Unit == "in").OrderBy(a => a.Id).Select(ToProto));
 
             return Task.FromResult(response);
         }
@@ -89,12 +96,12 @@ namespace NetGenCAD.Designer.Api.Services
             return Task.FromResult(response);
         }
 
-        public override async Task<Api.Grpc.Protobuf.CustomAxis> CreateCustomAxis(CreateCustomAxisRequest request, ServerCallContext context)
+        public override async Task<Api.Grpc.Protobuf.CustomAxis> CreateUpdateAxis(CreateCustomAxisRequest request, ServerCallContext context)
         {
             Axis.SCAD.Utility.AxisConfig.CustomAxis? created = null;
             var (_minX, _maxX, _minY, _maxY, _minZ, _maxZ) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
-            await CreateAxesFunctions.CreateCustomAxisWithCallbackAsync(
+            var axisId = await CreateAxesFunctions.CreateCustomAxisWithCallbackAsync(
                 minX: request.MinX, 
                 maxX: request.MaxX,
                 minY: request.MinY,
@@ -104,55 +111,57 @@ namespace NetGenCAD.Designer.Api.Services
                 selectedUnit: GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit),
                 selectedBackground: GrpcUtilities.ToCoreBackgroundType(request.SelectedBackground),
                 decimalPlaces: request.HasDecimalPlaces ? request.DecimalPlaces : 3, // Default to 3 decimal places if not provided since base 2 and base 10 conversions can result in long decimal values
-                unitHasChanged: request.HasUnitHasChanged ? request.UnitHasChanged : false,
+                unitHasChanged: false, // See Line 351 on CreateAxesFunctions, always false for Api
                 onAxisCreated: async (customAxis, minX, maxX, minY, maxY, minZ, maxZ, callingMethodLength, unitHasChanged) =>
                 {
                     created = customAxis;
                     (_minX, _maxX, _minY, _maxY, _minZ, _maxZ) = (minX, maxX, minY, maxY, minZ, maxZ);
                     await Task.CompletedTask;
-                }); // See Line 351 on CreateAxesFunctions, always false for Api
+                },
+                dbConnection: _db); 
 
             if (created == null)
                 throw new RpcException(new Status(StatusCode.Internal, "Axis creation failed"));
 
-            // Store the created axis in the database for later retrieval and use
-            var axisId = await CreateAxesFunctions.EnsureAxisStoredAsync(created, _minX, _maxX, _minY, _maxY, _minZ, _maxZ, _db);
-
-            return ToProto(created);
+            return ToProto(created, axisId);
         }
 
-        public override Task<GenerateAxisMethodCallResponse> GenerateAxisMethodCall(GenerateAxisMethodCallRequest request, ServerCallContext context)
+        public override async Task<StringResponse> DeleteAxis(DeleteAxisRequest request, ServerCallContext context)
         {
-            var (callingMethod, includeFile) = CreateAxesFunctions.GenerateAxisMethodCall(
-                request.ModuleName, request.CallingMethodLength);
-
-            return Task.FromResult(new GenerateAxisMethodCallResponse
-            {
-                CallingMethod = callingMethod,
-                IncludeFile = includeFile
-            });
+            var (selectedAxisId, callMethodFromAxisId) = await CreateAxesFunctions.GetAxisByIdAsync(request.AxisId, request.AxisCallingMethod, _db);
+            await CreateAxesFunctions.DeleteAxisAsync(selectedAxisId, callMethodFromAxisId, _db);
+            return new StringResponse { Message = $"Axis with calling method {callMethodFromAxisId} deleted successfully." };
         }
 
         // -------------------------------------------------------------------------
         // Mapping helpers (C# model <-> proto)
         // -------------------------------------------------------------------------
 
-        private static Api.Grpc.Protobuf.GeneratedModule ToProto(Axis.Scad.Models.GeneratedModule src) => new()
+        private static Api.Grpc.Protobuf.GeneratedModule ToProto(Repositories.AxisDimensions src)
         {
-            CallingMethod = src.CallingMethod ?? string.Empty,
-            Unit = src.Unit ?? string.Empty,
-            Theme = src.Theme ?? string.Empty,
-            RangeX = src.RangeX,
-            RangeY = src.RangeY,
-            RangeZ = src.RangeZ,
-            MinX = src.MinX,
-            MaxX = src.MaxX,
-            MinY = src.MinY,
-            MaxY = src.MaxY,
-            MinZ = src.MinZ,
-            MaxZ = src.MaxZ,
-            Volume = src.Volume ?? string.Empty
-        };
+            var (rangeX, rangeY, rangeZ, volume) = VolumeCalculation.GetVolume(
+                src.MinX, src.MaxX, src.MinY, src.MaxY, src.MinZ, src.MaxZ, src.Unit);
+
+            return new Api.Grpc.Protobuf.GeneratedModule
+            {
+                AxisId = src.Id,
+                CallingMethod = string.IsNullOrEmpty(src.IncludeMethod)
+                    ? src.OSCADMethod.Trim()
+                    : src.OSCADMethod.Replace(src.IncludeMethod, string.Empty).Trim(),
+                Unit = src.Unit,
+                Theme = src.Theme,
+                RangeX = rangeX,
+                RangeY = rangeY,
+                RangeZ = rangeZ,
+                MinX = src.MinX,
+                MaxX = src.MaxX,
+                MinY = src.MinY,
+                MaxY = src.MaxY,
+                MinZ = src.MinZ,
+                MaxZ = src.MaxZ,
+                Volume = volume
+            };
+        }
 
         private static Api.Grpc.Protobuf.AxisConversionResult ToProto(CreateAxesFunctions.AxisConversionResult src) => new()
         {
@@ -175,9 +184,10 @@ namespace NetGenCAD.Designer.Api.Services
             // ErrorMessages map can be populated if needed
         };
 
-        private static Api.Grpc.Protobuf.CustomAxis ToProto(Axis.SCAD.Utility.AxisConfig.CustomAxis src) => new()
+        private static Api.Grpc.Protobuf.CustomAxis ToProto(Axis.SCAD.Utility.AxisConfig.CustomAxis src, int? axisId) => new()
         {
             //AxisModule = src.AxisModule ?? string.Empty,
+            AxisId = axisId ?? -1,
             CallingMethod = src.CallingMethod ?? string.Empty,
             ModuleName = src.ModuleName ?? string.Empty,
             //MainFileInstruction = src.MainFileInstruction ?? string.Empty,

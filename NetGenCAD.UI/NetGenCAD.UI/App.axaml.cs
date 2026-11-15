@@ -97,7 +97,7 @@ namespace NetGenCAD.UI
             builder.Services.AddGrpc(options => options.Interceptors.Add<ApiChangeInterceptor>()).AddJsonTranscoding();
 
             app = builder.Build();
-            app.MapOpenApi();
+            app.MapOpenApi().WithDocumentPerVersion();
             app.MapScalarApiReference();
 
             app.MapGrpcService<AxesServiceImpl>();
@@ -106,27 +106,35 @@ namespace NetGenCAD.UI
 
             app.Use(async (context, next) =>
             {
-                await next(); // Run the API endpoint first.
+                await next(); // Run the API endpoint first. For JSON transcoding, this will be the controller action. For gRPC, interceptors will handle it.
 
-                if (!HttpMethods.IsPost(context.Request.Method) ||
-                    context.Response.StatusCode != StatusCodes.Status200OK)
-                    return;
+                if ((!HttpMethods.IsPost(context.Request.Method) && !HttpMethods.IsDelete(context.Request.Method)) || context.Response.StatusCode != StatusCodes.Status200OK)
+                    return; // Only handle POST and DELETE requests that succeeded
 
                 var contentType = context.Request.ContentType;
-                if (contentType?.StartsWith(
-                        "application/grpc", StringComparison.OrdinalIgnoreCase) == true)
-                    return;
+                if (contentType?.StartsWith("application/grpc", StringComparison.OrdinalIgnoreCase) == true)
+                    return; // gRPC requests are handled by the ApiChangeInterceptor
 
                 switch (context.Request.Path.Value)
                 {
-                    case "/v1/axes/custom":
+                    case "/v1/axes/createUpdate":
                         await Services!.GetRequiredService<MainWindowViewModel>().RefreshFromApiAsync().ConfigureAwait(false); // Refresh Axes List for all views that depend on it
                         notifications.Publish("axes");
                         break;
 
-                    case "/v1/objects":
+                    case "/v1/axes/deleteAxis":
+                        await Services!.GetRequiredService<MainWindowViewModel>().RefreshFromApiAsync().ConfigureAwait(false); // Refresh Axes List for all views that depend on it
+                        notifications.Publish("axes");
+                        break;
+
+                    case "/v1/objects/createUpdate":
                         await Services!.GetRequiredService<MainWindowViewModel>().RefreshFromApiAsync().ConfigureAwait(false); // Refresh Objects for all views that depend on it
-                        notifications.Publish("objects");
+                        notifications.Publish("object");
+                        break;
+
+                    case "/v1/objects/deleteItem":
+                        await Services!.GetRequiredService<ScadObjectViewModel>().PartsToScadFilesAsync().ConfigureAwait(false); // Match if user was deleting item from UI
+                        notifications.Publish("object");
                         break;
                 }
             });

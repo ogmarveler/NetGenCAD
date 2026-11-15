@@ -68,49 +68,46 @@ namespace NetGenCAD.Designer.Functions
 
             var axisId = await axisDimensions.UpsertAsync(dbConnection);
 
-            if (axisId != null)
+            // Convert offsets to metric if imperial
+            if (selectedAxisUnit == UnitSystem.Imperial)
             {
-                // Convert offsets to metric if imperial
-                if (selectedAxisUnit == UnitSystem.Imperial)
-                {
-                    axisXPositionMM = Math.Round(InchesToMillimeter(axisXPositionMM), decimalPlaces);
-                    axisYPositionMM = Math.Round(InchesToMillimeter(axisYPositionMM), decimalPlaces);
-                    axisZPositionMM = Math.Round(InchesToMillimeter(axisZPositionMM), decimalPlaces);
-                }
-
-                // Build the wrapped axis call
-                var wrappedAxisCall = $"translate ([{axisXPositionMM}, {axisYPositionMM}, {axisZPositionMM}]) {axisDimensions?.OSCADMethod.Replace(axisDimensions.IncludeMethod, "")}";
-
-                // Build SCAD content
-                var sb = new StringBuilder();
-                sb.AppendLine("// Custom axis");
-                sb.AppendLine(axisDimensions?.IncludeMethod);
-                sb.AppendLine(wrappedAxisCall);
-                sb.AppendLine();
-
-                // Write to file
-                await Output.WriteToSCAD(
-                    content: sb.ToString(),
-                    filePath: Path.Combine(objectFilePath, "Solids", "object.scad"),
-                    overWrite: true,
-                    cancellationToken: new CancellationToken());
-
-                // Format display values
-                var objectAxisDisplay = StringFunctions.FormatAxisDisplay(axisDimensions?.OSCADMethod);
-                var objectAxisUnitDisplay = axisDimensions?.Unit == "mm" ? "Metric (mm)" : "Imperial (in)";
-                var selectedUnitValue = axisDimensions!.Unit == "mm" ? UnitSystem.Metric : UnitSystem.Imperial;
-
-                // Invoke callback with updated values
-                await onAxisCreated(
-                    axisId,
-                    axisDimensions,
-                    axisDimensions!.MinX,
-                    axisDimensions!.MinY,
-                    axisDimensions!.MinZ,
-                    objectAxisDisplay,
-                    objectAxisUnitDisplay,
-                    selectedUnitValue);
+                axisXPositionMM = Math.Round(InchesToMillimeter(axisXPositionMM), decimalPlaces);
+                axisYPositionMM = Math.Round(InchesToMillimeter(axisYPositionMM), decimalPlaces);
+                axisZPositionMM = Math.Round(InchesToMillimeter(axisZPositionMM), decimalPlaces);
             }
+
+            // Build the wrapped axis call
+            var wrappedAxisCall = $"translate ([{axisXPositionMM}, {axisYPositionMM}, {axisZPositionMM}]) {axisDimensions.OSCADMethod.Replace(axisDimensions.IncludeMethod, "")}";
+
+            // Build SCAD content
+            var sb = new StringBuilder();
+            sb.AppendLine("// Custom axis");
+            sb.AppendLine(axisDimensions.IncludeMethod);
+            sb.AppendLine(wrappedAxisCall);
+            sb.AppendLine();
+
+            // Write to file
+            await Output.WriteToSCAD(
+                content: sb.ToString(),
+                filePath: Path.Combine(objectFilePath, "Solids", "object.scad"),
+                overWrite: true,
+                cancellationToken: new CancellationToken());
+
+            // Format display values
+            var objectAxisDisplay = StringFunctions.FormatAxisDisplay(axisDimensions.OSCADMethod);
+            var objectAxisUnitDisplay = axisDimensions.Unit == "mm" ? "Metric (mm)" : "Imperial (in)";
+            var selectedUnitValue = axisDimensions.Unit == "mm" ? UnitSystem.Metric : UnitSystem.Imperial;
+
+            // Invoke callback with updated values
+            await onAxisCreated(
+                axisId,
+                axisDimensions,
+                axisDimensions.MinX,
+                axisDimensions.MinY,
+                axisDimensions.MinZ,
+                objectAxisDisplay,
+                objectAxisUnitDisplay,
+                selectedUnitValue);
         }
 
         // Add this delegate type for UpdateAxisTranslate callback
@@ -188,7 +185,7 @@ namespace NetGenCAD.Designer.Functions
 
                 // Invoke callback with updated values
                 await onAxisTranslateComplete(
-                    updatedAxisDimensions,
+                    updatedAxisDimensions!,
                     newAxisXPositionMM,
                     newAxisYPositionMM,
                     newAxisZPositionMM,
@@ -1846,23 +1843,33 @@ namespace NetGenCAD.Designer.Functions
         /// Builds modal content displaying OSCAD methods for a given module and its associated solids.
         /// </summary>
         /// <param name="module">The module dimensions to display methods for</param>
-        /// <param name="solids">Collection of solids associated with the module</param>
         /// <returns>Tuple containing: modalTitle, modalContent</returns>
-        public static (string Title, string Content) BuildOscadMethodsModal(
-            ModuleDimensions module,
-            IEnumerable<SolidDimensions> solids)
+        public static (string Title, string Content) BuildModuleMethodsModal(ModuleDimensions module)
         {
-            if (!solids.Any())
+            if (module == null)
                 return (string.Empty, string.Empty);
-
-            var title = $"OSCAD Methods for {module.Name}";
+    
+            var title = $"Module Call Method: {module.Name}";
 
             var sb = new StringBuilder();
-            sb.AppendLine($"Module Name (Call Method): {module.Name}");
+           // sb.AppendLine($"{new string('-', 20)} Module OSCAD {new string('-', 20)}");
+            sb.AppendLine(module.OSCADMethod);
             sb.AppendLine();
-            sb.AppendLine("Solids:");
-            sb.AppendLine(new string('-', 50));
-            sb.AppendLine(string.Join("\n\n", solids.Select(s => s.OSCADMethod)));
+            return (title, sb.ToString());
+        }
+
+        public static (string Title, string Content) BuildSolidMethodsModal(SolidDimensions solid, string? moduleName)
+        {
+            if (solid == null)
+                return (string.Empty, string.Empty);
+
+            var title = $"Solid Call Method: {ExtractModuleCallMethod(solid.OSCADMethod)}";
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"Module Call Method: {moduleName}");
+            sb.AppendLine();
+            sb.AppendLine($"{new string('-', 20)} Solid OSCAD {new string('-', 20)}");
+            sb.AppendLine(solid.OSCADMethod);
             sb.AppendLine();
             return (title, sb.ToString());
         }

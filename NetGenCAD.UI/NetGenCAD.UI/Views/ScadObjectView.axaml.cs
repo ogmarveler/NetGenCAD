@@ -16,6 +16,7 @@ using System.ComponentModel;
 using System.Linq;
 using static NetGenCAD.Core.Measurements.Colors;
 using static NetGenCAD.Core.Measurements.Selector;
+using Markdown.Avalonia;
 
 namespace NetGenCAD.UI.Views;
 
@@ -43,50 +44,81 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
         AddViewButtonColumnToModuleDataGrid();
         AddSolidCountColumnToModuleDataGrid();
         AddActionButtonColumnToSolidDataGrid();
+        AddViewButtonColumnToSolidDataGrid();
         AddActionButtonColumnToSolidDataGridImperial();
+        AddViewButtonColumnToSolidDataGridImperial();
     }
 
-    // New method to add the solid count column (non-clickable display only)
     private void AddSolidCountColumnToModuleDataGrid()
     {
-        var countTemplate = new FuncDataTemplate<object>((item, scope) =>
-        {
-            if (item is ModuleDimensions module)
+        FuncDataTemplate<object> CreateCountTemplate(Func<ModuleDimensions, int> getCount) =>
+            new((item, _) => new TextBlock
             {
-                int count = ViewModel.SolidDimensions.Count(s => s.ModuleDimensionsId == module.Id);
-                var textBlock = new TextBlock
-                {
-                    Text = count.ToString(),
-                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                    FontWeight = FontWeight.SemiBold,
-                    Margin = new Avalonia.Thickness(5)
-                };
-
-                return textBlock;
-            }
-
-            return new TextBlock
-            {
-                Text = "0",
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                Text = (item is ModuleDimensions module ? getCount(module) : 0).ToString(),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                FontWeight = FontWeight.SemiBold,
-                Margin = new Avalonia.Thickness(5)
-            };
-        });
+                Margin = new Avalonia.Thickness(5),
+                FontSize = 12
+            });
 
-        var countColumn = new DataGridTemplateColumn
+        var totalTemplate = CreateCountTemplate(module =>
+            ViewModel.SolidDimensions.Count(s => s.ModuleDimensionsId == module.Id));
+        var sphereTemplate = CreateCountTemplate(module =>
+            ViewModel.SolidDimensions.Count(s => s.ModuleDimensionsId == module.Id && s.SolidType == "Sphere"));
+        var cubeTemplate = CreateCountTemplate(module =>
+            ViewModel.SolidDimensions.Count(s => s.ModuleDimensionsId == module.Id && (s.SolidType == "Round Cube" || s.SolidType == "Cube")));
+        var cylinderTemplate = CreateCountTemplate(module =>
+            ViewModel.SolidDimensions.Count(s => s.ModuleDimensionsId == module.Id && (s.SolidType == "Round Cylinder" || s.SolidType == "Cylinder")));
+        var shapeTemplate = CreateCountTemplate(module =>
+            ViewModel.SolidDimensions.Count(s => s.ModuleDimensionsId == module.Id && s.SolidType == "Polyhedron"));
+        var surfaceTemplate = CreateCountTemplate(module =>
+            ViewModel.SolidDimensions.Count(s => s.ModuleDimensionsId == module.Id && s.SolidType == "Surface"));
+        var textTemplate = CreateCountTemplate(module =>
+            ViewModel.SolidDimensions.Count(s => s.ModuleDimensionsId == module.Id && s.SolidType == "Text"));
+
+
+        ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = "Solids",
-            Width = new DataGridLength(90),
-            CellTemplate = countTemplate,
-            CanUserSort = false,
-            CanUserResize = false,
-            DisplayIndex = 2 // Place after trash bin and clipboard buttons
-        };
-
-        ModulesDataGrid.Columns.Add(countColumn);
+            Header = "Ball",
+            CellTemplate = sphereTemplate,
+            DisplayIndex = 5
+        });
+        ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
+        {
+            Header = "Cube",
+            CellTemplate = cubeTemplate,
+            DisplayIndex = 6
+        });
+        ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
+        {
+            Header = "Cylin",
+            CellTemplate = cylinderTemplate,
+            DisplayIndex = 7
+        });
+        ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
+        {
+            Header = "Poly",
+            CellTemplate = shapeTemplate,
+            DisplayIndex = 8
+        });
+        ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
+        {
+            Header = "Surf",
+            CellTemplate = surfaceTemplate,
+            DisplayIndex = 9
+        });
+        ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
+        {
+            Header = "Text",
+            CellTemplate = textTemplate,
+            DisplayIndex = 10
+        });
+        ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
+        {
+            Header = "Total",
+            CellTemplate = totalTemplate,
+            DisplayIndex = 11
+        });
     }
 
     // New method to add the view button column with clipboard icon
@@ -119,7 +151,7 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
             {
                 if (item is ModuleDimensions moduleItem)
                 {
-                    ViewModel.ShowOSCADMethods(moduleItem);
+                    ViewModel.ShowOSCADModuleMethod(moduleItem);
                 }
             };
 
@@ -139,6 +171,108 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
 
         // Add the column to the DataGrid
         ModulesDataGrid.Columns.Add(viewColumn);
+    }
+
+    private void AddViewButtonColumnToSolidDataGrid()
+    {
+        // Define the cell template with a button
+        var buttonTemplate = new FuncDataTemplate<object>((item, scope) =>
+        {
+            var button = new Button
+            {
+                // Use PathIcon with document/clipboard geometry
+                Content = new PathIcon
+                {
+                    Data = Geometry.Parse("M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V5H19V19H5V5H7V7M17,11H7V9H17V11M15,15H7V13H15V15Z"),
+                    Width = 15,
+                    Height = 15
+                },
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Background = Brushes.Transparent,
+                Padding = new Thickness(4),
+                MinWidth = 40,
+                Height = 28
+            };
+
+            // Handle the button click
+            button.Click += (s, e) =>
+            {
+                if (item is Designer.Repositories.SolidDimensions solidItem)
+                {
+                    ViewModel.ShowOSCADSolidMethod(solidItem);
+                }
+            };
+
+            return button;
+        });
+
+        // Create the template column
+        var viewColumn = new DataGridTemplateColumn
+        {
+            Header = "",
+            Width = new DataGridLength(40),
+            CellTemplate = buttonTemplate,
+            CanUserSort = false,
+            CanUserResize = false,
+            DisplayIndex = 1 // Second column, after trash bin
+        };
+
+        // Add the column to the DataGrid
+        SolidDataGrid.Columns.Add(viewColumn);
+    }
+
+    private void AddViewButtonColumnToSolidDataGridImperial()
+    {
+        // Define the cell template with a button
+        var buttonTemplate = new FuncDataTemplate<object>((item, scope) =>
+        {
+            var button = new Button
+            {
+                // Use PathIcon with document/clipboard geometry
+                Content = new PathIcon
+                {
+                    Data = Geometry.Parse("M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V5H19V19H5V5H7V7M17,11H7V9H17V11M15,15H7V13H15V15Z"),
+                    Width = 15,
+                    Height = 15
+                },
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Background = Brushes.Transparent,
+                Padding = new Thickness(4),
+                MinWidth = 40,
+                Height = 28
+            };
+
+            // Handle the button click
+            button.Click += (s, e) =>
+            {
+                if (item is Designer.Repositories.SolidDimensions solidItem)
+                {
+                    ViewModel.ShowOSCADSolidMethod(solidItem);
+                }
+            };
+
+            return button;
+        });
+
+        // Create the template column
+        var viewColumn = new DataGridTemplateColumn
+        {
+            Header = "",
+            Width = new DataGridLength(40),
+            CellTemplate = buttonTemplate,
+            CanUserSort = false,
+            CanUserResize = false,
+            DisplayIndex = 1 // Second column, after trash bin
+        };
+
+        // Add the column to the DataGrid
+        SolidDataGridImperial.Columns.Add(viewColumn);
     }
 
     // New method to add the trash bin button column to Module DataGrid
@@ -452,70 +586,70 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
         // Then dimensions: Length, Width, Height, Thickness, Radius, Radius1, Radius2, CylinderHeight
         // Then rotations: XRotate, YRotate, ZRotate
         // Then Color, and everything else
-        int displayIndex = 20; // Start after the fixed columns
+        int displayIndex = 21; // Start after the fixed columns
 
         switch (e.PropertyName)
         {
             case "SolidType":
-                e.Column.DisplayIndex = 1;
+                e.Column.DisplayIndex = 2;
                 if (e.Column is DataGridTextColumn stColumn)
                     stColumn.FontWeight = FontWeight.SemiBold;
                 break;
             case "Layer":
-                e.Column.DisplayIndex = 2;
-                e.Column.Sort();
-                break;
-            case "OperationType":
                 e.Column.DisplayIndex = 3;
                 e.Column.Sort();
                 break;
-            case "ModuleColor":
+            case "OperationType":
                 e.Column.DisplayIndex = 4;
+                e.Column.Sort();
                 break;
-            case "Description":
+            case "ModuleColor":
                 e.Column.DisplayIndex = 5;
                 break;
-            case "XOffset_MM":
+            case "Description":
                 e.Column.DisplayIndex = 6;
                 break;
-            case "YOffset_MM":
+            case "XOffset_MM":
                 e.Column.DisplayIndex = 7;
                 break;
-            case "ZOffset_MM":
+            case "YOffset_MM":
                 e.Column.DisplayIndex = 8;
                 break;
-            case "Length_MM":
+            case "ZOffset_MM":
                 e.Column.DisplayIndex = 9;
                 break;
-            case "Width_MM":
+            case "Length_MM":
                 e.Column.DisplayIndex = 10;
                 break;
-            case "Height_MM":
+            case "Width_MM":
                 e.Column.DisplayIndex = 11;
                 break;
-            case "Thickness_MM":
+            case "Height_MM":
                 e.Column.DisplayIndex = 12;
                 break;
-            case "Radius_MM":
+            case "Thickness_MM":
                 e.Column.DisplayIndex = 13;
                 break;
-            case "Radius1_MM":
+            case "Radius_MM":
                 e.Column.DisplayIndex = 14;
                 break;
-            case "Radius2_MM":
+            case "Radius1_MM":
                 e.Column.DisplayIndex = 15;
                 break;
-            case "CylinderHeight_MM":
+            case "Radius2_MM":
                 e.Column.DisplayIndex = 16;
                 break;
-            case "XRotate":
+            case "CylinderHeight_MM":
                 e.Column.DisplayIndex = 17;
                 break;
-            case "YRotate":
+            case "XRotate":
                 e.Column.DisplayIndex = 18;
                 break;
-            case "ZRotate":
+            case "YRotate":
                 e.Column.DisplayIndex = 19;
+                break;
+            case "ZRotate":
+                e.Column.DisplayIndex = 20;
                 break;
             default:
                 // All other columns get auto-incremented display index
@@ -658,70 +792,70 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
         // Then rotations: XRotate, YRotate, ZRotate
         // Then offsets: XOffset, YOffset, ZOffset
         // Then Color, and everything else
-        int displayIndex = 20; // Start after the fixed columns
+        int displayIndex = 21; // Start after the fixed columns
 
         switch (e.PropertyName)
         {
             case "SolidType":
-                e.Column.DisplayIndex = 1;
+                e.Column.DisplayIndex = 2;
                 if (e.Column is DataGridTextColumn stColumn)
                     stColumn.FontWeight = FontWeight.SemiBold;
                 break;
             case "Layer":
-                e.Column.DisplayIndex = 2;
-                e.Column.Sort();
-                break;
-            case "OperationType":
                 e.Column.DisplayIndex = 3;
                 e.Column.Sort();
                 break;
-            case "ModuleColor":
+            case "OperationType":
                 e.Column.DisplayIndex = 4;
+                e.Column.Sort();
                 break;
-            case "Description":
+            case "ModuleColor":
                 e.Column.DisplayIndex = 5;
                 break;
-            case "XOffset_IN":
+            case "Description":
                 e.Column.DisplayIndex = 6;
                 break;
-            case "YOffset_IN":
+            case "XOffset_IN":
                 e.Column.DisplayIndex = 7;
                 break;
-            case "ZOffset_IN":
+            case "YOffset_IN":
                 e.Column.DisplayIndex = 8;
                 break;
-            case "Length_IN":
+            case "ZOffset_IN":
                 e.Column.DisplayIndex = 9;
                 break;
-            case "Width_IN":
+            case "Length_IN":
                 e.Column.DisplayIndex = 10;
                 break;
-            case "Height_IN":
+            case "Width_IN":
                 e.Column.DisplayIndex = 11;
                 break;
-            case "Thickness_IN":
+            case "Height_IN":
                 e.Column.DisplayIndex = 12;
                 break;
-            case "Radius_IN":
+            case "Thickness_IN":
                 e.Column.DisplayIndex = 13;
                 break;
-            case "Radius1_IN":
+            case "Radius_IN":
                 e.Column.DisplayIndex = 14;
                 break;
-            case "Radius2_IN":
+            case "Radius1_IN":
                 e.Column.DisplayIndex = 15;
                 break;
-            case "CylinderHeight_IN":
+            case "Radius2_IN":
                 e.Column.DisplayIndex = 16;
                 break;
-            case "XRotate":
+            case "CylinderHeight_IN":
                 e.Column.DisplayIndex = 17;
                 break;
-            case "YRotate":
+            case "XRotate":
                 e.Column.DisplayIndex = 18;
                 break;
-            case "ZRotate":
+            case "YRotate":
                 e.Column.DisplayIndex = 19;
+                break;
+            case "ZRotate":
+                e.Column.DisplayIndex = 20;
                 break;
             default:
                 // All other columns get auto-incremented display index
@@ -819,7 +953,7 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
             { "YOffset_IN", "Y (in)" },
             { "ZOffset_IN", "Z (in)" },
             { "IncludeMethod", "Include Method" },
-            { "Layer", "Layer" },
+            { "Layer", "L" },
             { "FontStyle", "Font Style"},
             { "TextVAlign","V Align"},
             { "TextHAlign","H Align"},
@@ -833,29 +967,28 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
             e.Column.Header = header;
         }
 
-         int displayIndex = 7; // Start after the fixed columns
+        // Set FontSize to 9 for all columns
+        if (e.Column is DataGridTextColumn textColumn)
+        {
+            textColumn.FontSize = 12;
+        }
+
+        //int displayIndex = 12; // Start after the fixed columns
 
         switch (e.PropertyName)
         {
             case "Layer":
-                e.Column.DisplayIndex = 3;
+                e.Column.DisplayIndex = 2;
                 e.Column.Sort();
+                break;
+            case "Name":
+                e.Column.DisplayIndex = 3;
                 break;
             case "ModuleType":
                 e.Column.DisplayIndex = 4;
                 e.Column.Sort();
                 if (e.Column is DataGridTextColumn stColumn)
                     stColumn.FontWeight = FontWeight.SemiBold;
-                break;
-            case "SolidType":
-                e.Column.DisplayIndex = 5;
-                break;
-            case "Name":
-                e.Column.DisplayIndex = 6;
-                break;
-            default:
-                // All other columns get auto-incremented display index
-                e.Column.DisplayIndex = displayIndex++;
                 break;
         }
     }
@@ -903,7 +1036,7 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
     private void ChangeAxisButton_Click(object? sender, RoutedEventArgs e)
     {
         ViewModel.AxisStored = false;
-        ViewModel.AxesSelectEnabled = true;
+        ViewModel.AxesSelectEnabled = true;      
     }
 
     private void HighlightModuleRow(string moduleName)

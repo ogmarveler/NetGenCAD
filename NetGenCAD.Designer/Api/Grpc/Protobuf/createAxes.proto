@@ -43,6 +43,7 @@ message GeneratedModule {
   double min_z = 11;
   double max_z = 12;
   string volume = 13;
+  int32 axis_id = 14;          // unique identifier for this axis configuration
 }
 
 // Model: AxisValidationResult from CreateAxesFunctions
@@ -97,15 +98,14 @@ message AxisSettings {
 
 // Model: CustomAxis from AxisConfig.CustomAxis
 message CustomAxis {
-  //string axis_module = 1;          // Generated SCAD module content
-  AxisSettings settings = 2;
-  string calling_method = 3;
-  string module_name = 4;
-  //string main_file_instruction = 5;
-  double total_cubic_volume = 6;
-  string total_cubic_volume_unit = 7;
-  double total_cubic_volume_scale = 8;
-  string total_cubic_volume_scale_unit = 9;
+  AxisSettings settings = 1;
+  string calling_method = 2;
+  string module_name = 3;
+  double total_cubic_volume = 4;
+  int32 axis_id = 5;          // unique identifier for this axis configuration
+  string total_cubic_volume_unit = 6;
+  double total_cubic_volume_scale = 7;
+  string total_cubic_volume_scale_unit = 8;
 }
 
 // Request/Response helpers for common operations in CreateAxesFunctions
@@ -142,7 +142,7 @@ message CreateCustomAxisRequest {
   UnitSystem selected_unit = 7;
   BackgroundType selected_background = 8;
   optional int32 decimal_places = 9;
-  optional bool unit_has_changed = 10;
+  // optional bool unit_has_changed = 10;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,24 +188,24 @@ service AxesService {
   }
 
   // Axis creation
-  rpc CreateCustomAxis (CreateCustomAxisRequest) returns (CustomAxis) {
+  rpc CreateUpdateAxis (CreateCustomAxisRequest) returns (CustomAxis) {
     option (google.api.http) = {
-      post: "/v1/axes/custom"
+      post: "/v1/axes/createUpdate"
       body: "*"
     };
   }
 
-  // Helper
-  rpc GenerateAxisMethodCall (GenerateAxisMethodCallRequest) returns (GenerateAxisMethodCallResponse) {
+    // Delete a solid or module within an object
+  rpc DeleteAxis (DeleteAxisRequest) returns (StringResponse) {
     option (google.api.http) = {
-      post: "/v1/axes/generate-call"
+      delete: "/v1/axes/deleteAxis"
       body: "*"
     };
   }
 }
 
 message GetAxesListResponse {
-  repeated GeneratedModule all_axes = 1;
+ // repeated GeneratedModule all_axes = 1;
   repeated GeneratedModule metric_axes = 2;
   repeated GeneratedModule imperial_axes = 3;
 }
@@ -219,14 +219,13 @@ message StringList {
   repeated string values = 1;
 }
 
-message GenerateAxisMethodCallRequest {
-  string module_name = 1;
-  int32 calling_method_length = 2;
+message DeleteAxisRequest {
+  optional string axis_calling_method = 1;
+  optional int32 axis_id = 2;
 }
 
-message GenerateAxisMethodCallResponse {
-  string calling_method = 1;
-  string include_file = 2;
+message StringResponse {
+  string message = 1;
 }
 
 message AxisProgress {

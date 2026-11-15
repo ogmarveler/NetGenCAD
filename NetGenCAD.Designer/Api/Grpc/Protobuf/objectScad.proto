@@ -43,66 +43,64 @@ message SolidDimensions {
   optional int32 id = 1;
   optional int32 axis_dimensions_id = 2; // Lookup Logic handled in the service request
   optional int32 module_dimensions_id = 3;
-  //string name = 4;
-  string description = 5;
   optional string shape_name = 6;
   optional string material = 7;  // Selected Filament
-  OperationType operation_type = 8;
-  SolidType solid_type = 9;
+  optional OperationType operation_type = 8;
+  optional SolidType solid_type = 9;
+  optional string description = 10;
 
   // Cube / RoundCube
-  optional double length = 10;
-  optional double width = 11;
-  optional double height = 12;
-  optional double thickness = 13;
+  optional double length = 11;
+  optional double width = 12;
+  optional double height = 13;
+  optional double thickness = 14;
 
   // Cylinder
-  optional double radius = 14;
-  optional double radius1 = 15;
-  optional double radius2 = 16;
-  optional double cylinder_height = 17;
+  optional double radius = 15;
+  optional double radius1 = 16;
+  optional double radius2 = 17;
+  optional double cylinder_height = 18;
 
   // Transforms
-  optional double x_offset = 18;
-  optional double y_offset = 19;
-  optional double z_offset = 20;
-  optional double x_rotate = 21;
-  optional double y_rotate = 22;
-  optional double z_rotate = 23;
+  optional double x_offset = 19;
+  optional double y_offset = 20;
+  optional double z_offset = 21;
+  optional double x_rotate = 22;
+  optional double y_rotate = 23;
+  optional double z_rotate = 24;
 
   // Rounding, if the user wants more flexibility than what is available in the UI
-  optional double round_r = 27;
-  optional double round_h = 28;
-  optional int32 resolution = 29;
+  optional double round_r = 25;
+  optional double round_h = 26;
+  optional int32 resolution = 27;
 
   // Surface
-  optional string surface_file_path = 30;
-  optional bool surface_center = 31;
-  optional bool surface_invert = 32;
-  optional int32 surface_convexity = 33;
-  optional double surface_scale_x = 34;
-  optional double surface_scale_y = 35;
-  optional double surface_scale_z = 36;
+  optional string surface_file_path = 28;
+  optional bool surface_center = 29;
+  optional bool surface_invert = 30;
+  optional int32 surface_convexity = 31;
+  optional double surface_scale_x = 32;
+  optional double surface_scale_y = 33;
+  optional double surface_scale_z = 34;
 
   // Text
-  optional string text_input = 37;
-  optional double text_size = 38;
-  optional string font_input = 39;
-  optional string text_align = 40;
-  optional string vertical_align = 41;
-  optional string text_direction = 42;
-  optional string language_input = 43; // May be available in future iterations
+  optional string text_input = 35;
+  optional double text_size = 36;
+  optional string font_input = 37;
+  optional string text_align = 38;
+  optional string vertical_align = 39;
+  optional string text_direction = 40;
+  optional string language_input = 41; // May be available in future iterations
 
   // Units
-  optional double volume_cm3 = 44;
-  optional double volume_in3 = 45;
+  optional double volume_cm3 = 42;
+  optional double volume_in3 = 43;
 
   // OSCAD
-  optional string oscad_method = 46;
-  optional bool is_pre_rendered = 47; // For adding this into the SCAd code itself
+  optional string oscad_method = 44;
 
   // Timestamp
-  optional string created_at = 48;
+  optional string created_at = 45;
 }
 
 // ModuleDimensions from NetGenCAD.Designer.Repositories.ModuleDimensions
@@ -165,25 +163,19 @@ message UpdateSolidRequest {
 // ---------------------------------------------------------------------------
 
 service ObjectScadService {
-  // Axis operations on objects
-  rpc CreateAxis (CreateAxisRequest) returns (CreateAxisResponse) {
-    option (google.api.http) = {
-      post: "/v1/objects/axes"
-      body: "*"
-    };
-  }
-
-  rpc UpdateAxisTranslate (UpdateAxisTranslateRequest) returns (UpdateAxisTranslateResponse) {
-    option (google.api.http) = {
-      post: "/v1/objects/axes/translate"
-      body: "*"
-    };
-  }
 
   // Object creation & management
-  rpc CreateSolid (CreateSolidRequest) returns (CreateSolidResponse) {
+  rpc CreateUpdateSolid (CreateSolidRequest) returns (CreateSolidResponse) {
     option (google.api.http) = {
-      post: "/v1/objects"
+      post: "/v1/objects/createUpdate"
+      body: "*"
+    };
+  }
+
+  // Delete a solid or module within an object
+  rpc DeleteItem (DeleteItemRequest) returns (createAxes.StringResponse) {
+    option (google.api.http) = {
+      delete: "/v1/objects/deleteItem"
       body: "*"
     };
   }
@@ -191,13 +183,6 @@ service ObjectScadService {
   rpc CopyObject (CopyObjectRequest) returns (CopyObjectResponse) {
     option (google.api.http) = {
       post: "/v1/objects/copy"
-      body: "*"
-    };
-  }
-
-  rpc DeleteSelectedItem (DeleteSelectedItemRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/v1/objects/delete"
       body: "*"
     };
   }
@@ -314,24 +299,31 @@ message UpdateAxisTranslateResponse {
 
 message CreateSolidRequest {
   SolidType selected_solid_type = 1;
-  string name = 2;
- // optional string description = 3;
-  optional string selected_filament = 4;
-  OperationType selected_operation_type = 5;
-  SolidDimensions dimensions = 6;  // carries most numeric params, Imperial or Metric is converted based on selected_unit
-  int32 layer = 7;
-  double alpha = 8;
-  createAxes.UnitSystem selected_unit = 9;
-  optional int32 decimal_places = 10;
-  string axis_used_calling_method = 11; // Can be looked up in the list of axes on Create Axes tab (click clipboard)
-  bool append_object = 12;
-  optional string color_hex = 28; // if supplied in the request, then use instead of oscad_color
-  optional string oscad_color = 29; // OpenSCAD available colors; check UI for colors
+  string object_name = 2;
+  string description = 3;
+  optional int32 axis_id = 4; // Required only if axis calling method not present
+  // optional string selected_filament = 5;
+  OperationType selected_operation_type = 6;
+  SolidDimensions dimensions = 7;  // carries most numeric params, Imperial or Metric is converted based on selected_unit
+  int32 layer = 8;
+  optional double alpha = 9; // default is 1
+  createAxes.UnitSystem selected_unit = 10;
+  optional int32 decimal_places = 11; // default is 2 places
+  optional string axis_used_calling_method = 12; // Can be looked up in the list of axes on Create Axes tab (click clipboard)
+  optional bool append_object = 13; // Used for NetGenCAD Set; default is false
+  optional bool is_pre_rendered = 14; // For adding this into the SCAd code itself; default is true
+  optional string color_hex = 15; // if supplied in the request, then use instead of oscad_color
+  optional string oscad_color = 16; // OpenSCAD available colors; check UI for colors
 }
 
 message CreateSolidResponse {
   int32 object_id = 1;
-  SolidDimensions created_solid = 2;
+  string object_name = 2;
+  createAxes.UnitSystem selected_unit = 3;
+  int32 axis_id = 4;
+  string axis_used_calling_method = 5;
+  string axis_display_name = 6;
+  SolidDimensions created_solid = 7;
 }
 
 message CopyObjectRequest {
@@ -343,7 +335,7 @@ message CopyObjectResponse {
   repeated ModuleDimensions modules = 2;
 }
 
-message DeleteSelectedItemRequest {
+message DeleteItemRequest {
   ItemType item_type = 1;  // "Solid" or "Module"
   int32 item_id = 2;
 }
