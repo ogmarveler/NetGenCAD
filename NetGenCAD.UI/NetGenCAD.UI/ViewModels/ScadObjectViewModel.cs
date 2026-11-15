@@ -419,7 +419,7 @@ namespace NetGenCAD.UI.ViewModels
 
                 // Clear inputs for next object
                 ClearInputs();
-                // Final refresh
+
                 GetDimensionsParts();
             };
 
@@ -483,7 +483,9 @@ namespace NetGenCAD.UI.ViewModels
                 TextDirection,
                 LanguageInput
             );
-
+            // Final refresh and make sure data is cleared from inputs
+            GetDimensionsParts();
+            ClearInputs();
             return result;
         }
 
@@ -793,23 +795,6 @@ namespace NetGenCAD.UI.ViewModels
 
             // Update ViewModel properties from the results
             AxesList = [.. filteredAxes];
-
-            /* Set SelectedAxisUnitValue to SelectedUnitValue if object present but no axis exists; post delete of axis
-            if (AxesList?.Count == 1 && AxesList?.FirstOrDefault() == "Select Axis" && _axesModulesList?.Count == 0)
-            {
-                // Update the display
-                ObjectAxisDisplay = "No Axes Available";
-                //ObjectAxisUnitDisplay = SelectedAxisUnitValue == UnitSystem.Imperial ? $"{UnitSystem.Imperial.ToString()} (in)" : $"{UnitSystem.Metric.ToString()} (mm)";
-                ObjectAxisUnitDisplay = "Both (in) & (mm)";
-                AxisStored = false;
-                AxesSelectEnabled = false; // Disable the ComboBox after axis is created
-                _axisId = null;
-            }
-            // Assumes that user has stored an axis or that there are a list of axes available in one or the other measurement
-            else
-            {
-                AxesSelectEnabled = true;
-            }*/
 
             if (updatedAxisValue != SelectedAxisValue)
             {
@@ -1460,7 +1445,7 @@ namespace NetGenCAD.UI.ViewModels
             set
             {
                 this.RaiseAndSetIfChanged(ref _selectedAxisValue, value);
-                _selectedAxis = _axesModulesList.FirstOrDefault(x => x.CallingMethod == value);
+                _selectedAxis = _axesModulesList!.FirstOrDefault(x => x.CallingMethod == value);
                 AxisXPositionMM = _selectedAxis != null ? _selectedAxis.MinX : 0;
                 AxisYPositionMM = _selectedAxis != null ? _selectedAxis.MinY : 0;
                 AxisZPositionMM = _selectedAxis != null ? _selectedAxis.MinZ : 0;
@@ -1468,9 +1453,7 @@ namespace NetGenCAD.UI.ViewModels
                     UpdateAxisTranslate();
                 else if (_selectedAxis is not null)
                 {
-                    var dbConnection = _dbConnection ?? throw new InvalidOperationException("Database connection is unavailable.");
-                    var callingMethod = _selectedAxis.CallingMethod ?? throw new InvalidOperationException("Selected axis has no calling method.");
-                    _axisId = AxisDimensionsExtensions.GetIdByCallingMethodAsync(new AxisDimensionsEntity(), dbConnection, callingMethod).Result;
+                    var axisId = AxisDimensionsExtensions.GetIdByCallingMethodAsync(new AxisDimensionsEntity(), DbConnection, _selectedAxis.CallingMethod).Result;
                     if (_axisId is null || _axisId == 0)
                     {
                         _ = CreateAxis();
@@ -1478,11 +1461,11 @@ namespace NetGenCAD.UI.ViewModels
                     else
                     {
                         // Update the display
+                        _axisId = axisId;
                         ObjectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
                         ObjectAxisUnitDisplay = _selectedAxis?.Unit == "in" ? $"{UnitSystem.Imperial.ToString()} (in)" : $"{UnitSystem.Metric.ToString()} (mm)";
                         AxisStored = true;
                         AxesSelectEnabled = false; // Disable the ComboBox after axis is created
-                        SelectedUnitValue = SelectedAxisUnitValue; // When setting the axis, adjust unit in solid creation to match 
                     }
                 }
             }

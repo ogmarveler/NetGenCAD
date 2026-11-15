@@ -68,46 +68,49 @@ namespace NetGenCAD.Designer.Functions
 
             var axisId = await axisDimensions.UpsertAsync(dbConnection);
 
-            // Convert offsets to metric if imperial
-            if (selectedAxisUnit == UnitSystem.Imperial)
+            if (axisId != null)
             {
-                axisXPositionMM = Math.Round(InchesToMillimeter(axisXPositionMM), decimalPlaces);
-                axisYPositionMM = Math.Round(InchesToMillimeter(axisYPositionMM), decimalPlaces);
-                axisZPositionMM = Math.Round(InchesToMillimeter(axisZPositionMM), decimalPlaces);
+                // Convert offsets to metric if imperial
+                if (selectedAxisUnit == UnitSystem.Imperial)
+                {
+                    axisXPositionMM = Math.Round(InchesToMillimeter(axisXPositionMM), decimalPlaces);
+                    axisYPositionMM = Math.Round(InchesToMillimeter(axisYPositionMM), decimalPlaces);
+                    axisZPositionMM = Math.Round(InchesToMillimeter(axisZPositionMM), decimalPlaces);
+                }
+
+                // Build the wrapped axis call
+                var wrappedAxisCall = $"translate ([{axisXPositionMM}, {axisYPositionMM}, {axisZPositionMM}]) {axisDimensions?.OSCADMethod.Replace(axisDimensions.IncludeMethod, "")}";
+
+                // Build SCAD content
+                var sb = new StringBuilder();
+                sb.AppendLine("// Custom axis");
+                sb.AppendLine(axisDimensions?.IncludeMethod);
+                sb.AppendLine(wrappedAxisCall);
+                sb.AppendLine();
+
+                // Write to file
+                await Output.WriteToSCAD(
+                    content: sb.ToString(),
+                    filePath: Path.Combine(objectFilePath, "Solids", "object.scad"),
+                    overWrite: true,
+                    cancellationToken: new CancellationToken());
+
+                // Format display values
+                var objectAxisDisplay = StringFunctions.FormatAxisDisplay(axisDimensions?.OSCADMethod);
+                var objectAxisUnitDisplay = axisDimensions?.Unit == "mm" ? "Metric (mm)" : "Imperial (in)";
+                var selectedUnitValue = axisDimensions?.Unit == "mm" ? UnitSystem.Metric : UnitSystem.Imperial;
+
+                // Invoke callback with updated values
+                await onAxisCreated(
+                    axisId,
+                    axisDimensions!,
+                    axisDimensions!.MinX,
+                    axisDimensions!.MinY,
+                    axisDimensions!.MinZ,
+                    objectAxisDisplay,
+                    objectAxisUnitDisplay,
+                    selectedUnitValue);
             }
-
-            // Build the wrapped axis call
-            var wrappedAxisCall = $"translate ([{axisXPositionMM}, {axisYPositionMM}, {axisZPositionMM}]) {axisDimensions.OSCADMethod.Replace(axisDimensions.IncludeMethod, "")}";
-
-            // Build SCAD content
-            var sb = new StringBuilder();
-            sb.AppendLine("// Custom axis");
-            sb.AppendLine(axisDimensions.IncludeMethod);
-            sb.AppendLine(wrappedAxisCall);
-            sb.AppendLine();
-
-            // Write to file
-            await Output.WriteToSCAD(
-                content: sb.ToString(),
-                filePath: Path.Combine(objectFilePath, "Solids", "object.scad"),
-                overWrite: true,
-                cancellationToken: new CancellationToken());
-
-            // Format display values
-            var objectAxisDisplay = StringFunctions.FormatAxisDisplay(axisDimensions.OSCADMethod);
-            var objectAxisUnitDisplay = axisDimensions.Unit == "mm" ? "Metric (mm)" : "Imperial (in)";
-            var selectedUnitValue = axisDimensions.Unit == "mm" ? UnitSystem.Metric : UnitSystem.Imperial;
-
-            // Invoke callback with updated values
-            await onAxisCreated(
-                axisId,
-                axisDimensions,
-                axisDimensions.MinX,
-                axisDimensions.MinY,
-                axisDimensions.MinZ,
-                objectAxisDisplay,
-                objectAxisUnitDisplay,
-                selectedUnitValue);
         }
 
         // Add this delegate type for UpdateAxisTranslate callback
@@ -1869,6 +1872,7 @@ namespace NetGenCAD.Designer.Functions
             sb.AppendLine($"Module Call Method: {moduleName}");
             sb.AppendLine();
             sb.AppendLine($"{new string('-', 20)} Solid OSCAD {new string('-', 20)}");
+            sb.AppendLine();
             sb.AppendLine(solid.OSCADMethod);
             sb.AppendLine();
             return (title, sb.ToString());

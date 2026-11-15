@@ -254,43 +254,6 @@
                         </Border>
                     </StackPanel>
 
-					<!-- When No Axes Available -->
-					<StackPanel
-                        Grid.Row="0"
-                        Grid.Column="3"
-                        Grid.ColumnSpan="3"
-                        Margin="0,0,15,0"
-                        HorizontalAlignment="Left"
-                        Classes="inputGroup">
-						<StackPanel.IsVisible>
-							<MultiBinding Converter="{x:Static BoolConverters.And}">
-								<Binding Path="!AxisStored" />
-								<Binding Path="!AxesSelectEnabled" />
-							</MultiBinding>
-						</StackPanel.IsVisible>
-						<StackPanel Orientation="Horizontal" Spacing="15" HorizontalAlignment="Left">
-							<TextBlock
-								HorizontalAlignment="Stretch"
-								Foreground="{DynamicResource ElectricRed}"
-								Classes="textbox"
-								FontSize="16"
-								FontWeight="SemiBold"
-								Text="You must create an axis first!" />
-							<Button
-								HorizontalAlignment="Stretch"
-								BorderBrush="{DynamicResource CardForeground}"
-								BorderThickness="1"
-								Width="110"
-								Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).NewAxesCommand}"
-								Content="Create Axis"
-								IsEnabled="True">
-								<ToolTip.Tip>
-									<TextBlock Text="Change the axis and/or its position being applied" />
-								</ToolTip.Tip>
-							</Button>
-						</StackPanel>
-					</StackPanel>
-
                     <!--  Change Axis Button  -->
                     <StackPanel
                         Grid.Row="0"

@@ -76,8 +76,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia" Version="12.1.5" />
-		<PackageReference Include="Avalonia.Desktop" Version="12.1.5" />
+		<PackageReference Include="Avalonia" Version="12.1.6" />
+		<PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
 		<PackageReference Include="Tmds.DBus.Protocol" Version="0.95.2" />
 		<FrameworkReference Include="Microsoft.Windows.SDK.NET.Ref" />
 	</ItemGroup>

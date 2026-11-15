@@ -10,7 +10,6 @@ using NetGenCAD.Designer.Api.Services;
 using NetGenCAD.UI.Services;
 using NetGenCAD.UI.ViewModels;
 using NetGenCAD.UI.Views;
-using Scalar.AspNetCore;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -83,22 +82,16 @@ namespace NetGenCAD.UI
 
             });
 
+            var notifications = Services!.GetRequiredService<ApiChangeNotifications>();
+
             builder.Services.AddSingleton(axisState); // AxesServiceImpl instance for DI
             builder.Services.AddSingleton(objectState); // ObjectScadServiceImpl instance for DI
             builder.Services.AddSingleton(shapeState); // ShapeScadServiceImpl instance for DI
-            builder.Services.AddApiVersioning()
-                .AddApiExplorer()
-                .AddGrpc()
-                .AddGrpcApiExplorer()
-                .AddOpenApi(options => options.Document.AddScalarTransformers());
 
-            var notifications = Services!.GetRequiredService<ApiChangeNotifications>();
             builder.Services.AddSingleton(notifications);
             builder.Services.AddGrpc(options => options.Interceptors.Add<ApiChangeInterceptor>()).AddJsonTranscoding();
 
             app = builder.Build();
-            app.MapOpenApi().WithDocumentPerVersion();
-            app.MapScalarApiReference();
 
             app.MapGrpcService<AxesServiceImpl>();
             app.MapGrpcService<ObjectScadServiceImpl>();

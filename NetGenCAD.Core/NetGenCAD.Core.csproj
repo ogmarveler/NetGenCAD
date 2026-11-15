@@ -48,9 +48,9 @@
 
 	<ItemGroup>
 		<PackageReference Include="Dapper" Version="2.1.89" />
-		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
-		<PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.14" />
-		<PackageReference Include="SkiaSharp" Version="4.155.0" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="11.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration" Version="11.0.0" />
+		<PackageReference Include="SkiaSharp" Version="4.156.1" />
 	</ItemGroup>
 
 </Project>
