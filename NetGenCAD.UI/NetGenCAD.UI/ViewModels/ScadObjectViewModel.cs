@@ -7,6 +7,7 @@ using NetGenCAD.Core.Material;
 using NetGenCAD.Core.Measurements;
 using NetGenCAD.Core.Models;
 using NetGenCAD.Core.Primitives;
+using NetGenCAD.Core.Utility;
 using NetGenCAD.Designer.Functions;
 using NetGenCAD.Designer.Repositories;
 using ReactiveUI;
@@ -19,6 +20,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using static NetGenCAD.Core.Measurements.Colors;
 using static NetGenCAD.Core.Measurements.Selector;
+using static NetGenCAD.Core.Utility.EnumHelper;
+
+// using static NetGenCAD.Core.Utility.EnumHelper;
 using static NetGenCAD.Designer.Functions.ObjectScadFunctions;
 using AxisDimensionsEntity = NetGenCAD.Designer.Repositories.AxisDimensions;
 using AxisDimensionsExtensions = NetGenCAD.Designer.Repositories.AxisDimensionsExtensions;
@@ -133,13 +137,18 @@ namespace NetGenCAD.UI.ViewModels
         private string _openScadColorHex = string.Empty;
         private string _textInput = string.Empty;
         private double _textSize = 10.0;
-        private string _fontInput = string.Empty;
+        private string _fontInput = "Sans";
         private string _textAlign = "left";
         private string _verticalAlign = "top";
         private string _textDirection = "ltr";
-        private string _languageInput = string.Empty;
+        private string _languageInput = "EN";
         private bool _isTextSelected = false;
-
+        //private ObservableCollection<EnumOption> _directionOptions;
+        //private ObservableCollection<EnumOption> _hAlignOptions;
+        //private ObservableCollection<EnumOption> _vAlignOptions;
+        //private ObservableCollection<EnumOption> _languageOptions;
+        //private ObservableCollection<EnumOption> _scriptOptions;
+        //private ObservableCollection<EnumOption> _fontInputOptions;
 
         [UnconditionalSuppressMessage("Trimming", "IL2026")]
         [UnconditionalSuppressMessage("AOT", "IL3050")]
@@ -156,6 +165,18 @@ namespace NetGenCAD.UI.ViewModels
             _moduleDimensionsUnions = [];
             _moduleDimensionsDifferences = [];
             _moduleDimensionsIntersections = [];
+            //_directionOptions = [];
+            //_hAlignOptions = [];
+            //_vAlignOptions = [];
+            //_languageOptions = [];
+            //_scriptOptions = [];
+            //_fontInputOptions = [];
+            //DirectionOptions = EnumDescriptionHelper.GetOptions<TextDirection>();
+            //HAlignOptions = EnumDescriptionHelper.GetOptions<TextHAlign>();
+            //VAlignOptions = EnumDescriptionHelper.GetOptions<TextVAlign>();
+            //LanguageOptions = EnumDescriptionHelper.GetOptions<TextLanguage>();
+            //ScriptOptions = EnumDescriptionHelper.GetOptions<TextScript>();
+            //FontInputOptions = EnumHelper.PortableFontEnums;
             DbConnection = App.Services!.GetRequiredService<SqliteConnection>(); // Get the DbConnection from the DI container
             ClearObject();
             GetAxesList();
@@ -255,7 +276,7 @@ namespace NetGenCAD.UI.ViewModels
             TextAlign = "Left";
             VerticalAlign = "Baseline";
             TextDirection = "L-to-R";
-            LanguageInput = "en";
+            LanguageInput = "EN";
         }
 
         // Clear all object fields
@@ -299,7 +320,7 @@ namespace NetGenCAD.UI.ViewModels
                 Radius2MM = 0;
                 CylinderHeightMM = 0;
 
-                if (!IsSurfaceSelected)
+                if (!IsSurfaceSelected && !IsRoundSurfaceSelected)
                 {
                     SurfaceFilePath = string.Empty;
                     SurfaceScaleX = 1;
@@ -344,17 +365,6 @@ namespace NetGenCAD.UI.ViewModels
             // Define the callback for generating OSCAD (delegates to existing logic)
             Func<SolidDimensions, Task<string>> generateOscadCallback = async (solidDim) =>
             {
-
-                // Store as plain text in DB, convert to scad format after
-                var textDirection = TextDirection switch
-                {
-                    "L-to-R" => "ltr",
-                    "R-to-L" => "rtl",
-                    "T-to-B" => "ttb",
-                    "B-to-T" => "btt",
-                    _ => "ltr"
-                };
-
                 return await GenerateOSCADAsync(
                     solidDim,
                     IsCubeSelected,
@@ -380,7 +390,7 @@ namespace NetGenCAD.UI.ViewModels
                     FontInput,
                     TextAlign,
                     VerticalAlign,
-                    textDirection,
+                    TextDirection,
                     LanguageInput
                     );
             };
@@ -483,9 +493,11 @@ namespace NetGenCAD.UI.ViewModels
                 TextDirection,
                 LanguageInput
             );
-            // Final refresh and make sure data is cleared from inputs
+            // Final refresh and make sure data is cleared from inputs after a successful creation
+            if (result > 0)
+                ClearInputs();
+
             GetDimensionsParts();
-            ClearInputs();
             return result;
         }
 
@@ -901,7 +913,8 @@ namespace NetGenCAD.UI.ViewModels
                 SurfaceScaleX,
                 SurfaceScaleY,
                 SurfaceScaleZ,
-                SurfaceInvert);
+                SurfaceInvert,
+                _objectFilePath);
 
             // Image width and height are equivalent to width and length axis by default, 
             // so we rotate for user to interpret width and height as the same context
@@ -971,6 +984,13 @@ namespace NetGenCAD.UI.ViewModels
         }
 
         /*** Public Variables ***/
+        //public ObservableCollection<EnumOption> DirectionOptions { get; set => this.RaiseAndSetIfChanged(ref _directionOptions, value); }
+        //public ObservableCollection<EnumOption> HAlignOptions { get => _hAlignOptions; set => this.RaiseAndSetIfChanged(ref _hAlignOptions, value); }
+        //public ObservableCollection<EnumOption> VAlignOptions { get => _vAlignOptions; set => this.RaiseAndSetIfChanged(ref _vAlignOptions, value); }
+        //public ObservableCollection<EnumOption> LanguageOptions { get => _languageOptions; set => this.RaiseAndSetIfChanged(ref _languageOptions, value); }
+        //public ObservableCollection<EnumOption> ScriptOptions { get => _scriptOptions; set => this.RaiseAndSetIfChanged(ref _scriptOptions, value); }
+        //public ObservableCollection<EnumOption> FontInputOptions { get => _fontInputOptions; set => this.RaiseAndSetIfChanged(ref _fontInputOptions, value); }
+
         public string TextInput { get => _textInput; set => this.RaiseAndSetIfChanged(ref _textInput, value); }
         public string TextAlign { get => _textAlign; set => this.RaiseAndSetIfChanged(ref _textAlign, value); }
         public double TextSize { get => _textSize; set => this.RaiseAndSetIfChanged(ref _textSize, value); }
@@ -1095,12 +1115,22 @@ namespace NetGenCAD.UI.ViewModels
                 this.RaiseAndSetIfChanged(ref _isTextSelected, value);
                 if (_isTextSelected)
                 {
-                    if (_heightMM == 0)  // Default height for text if none set
+                    // Default values
+                    if (_heightMM == 0 || _textSize == 0)  // Default height for text if none set
                     {
                         if (SelectedUnitValue == UnitSystem.Metric)
                             HeightMM = 1;
                         else
-                            HeightMM = 0.03937;
+                            HeightMM = 0.125;
+                        
+                        TextSize = 10;
+                        TextInput = string.Empty;
+                        TextAlign = "Left";
+                        VerticalAlign = "Baseline";
+                        TextDirection = "L-to-R";
+                        LanguageInput = "EN";
+                        FontInput = "Sans";
+                        Description = string.Empty;
                     }
 
                     _isCubeSelected = false;

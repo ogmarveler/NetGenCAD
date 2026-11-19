@@ -30,6 +30,7 @@
     <conv:PolyhedronValidationConverter x:Key="PolyhedronValidationConverter" />
     <conv:SaveShapeValidationConverter x:Key="SaveShapeValidationConverter" />
     <conv:UnitConversionConverter x:Key="UnitConversionConverter" />
+	<conv:FileNameConverter x:Key="FileNameConverter" />
 
     <Design.PreviewWith>
         <Border Padding="20">

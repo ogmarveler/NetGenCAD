@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFramework>net11.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<PlatformTarget>AnyCPU</PlatformTarget>
@@ -46,13 +46,15 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <PackageReference Include="Dapper" Version="2.1.89" />
+	  <PackageReference Include="Dapper.AOT" Version="1.1.0" />
 	  <PackageReference Include="Google.Api.CommonProtos" Version="2.17.0" />
 	  <PackageReference Include="Grpc.AspNetCore" Version="2.85.0" />
 	  <PackageReference Include="Grpc.Tools" Version="2.85.0">
 	    <PrivateAssets>all</PrivateAssets>
 	    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 	  </PackageReference>
-	  <PackageReference Include="Microsoft.AspNetCore.Grpc.JsonTranscoding" Version="10.0.14" />
+	  <PackageReference Include="Microsoft.AspNetCore.Grpc.JsonTranscoding" Version="11.0.0" />
 	  <PackageReference Include="System.Drawing.Common" Version="11.0.0" />
 	</ItemGroup>
 
@@ -64,6 +66,7 @@
 
 	<PropertyGroup>
 		<IncludeHttpRuleProtos>true</IncludeHttpRuleProtos>
+		<InterceptorsNamespaces>$(InterceptorsNamespaces);Dapper.AOT</InterceptorsNamespaces>
 	</PropertyGroup>
 
 	<ItemGroup>

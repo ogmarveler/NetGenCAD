@@ -1,20 +1,22 @@
-﻿using NetGenCAD.Core.Interfaces;
+﻿using Grpc.Core;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.Data.Sqlite;
+using NetGenCAD.Axis.Scad.Models;
+using NetGenCAD.Axis.Scad.Utility;
+using NetGenCAD.Core.Interfaces;
+using NetGenCAD.Core.Material;
+using NetGenCAD.Core.Measurements;
+using NetGenCAD.Core.Models;
 using NetGenCAD.Core.Primitives;
 using NetGenCAD.Core.Utility;
 using NetGenCAD.Designer.Repositories;
-using Microsoft.Data.Sqlite;
+using NetGenCAD.Designer.Utility;
 using System.Collections.ObjectModel;
 using System.Text;
 using static NetGenCAD.Core.Measurements.Colors;
 using static NetGenCAD.Core.Measurements.Conversion;
 using static NetGenCAD.Core.Measurements.Selector;
 using static NetGenCAD.Core.Utility.WrapInModule;
-using NetGenCAD.Axis.Scad.Models;
-using NetGenCAD.Axis.Scad.Utility;
-using NetGenCAD.Core.Material;
-using NetGenCAD.Designer.Utility;
-using NetGenCAD.Core.Measurements;
-using NetGenCAD.Core.Models;
 
 namespace NetGenCAD.Designer.Functions
 {
@@ -318,9 +320,9 @@ namespace NetGenCAD.Designer.Functions
                     //Formulas for adjustments
                     double factoredLength = 0.0;
                     double factoredWidth = 0.0;
-                    double factoredHeight = heightMM;
+                    double factoredHeight = heightMM; // Text Depth / Height is user-defined, so keep as-is
 
-                    switch(textDirection)
+                    switch (textDirection)
                     {
                         // Without rotation, for ltr, width is along X axis, height along Y axis
                         case "L-to-R":
@@ -378,14 +380,30 @@ namespace NetGenCAD.Designer.Functions
                         FontStyle = fontInput,
                         TextHAlign = textAlign,
                         TextVAlign = verticalAlign,
-                        TextDirection = textDirection
+                        TextDirection = textDirection,
+                        LanguageInput = languageInput
                     };
 
                     // Generate OSCAD method via callback
                     newObject.OSCADMethod = await generateOscadCallback(newObject);
 
                     // Save to database
-                    await newObject.UpsertAsync(dbConnection);
+                    try
+                    {
+                        await newObject.UpsertAsync(dbConnection);
+
+                        await FinalizeSolidCreationAsync(
+                            name,
+                            description,
+                            objectFilePath,
+                            selectedOperationType,
+                            isPreRendered,
+                            dbConnection);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new RpcException(new Status(StatusCode.Internal, $"Failed to update object: {ex.GetBaseException().Message}"));
+                    }
 
                     // Refresh dimensions from database
                     await refreshDimensionsCallback();
@@ -487,6 +505,14 @@ namespace NetGenCAD.Designer.Functions
 
                     // Save to database
                     await newObject.UpsertAsync(dbConnection);
+
+                    await FinalizeSolidCreationAsync(
+                    name,
+                    description,
+                    objectFilePath,
+                    selectedOperationType,
+                    isPreRendered,
+                    dbConnection);
 
                     // Refresh dimensions from database
                     await refreshDimensionsCallback();
@@ -614,6 +640,10 @@ namespace NetGenCAD.Designer.Functions
                     axisDisplay);
 
                 return solidObject.Id;
+            }
+            catch (RpcException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -752,6 +782,20 @@ namespace NetGenCAD.Designer.Functions
             return Task.FromResult(translate);
         }
 
+        private static string CopySurfaceFile(string sourcePath, string? scadPath)
+        {
+            var imagesDirectory = Path.GetFullPath(Path.Combine(scadPath ?? Path.Combine(AppContext.BaseDirectory, "Scad"), "Images"));
+            Directory.CreateDirectory(imagesDirectory);
+            var destinationPath = Path.Combine(imagesDirectory, Path.GetFileName(sourcePath));
+            if (!PathsEqual(sourcePath, destinationPath))
+                File.Copy(sourcePath, destinationPath, true);
+            return destinationPath;
+        }
+
+        private static bool PathsEqual(string first, string second) =>
+            string.Equals(Path.GetFullPath(first), Path.GetFullPath(second),
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
         /// <summary>
         /// Generates OpenSCAD OSCAD code for a solid based on its dimensions and properties.
         /// Handles all solid types: Cube, RoundCube, Surface, RoundSurface, Cylinder, RoundCylinder, Sphere.
@@ -829,7 +873,7 @@ namespace NetGenCAD.Designer.Functions
                 {
                     var surfaceParams = new Dictionary<string, object>
                     {
-                        { "file", $"{surfaceFilePath.Replace("\\", "/")}" },
+                        { "file", oDim.SurfaceFilePath.Replace("\\", "/") },
                         { "scaleX", surfaceScaleX },
                         { "scaleY", surfaceScaleY },
                         { "scaleZ", surfaceScaleZ },
@@ -849,7 +893,7 @@ namespace NetGenCAD.Designer.Functions
 
                     var surfaceParams = new Dictionary<string, object>
                     {
-                        { "file", $"{surfaceFilePath.Replace("\\", "/")}" },
+                        { "file", oDim.SurfaceFilePath.Replace("\\", "/") },
                         { "scaleX", surfaceScaleX },
                         { "scaleY", surfaceScaleY },
                         { "scaleZ", surfaceScaleZ },
@@ -954,17 +998,61 @@ namespace NetGenCAD.Designer.Functions
                     oDim.ZOffset_MM = Math.Round(InchesToMillimeter(oDim.ZOffset_MM), decimalPlaces);
                     oDim.Height_MM = Math.Round(InchesToMillimeter(oDim.Height_MM), decimalPlaces);
                 }
+
+                // Convert user supplied values to OpenScad friendly syntax
+                var _textDirection = textDirection switch
+                {
+                    "L-to-R" => "ltr",
+                    "R-to-L" => "rtl",
+                    "T-to-B" => "ttb",
+                    "B-to-T" => "btt",
+                    _ => "ltr",
+                };
+
+                // Easier to use ToLower() for horizontal, vertical alignment, and language, but consistent if enums, API, or UI values change
+                var _textAlign = textAlign switch
+                {
+                    "Left" => "left",
+                    "Center" => "center",
+                    "Right" => "right",
+                    _ => "left",
+                };
+
+                var _verticalAlign = verticalAlign switch
+                {
+                    "Top" => "top",
+                    "Center" => "center",
+                    "Bottom" => "bottom",
+                    "Baseline" => "baseline",
+                    _ => "baseline",
+                };
+
+                var fontOptions = EnumHelper.EnumDescriptionHelper.GetOptions<PortableFont>();
+                var selectedFont = Enum.TryParse<PortableFont>(fontInput, true, out var parsedFont)
+                    ? parsedFont
+                    : PortableFont.Sans;
+                var _fontInput = fontOptions.FirstOrDefault(option => Equals(option.Value, selectedFont))?.Description
+                    ?? fontOptions.First(option => Equals(option.Value, PortableFont.Sans)).Description;
+
+                var languageOptions = EnumHelper.EnumDescriptionHelper.GetOptions<TextLanguage>();
+                var selectedLanguage = Enum.TryParse<TextLanguage>(languageInput, true, out var parsedLanguage)
+                    ? parsedLanguage
+                    : TextLanguage.en;
+                //var _languageInput = languageOptions.FirstOrDefault(option => Equals(option.Value, selectedLanguage))?.Description
+                //    ?? languageOptions.First(option => Equals(option.Value, TextLanguage.en)).Description;
+
                 var textParams = new Dictionary<string, object>
                 {
                     { "text", textInput },
                     { "size", textSize },
-                    { "font", fontInput },
-                    { "halign", textAlign },
-                    { "valign", verticalAlign },
-                    { "direction", textDirection },
+                    { "font", _fontInput },
+                    { "halign", _textAlign },
+                    { "valign", _verticalAlign },
+                    { "direction", _textDirection },
                     { "convexity", 10 },
-                    { "language", languageInput },
-                    { "textDepth", oDim.Height_MM }
+                    { "language", languageInput.ToLower() },
+                    { "textDepth", oDim.Height_MM },
+                    { "script", "latin" } // Add for future iteration
                 };
                 var textObj = OScadSpecial.Text.ToScadObject(textParams);
                 var rotated = await GetRotate(textObj, oDim.XRotate, oDim.YRotate, oDim.ZRotate);
@@ -1554,10 +1642,16 @@ namespace NetGenCAD.Designer.Functions
             double surfaceScaleX,
             double surfaceScaleY,
             double surfaceScaleZ,
-            bool surfaceInvert)
+            bool surfaceInvert,
+            string? scadPath = null)
         {
+            // Move file to app's environment
+            var _filePath = CopySurfaceFile(filePath, scadPath);
+            bool alreadyFormatted = PathsEqual(filePath, _filePath)
+                && Path.GetFileNameWithoutExtension(_filePath).EndsWith("_frmt", StringComparison.OrdinalIgnoreCase);
+
             // Get PNG dimensions from ImageHelper
-            var (width, height, depth, updatedFilePath) = ImageHelper.GetPngDimensions(filePath, autoSmoothFile);
+            var (width, height, depth, updatedFilePath) = ImageHelper.GetPngDimensions(_filePath, autoSmoothFile && !alreadyFormatted);
 
             // Convert units if necessary
             if (selectedUnit == UnitSystem.Imperial)
@@ -1977,6 +2071,7 @@ namespace NetGenCAD.Designer.Functions
             }
         }
 
+        // Return the operation type module name for the solid just created; this is the parent module that the solid is called from on the main object.scad file
         public static async Task FinalizeSolidCreationAsync(string objectName,string objectDescription,string objectFilePath,OperationType operationType,bool isPreRendered,SqliteConnection dbConnection)
         {
             var (solids, modules) = await GetDimensionsPartsAsync(

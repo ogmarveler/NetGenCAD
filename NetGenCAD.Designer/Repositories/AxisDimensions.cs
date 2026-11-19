@@ -1,6 +1,11 @@
-﻿using Dapper;
-using NetGenCAD.Core.Interfaces;
+﻿using NetGenCAD.Core.Interfaces;
 using Microsoft.Data.Sqlite;
+using Dapper.AOT;
+using Dapper;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace NetGenCAD.Designer.Repositories
 {

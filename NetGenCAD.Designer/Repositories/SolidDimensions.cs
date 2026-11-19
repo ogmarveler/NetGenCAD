@@ -87,6 +87,7 @@ namespace NetGenCAD.Designer.Repositories
         public string TextHAlign { get; set; } = string.Empty; // Horizontal alignment: "left", "center", "right"
         public string TextVAlign { get; set; } = string.Empty; // Vertical alignment: "baseline", "center", "top", "bottom"
         public string FontStyle { get; set; } = string.Empty; // Font style: "normal", "italic", "oblique"
+        public string? LanguageInput { get; set; } = string.Empty; // Language input for text rendering
 
         public string OSCADMethod { get; set; } = string.Empty;
 
@@ -110,6 +111,14 @@ namespace NetGenCAD.Designer.Repositories
         {
             get => _moduleName ?? (ModuleDimensionsId.HasValue ? $"Module: {ModuleDimensionsId.Value}" : "No Module Assigned");
             set => _moduleName = value;
+        }
+
+        // Join property for ModuleDimensions includeMethod
+        private string? _moduleFile;
+        public string? ModuleFile
+        {
+            get => _moduleFile ?? (ModuleDimensionsId.HasValue ? $"Module: {ModuleDimensionsId.Value}" : "No Module Assigned");
+            set => _moduleFile = value;
         }
 
         /// <summary>
@@ -238,7 +247,8 @@ namespace NetGenCAD.Designer.Repositories
             { "TextDirection", TextDirection },
             { "TextHAlign", TextHAlign },
             { "TextVAlign", TextVAlign },
-            { "FontStyle", FontStyle }
+            { "FontStyle", FontStyle },
+            { "LanguageInput", LanguageInput }
         };
     }
 
@@ -306,6 +316,7 @@ namespace NetGenCAD.Designer.Repositories
             (nameof(SolidDimensions.TextHAlign), typeof(string), true),
             (nameof(SolidDimensions.TextVAlign), typeof(string), true),
             (nameof(SolidDimensions.FontStyle), typeof(string), true),
+            (nameof(SolidDimensions.LanguageInput), typeof(string), true),
         ];
 
         // Create table
@@ -442,15 +453,7 @@ namespace NetGenCAD.Designer.Repositories
                 LEFT JOIN AxisDimensions ad ON sd.AxisDimensionsId = ad.Id
                 ORDER BY sd.CreatedAt DESC";
 
-            var result = await connection.QueryAsync<SolidDimensions, string, SolidDimensions>(
-                sql,
-                (solidDim, axisMethod) =>
-                {
-                    solidDim.AxisOSCADMethod = axisMethod;
-                    return solidDim;
-                },
-                splitOn: "AxisOSCADMethod"
-            );
+            var result = await connection.QueryAsync<SolidDimensions>(sql);
 
             return result;
         }
@@ -466,16 +469,7 @@ namespace NetGenCAD.Designer.Repositories
                 LEFT JOIN AxisDimensions ad ON sd.AxisDimensionsId = ad.Id
                 WHERE sd.Id = @Id";
 
-            var result = await connection.QueryAsync<SolidDimensions, string, SolidDimensions>(
-                sql,
-                (solidDim, axisMethod) =>
-                {
-                    solidDim.AxisOSCADMethod = axisMethod;
-                    return solidDim;
-                },
-                new { Id = id },
-                splitOn: "AxisOSCADMethod"
-            );
+            var result = await connection.QueryAsync<SolidDimensions>(sql, new { Id = id });
 
             return result.FirstOrDefault();
         }
@@ -492,16 +486,7 @@ namespace NetGenCAD.Designer.Repositories
                 WHERE sd.AxisDimensionsId = @AxisDimensionsId
                 ORDER BY sd.CreatedAt DESC";
 
-            var result = await connection.QueryAsync<SolidDimensions, string, SolidDimensions>(
-                sql,
-                (solidDim, axisMethod) =>
-                {
-                    solidDim.AxisOSCADMethod = axisMethod;
-                    return solidDim;
-                },
-                new { AxisDimensionsId = axisDimensionsId },
-                splitOn: "AxisOSCADMethod"
-            );
+            var result = await connection.QueryAsync<SolidDimensions>(sql, new { AxisDimensionsId = axisDimensionsId });
 
             return result;
         }
@@ -521,16 +506,7 @@ namespace NetGenCAD.Designer.Repositories
         // Get by Name with joined AxisDimensions OSCADMethod
         public static async Task<IEnumerable<SolidDimensions>> GetByNameWithAxisAsync(this SolidDimensions _, SqliteConnection connection, string name)
         {
-            return await connection.QueryAsync<SolidDimensions, string, SolidDimensions>(
-                SqlQueries.GetByNameWithAxis,
-                (solidDim, axisMethod) =>
-                {
-                    solidDim.AxisOSCADMethod = axisMethod;
-                    return solidDim;
-                },
-                new { Name = name },
-                splitOn: "AxisOSCADMethod"
-            );
+            return await connection.QueryAsync<SolidDimensions>(SqlQueries.GetByNameWithAxis, new { Name = name });
         }
 
         // Get by Name with joined AxisDimensions OSCADMethod AND ModuleDimensions Name
@@ -547,17 +523,18 @@ namespace NetGenCAD.Designer.Repositories
                 WHERE sd.Name = @Name
                 ORDER BY sd.OperationType ASC, sd.CreatedAt ASC";
 
-            var result = await connection.QueryAsync<SolidDimensions, string, string, SolidDimensions>(
-                sql,
-                (solidDim, axisMethod, moduleName) =>
-                {
-                    solidDim.AxisOSCADMethod = axisMethod;
-                    solidDim.ModuleName = moduleName;
-                    return solidDim;
-                },
-                new { Name = name },
-                splitOn: "AxisOSCADMethod,ModuleName"
-            );
+            var result = await connection.QueryAsync<SolidDimensions>(sql, new { Name = name });
+
+            return result;
+        }
+
+        // USE THIS FOR DATA RETRIEVAL WITH ObjectScadService calls - CreateObjectWithCallbackAsync
+        // Get by Solid Id with joined ModuleDimensions Name
+        public static async Task<IEnumerable<SolidDimensions>> GetByIdWithModuleAsync(this SolidDimensions _, SqliteConnection connection, int id)
+        {
+            const string sql = @"SELECT sd.*, md.Name as ModuleName, md.IncludeMethod as ModuleFile FROM SolidDimensions sd LEFT JOIN ModuleDimensions md ON sd.ModuleDimensionsId = md.Id WHERE sd.Id = @Id";
+
+            var result = await connection.QueryAsync<SolidDimensions>(sql, new { Id = id });
 
             return result;
         }
@@ -580,16 +557,7 @@ namespace NetGenCAD.Designer.Repositories
                 WHERE sd.Name = @Name AND sd.OperationType = @OperationType
                 ORDER BY sd.CreatedAt DESC";
 
-            var result = await connection.QueryAsync<SolidDimensions, string, SolidDimensions>(
-                sql,
-                (solidDim, axisMethod) =>
-                {
-                    solidDim.AxisOSCADMethod = axisMethod;
-                    return solidDim;
-                },
-                new { Name = name, OperationType = operationType },
-                splitOn: "AxisOSCADMethod"
-            );
+            var result = await connection.QueryAsync<SolidDimensions>(sql, new { Name = name, OperationType = operationType });
 
             return result;
         }
@@ -606,16 +574,7 @@ namespace NetGenCAD.Designer.Repositories
                 WHERE sd.Name = @Name AND sd.SolidType = @SolidType
                 ORDER BY sd.CreatedAt DESC";
 
-            var result = await connection.QueryAsync<SolidDimensions, string, SolidDimensions>(
-                sql,
-                (solidDim, axisMethod) =>
-                {
-                    solidDim.AxisOSCADMethod = axisMethod;
-                    return solidDim;
-                },
-                new { Name = name, SolidType = solidType },
-                splitOn: "AxisOSCADMethod"
-            );
+            var result = await connection.QueryAsync<SolidDimensions>(sql, new { Name = name, SolidType = solidType });
 
             return result;
         }
@@ -697,7 +656,8 @@ namespace NetGenCAD.Designer.Repositories
                    TextDirection,
                    TextHAlign,
                    TextVAlign,
-                   FontStyle
+                   FontStyle,
+                   LanguageInput
                    FROM SolidDimensions
                    WHERE Name = @Name";
             using var cmd = connection.CreateCommand();

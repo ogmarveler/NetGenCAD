@@ -19,6 +19,7 @@ namespace NetGenCAD.Core.Utility
             {
                 filePath = filePath.Replace(".scad", $"_{DateTime.Now:yyyyMMddHHmmss}.scad");
             }
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
             await File.WriteAllBytesAsync(path: filePath, bytes: Encoding.UTF8.GetBytes(content), cancellationToken: cancellationToken);
         }
     }

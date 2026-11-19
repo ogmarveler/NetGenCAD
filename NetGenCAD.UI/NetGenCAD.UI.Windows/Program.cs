@@ -96,7 +96,7 @@ namespace NetGenCAD
                 App.Services = sp; // Set static Services property for DI access throughout app
             },
             withReactiveUIBuilder: rxui =>
-            {
+            {    
                 // Optional ReactiveUI customizations
             })
             .RegisterReactiveUIViewsFromEntryAssembly(); // MVVM framework

@@ -7,7 +7,9 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:sel="using:NetGenCAD.Core.Measurements"
+	xmlns:enu="using:NetGenCAD.Core.Utility"
     xmlns:vm="using:NetGenCAD.UI.ViewModels"
+	xmlns:repo="using:NetGenCAD.Designer.Repositories"
     d:DesignHeight="720"
     d:DesignWidth="1280"
     x:CompileBindings="True"
@@ -678,13 +680,13 @@
                                     <TextBlock
                                         HorizontalAlignment="Left"
                                         Classes="standardLabel"
-                                        Text="Smooth" />
+                                        Text="Format" />
                                     <CheckBox
                                         HorizontalAlignment="Left"
                                         Content="Y"
                                         IsChecked="{Binding AutoSmoothFile, Mode=TwoWay}">
                                         <ToolTip.Tip>
-                                            <TextBlock Text="Smooth the image" />
+                                            <TextBlock Text="Converst the image to grayscale, crops to content, and then uses Gaussian blur to smooth the image" />
                                         </ToolTip.Tip>
                                     </CheckBox>
                                 </StackPanel>
@@ -786,10 +788,12 @@
                                         MaxWidth="140"
                                         HorizontalAlignment="Stretch"
                                         Classes="standardInput"
-                                        Text="{Binding SurfaceFilePath, Mode=TwoWay}"
-                                        PlaceholderText="png, bmp, dat, etc.">
+                                        IsReadOnly="True"
+										FontSize="10"
+										PlaceholderText="png, bmp, dat, etc."
+                                        Text="{Binding SurfaceFilePath, Mode=OneWay, Converter={StaticResource FileNameConverter}}">
                                         <ToolTip.Tip>
-                                            <TextBlock Text="Path to the surface data file" />
+                                            <TextBlock Text="{Binding SurfaceFilePath}" />
                                         </ToolTip.Tip>
                                     </TextBox>
                                 </StackPanel>
@@ -840,18 +844,18 @@
                             </TextBox>
                         </StackPanel>
 
-                        <!--  Text Depth  -->
+                        <!--  Text Depth / Height -->
                         <StackPanel Width="63" Classes="inputGroup">
                             <StackPanel.IsVisible>
                                 <Binding Path="IsTextSelected" />
                             </StackPanel.IsVisible>
-                            <TextBlock Classes="standardLabel" Text="Depth" />
+                            <TextBlock Classes="standardLabel" Text="Height" />
                             <TextBox
                                 Classes="standardInput"
                                 Text="{Binding HeightMM, Mode=TwoWay, Converter={StaticResource DoubleToNullableConverter}}"
                                 PlaceholderText="{Binding SelectedUnitValue, Mode=TwoWay, Converter={StaticResource UnitTextConverter}}">
                                 <ToolTip.Tip>
-                                    <TextBlock Text="Depth of each letter in Text to Display" />
+                                    <TextBlock Text="Depth / Height of each letter in Text to Display" />
                                 </ToolTip.Tip>
                             </TextBox>
                         </StackPanel>
@@ -1348,16 +1352,31 @@
                             </StackPanel>
                         </StackPanel>
 
-                        <StackPanel>
+						<!--  Text Language and Font Input  -->
+                        <StackPanel Orientation="Horizontal" Spacing="15">
                             <StackPanel.IsVisible>
                                 <Binding Path="IsTextSelected" />
                             </StackPanel.IsVisible>
-                            <StackPanel Width="219" Classes="inputGroup">
+							
+							<StackPanel Width="63" Classes="inputGroup">
+								<TextBlock Classes="standardLabel" Text="Language" />
+								<ComboBox
+                                    HorizontalAlignment="Stretch"
+                                    Classes="standardInput"
+                                    ItemsSource="{Binding Source={x:Static enu:EnumHelper.TextLanguageValues}}"
+                                    SelectedItem="{Binding LanguageInput, Mode=TwoWay}">
+									<ToolTip.Tip>
+										<TextBlock Text="Select the language for the text solid that will be used in OpenSCAD" />
+									</ToolTip.Tip>
+								</ComboBox>
+							</StackPanel>
+							
+                            <StackPanel Width="141" Classes="inputGroup">
                                 <TextBlock Classes="standardLabel" Text="Font Style" />
                                 <ComboBox
                                     HorizontalAlignment="Stretch"
                                     Classes="standardInput"
-                                    ItemsSource="{Binding Source={x:Static sel:Selector.PortableFontsWithStyles}}"
+                                    ItemsSource="{Binding Source={x:Static enu:EnumHelper.PortableFontValues}}"
                                     PlaceholderText="Select"
                                     SelectedItem="{Binding FontInput, Mode=TwoWay}">
                                     <ToolTip.Tip>
@@ -1777,30 +1796,35 @@
                             MaxWidth="960"
                             Margin="0"
                             Spacing="0">
-                            <DataGrid
+							<DataGrid
                                 x:Name="ModulesDataGrid"
                                 MaxWidth="960"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Center"
-                                AutoGenerateColumns="True"
-                                AutoGeneratingColumn="DataGrid_AutoGeneratingColumnModule"
-                                BorderBrush="{DynamicResource DarkBlueForeground}"
-                                CanUserReorderColumns="True"
-                                CanUserResizeColumns="True"
-                                ClipToBounds="True"
-                                ColumnWidth="Auto"
-                                CornerRadius="6"
-                                GridLinesVisibility="All"
-                                IsReadOnly="True"
-                                ItemsSource="{Binding ModuleDimensions}"
-                                SelectionMode="Single" />
+								AutoGenerateColumns="False"
+								BorderBrush="{DynamicResource DarkBlueForeground}"
+								CanUserReorderColumns="False"
+								CanUserResizeColumns="True"
+								ClipToBounds="True"
+								ColumnWidth="Auto"
+								CornerRadius="6"
+								GridLinesVisibility="All"
+								IsReadOnly="True"
+								ItemsSource="{Binding ModuleDimensions}"
+								SelectionMode="Single" >
+								<DataGrid.Columns>
+									<DataGridTextColumn Header="L" Binding="{Binding Layer, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" />
+                                    <DataGridTextColumn Header="Call Method" Binding="{Binding Name, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" />
+                                    <DataGridTextColumn Header="Module Type" Binding="{Binding ModuleType, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" FontWeight="SemiBold" />
+								</DataGrid.Columns>
+							</DataGrid>
                         </StackPanel>
                     </Grid>
                 </StackPanel>
             </Border>
         </ScrollViewer>
 
-        <!--  Module DataGrids Section  -->
+        <!--  Solid DataGrids Section  -->
         <ScrollViewer
             x:Name="SolidsSection"
             Grid.Row="0"
@@ -1848,7 +1872,7 @@
                                     AutoGenerateColumns="True"
                                     AutoGeneratingColumn="DataGrid_AutoGeneratingColumnObject"
                                     BorderBrush="{DynamicResource PurpleForeground}"
-                                    CanUserReorderColumns="True"
+                                    CanUserReorderColumns="False"
                                     CanUserResizeColumns="True"
                                     ClipToBounds="True"
                                     ColumnWidth="Auto"
@@ -1875,7 +1899,7 @@
                                     AutoGenerateColumns="True"
                                     AutoGeneratingColumn="DataGrid_AutoGeneratingColumnObjectImperial"
                                     BorderBrush="{DynamicResource PurpleForeground}"
-                                    CanUserReorderColumns="True"
+                                    CanUserReorderColumns="False"
                                     CanUserResizeColumns="True"
                                     ClipToBounds="True"
                                     ColumnWidth="Auto"

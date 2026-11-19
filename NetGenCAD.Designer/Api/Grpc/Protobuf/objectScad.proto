@@ -42,7 +42,9 @@ enum ItemType {
 message SolidDimensions {
   optional int32 id = 1;
   optional int32 axis_dimensions_id = 2; // Lookup Logic handled in the service request
-  optional int32 module_dimensions_id = 3;
+  optional int32 object_module_id = 3;
+  optional string object_module_name = 4;
+  optional string solid_call_method = 5;
   optional string shape_name = 6;
   optional string material = 7;  // Selected Filament
   optional OperationType operation_type = 8;
@@ -76,31 +78,35 @@ message SolidDimensions {
 
   // Surface
   optional string surface_file_path = 28;
-  optional bool surface_center = 29;
-  optional bool surface_invert = 30;
-  optional int32 surface_convexity = 31;
-  optional double surface_scale_x = 32;
-  optional double surface_scale_y = 33;
-  optional double surface_scale_z = 34;
+  optional bool surface_file_format = 29; // e.g. "png", "bmp", "dat", etc.
+  optional bool surface_center = 30;
+  optional bool surface_invert = 31;
+  optional int32 surface_convexity = 32;
+  optional double surface_scale_x = 33;
+  optional double surface_scale_y = 34;
+  optional double surface_scale_z = 35;
 
   // Text
-  optional string text_input = 35;
-  optional double text_size = 36;
-  optional string font_input = 37;
-  optional string text_align = 38;
-  optional string vertical_align = 39;
-  optional string text_direction = 40;
-  optional string language_input = 41; // May be available in future iterations
+  optional string text_input = 36;
+  optional double text_size = 37;
+  optional double text_depth = 38;
+  // Text options accept Selector enum names or UI descriptions, case-insensitively.
+  // Defaults: Sans, Left, Baseline, L-to-R, and EN, respectively.
+  optional string font_input = 39;
+  optional string text_align = 40;
+  optional string vertical_align = 41;
+  optional string text_direction = 42;
+  optional string language_input = 43;
 
   // Units
-  optional double volume_cm3 = 42;
-  optional double volume_in3 = 43;
+  optional double volume_cm3 = 44;
+  optional double volume_in3 = 45;
 
   // OSCAD
-  optional string oscad_method = 44;
+  optional string oscad_method = 46;
 
   // Timestamp
-  optional string created_at = 45;
+  optional string created_at = 47;
 }
 
 // ModuleDimensions from NetGenCAD.Designer.Repositories.ModuleDimensions
@@ -319,11 +325,18 @@ message CreateSolidRequest {
 message CreateSolidResponse {
   int32 object_id = 1;
   string object_name = 2;
-  createAxes.UnitSystem selected_unit = 3;
-  int32 axis_id = 4;
-  string axis_used_calling_method = 5;
-  string axis_display_name = 6;
-  SolidDimensions created_solid = 7;
+  string oscad_file = 3;
+  createAxes.UnitSystem selected_unit = 4;
+  int32 axis_id = 5;
+  string axis_used_calling_method = 6;
+  string axis_display_name = 7;
+  ModuleObject object_module = 8;
+}
+
+message ModuleObject {
+  int32 object_module_id = 1;
+  string object_module_name = 2;
+  SolidDimensions created_solid = 3;
 }
 
 message CopyObjectRequest {

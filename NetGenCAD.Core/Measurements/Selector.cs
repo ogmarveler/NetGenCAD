@@ -34,6 +34,206 @@ namespace NetGenCAD.Core.Measurements
             Text
         }
 
+        /// <summary>
+        /// Direction of text flow for OpenSCAD text().
+        /// </summary>
+        public enum TextDirection
+        {
+            [Description("L-to-R")]
+            ltr,
+
+            [Description("R-to-L")]
+            rtl,
+
+            [Description("T-to-B")]
+            ttb,
+
+            [Description("B-to-T")]
+            btt
+        }
+
+        /// <summary>
+        /// Horizontal alignment for OpenSCAD text().
+        /// </summary>
+        public enum TextHAlign
+        {
+            [Description("Left")]
+            left,
+
+            [Description("Center")]
+            center,
+
+            [Description("Right")]
+            right
+        }
+
+        /// <summary>
+        /// Vertical alignment for OpenSCAD text().
+        /// </summary>
+        public enum TextVAlign
+        {
+            [Description("Top")]
+            top,
+
+            [Description("Center")]
+            center,
+
+            [Description("Baseline")]
+            baseline,
+
+            [Description("Bottom")]
+            bottom
+        }
+
+        /// <summary>
+        /// Common language codes for OpenSCAD text() language parameter.
+        /// Description is the string passed to OpenSCAD. Not exhaustive.
+        /// </summary>
+        public enum TextLanguage
+        {
+            [Description("EN")]
+            en,
+
+            [Description("AR")]
+            ar,
+
+            [Description("CH")]
+            ch,
+
+            [Description("ZH")]
+            zh,
+
+            [Description("JA")]
+            ja,
+
+            [Description("KO")]
+            ko,
+
+            [Description("DE")]
+            de,
+
+            [Description("FR")]
+            fr,
+
+            [Description("ES")]
+            es,
+
+            [Description("RU")]
+            ru,
+
+            [Description("HI")]
+            hi,
+
+            [Description("PT")]
+            pt,
+
+            [Description("IT")]
+            it,
+
+            [Description("NL")]
+            nl,
+
+            [Description("PL")]
+            pl,
+
+            [Description("TR")]
+            tr,
+
+            [Description("HE")]
+            he,
+
+            [Description("TH")]
+            th,
+
+            [Description("VI")]
+            vi
+        }
+
+        /// <summary>
+        /// Common script codes for OpenSCAD text() script parameter.
+        /// Description is the string passed to OpenSCAD. Not exhaustive.
+        /// </summary>
+        public enum TextScript
+        {
+            [Description("Latin")]
+            latin,
+
+            [Description("Arabic")]
+            arabic,
+
+            [Description("Hani")]
+            hani,
+
+            [Description("Cyrl")]
+            cyrl,
+
+            [Description("Greek")]
+            grek,
+
+            [Description("Hebrew")]
+            hebr,
+
+            [Description("Deva")]
+            deva,
+
+            [Description("Hira")]
+            hira,
+
+            [Description("Kana")]
+            kana,
+
+            [Description("Hang")]
+            hang,
+
+            [Description("Thai")]
+            thai,
+
+            [Description("Armn")]
+            armn,
+
+            [Description("Geor")]
+            geor
+        }
+
+        public enum PortableFont
+        {
+            [Description("Liberation Sans")]
+            Sans,
+
+            [Description("Liberation Sans:style=Bold")]
+            SansBold,
+
+            [Description("Liberation Sans:style=Italic")]
+            SansItalic,
+
+            [Description("Liberation Sans:style=Bold Italic")]
+            SansBoldItalic,
+
+            [Description("Liberation Serif")]
+            Serif,
+
+            [Description("Liberation Serif:style=Bold")]
+            SerifBold,
+
+            [Description("Liberation Serif:style=Italic")]
+            SerifItalic,
+
+            [Description("Liberation Serif:style=Bold Italic")]
+            SerifBoldItalic,
+
+            [Description("Liberation Mono")]
+            Mono,
+
+            [Description("Liberation Mono:style=Bold")]
+            MonoBold,
+
+            [Description("Liberation Mono:style=Italic")]
+            MonoItalic,
+
+            [Description("Liberation Mono:style=Bold Italic")]
+            MonoBoldItalic
+        }
+
         public static List<string> ScrewProperties { get; } = new List<string> { "Screw Thread", "Screw Head", "Threaded Insert", "Clearance Hole" };
         public static List<string> ServerRackWidthTypes { get; } = new List<string> { "Inner Mount", "Outer Mount" };
         public static List<string> SolidTypes { get; } = new List<string> { "Cube", "Round Cube", "Cylinder", "Round Cylinder", "Polyhedron", "Sphere", "Surface", "Text" };
@@ -41,28 +241,28 @@ namespace NetGenCAD.Core.Measurements
         public static List<string> TextDirectionOptions { get; } = new List<string> { "L-to-R", "R-to-L", "T-to-B", "B-to-T" };
         public static List<string> VerticalAlignOptions { get; } = new List<string> { "Top", "Center", "Baseline", "Bottom" };
 
-        public static readonly string[] PortableFonts =
-        {
-        "Liberation Sans",
-        "Liberation Serif",
-        "Liberation Mono"
-    };
+        //public static readonly string[] PortableFonts =
+        //{
+        //    "Liberation Sans",
+        //    "Liberation Serif",
+        //    "Liberation Mono"
+        //};
 
-        public static readonly string[] PortableFontsWithStyles =
-        {
-        "Liberation Sans",
-        "Liberation Sans:style=Bold",
-        "Liberation Sans:style=Italic",
-        "Liberation Sans:style=Bold Italic",
-        "Liberation Serif",
-        "Liberation Serif:style=Bold",
-        "Liberation Serif:style=Italic",
-        "Liberation Serif:style=Bold Italic",
-        "Liberation Mono",
-        "Liberation Mono:style=Bold",
-        "Liberation Mono:style=Italic",
-        "Liberation Mono:style=Bold Italic"
-    };
+        //public static readonly string[] PortableFontsWithStyles =
+        //{
+        //    "Liberation Sans",
+        //    "Liberation Sans:style=Bold",
+        //    "Liberation Sans:style=Italic",
+        //    "Liberation Sans:style=Bold Italic",
+        //    "Liberation Serif",
+        //    "Liberation Serif:style=Bold",
+        //    "Liberation Serif:style=Italic",
+        //    "Liberation Serif:style=Bold Italic",
+        //    "Liberation Mono",
+        //    "Liberation Mono:style=Bold",
+        //    "Liberation Mono:style=Italic",
+        //    "Liberation Mono:style=Bold Italic"
+        //};
 
         // Height factors tuned to match OpenSCAD textmetrics() tight bounding height at size=10
         // (ascent + descent, including typical overhangs)
@@ -91,8 +291,8 @@ namespace NetGenCAD.Core.Measurements
                 ["Liberation Serif:style=Bold Italic"] = (0.618 * SerifBoldItalicWidthAdjustment, 0.97792, "Bold Italic"),
 
                 ["Liberation Mono"] = (0.6 * MonoWidthAdjustment, 1.0208, "Regular – true monospaced"),
-                ["Liberation Mono:style=Bold"] = (0.6 * MonoWidthAdjustment, 1.0208, "Bold"), 
-                ["Liberation Mono:style=Italic"] = (0.6 * MonoWidthAdjustment, 1.0208, "Italic (oblique)"), 
+                ["Liberation Mono:style=Bold"] = (0.6 * MonoWidthAdjustment, 1.0208, "Bold"),
+                ["Liberation Mono:style=Italic"] = (0.6 * MonoWidthAdjustment, 1.0208, "Italic (oblique)"),
                 ["Liberation Mono:style=Bold Italic"] = (0.6 * MonoWidthAdjustment, 1.0208, "Bold Italic")
             };
 
@@ -1408,7 +1608,7 @@ namespace NetGenCAD.Core.Measurements
                     naturalSum += advance;
                 }
                 if (text.Length > 0)
-                    lastAdvance = table.TryGetValue(text[^1], out double w) ? w * widthAdjustment: fallbackFactor;
+                    lastAdvance = table.TryGetValue(text[^1], out double w) ? w * widthAdjustment : fallbackFactor;
             }
             else
             {

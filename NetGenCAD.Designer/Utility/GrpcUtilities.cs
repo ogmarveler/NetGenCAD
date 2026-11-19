@@ -1,4 +1,6 @@
 ﻿using Grpc.Core;
+using Microsoft.Data.Sqlite;
+using NetGenCAD.Core.Utility;
 using NetGenCAD.Designer.Api.Grpc.Protobuf;
 using static NetGenCAD.Core.Measurements.Selector;
 
@@ -37,6 +39,37 @@ namespace NetGenCAD.Designer.Utility
                 _ => throw new RpcException(
                     new Status(StatusCode.InvalidArgument, "A valid operation type is required"))
             };
+
+        public static PortableFont ToCorePortableFont(string value)
+        {
+            var option = EnumHelper.EnumDescriptionHelper.GetOptions<PortableFont>().FirstOrDefault(option =>
+                string.Equals(option.Name, value, StringComparison.OrdinalIgnoreCase));
+
+            return option?.Value is PortableFont result
+                ? result
+                : throw new RpcException(new Status(StatusCode.InvalidArgument, "A valid font is required"));
+        }
+
+        public static TextHAlign ToCoreTextHAlign(string value) => ParseTextOption<TextHAlign>(value, "horizontal alignment");
+
+        public static TextVAlign ToCoreTextVAlign(string value) => ParseTextOption<TextVAlign>(value, "vertical alignment");
+
+        public static TextDirection ToCoreTextDirection(string value) => ParseTextOption<TextDirection>(value, "text direction");
+
+        public static TextLanguage ToCoreTextLanguage(string value) => ParseTextOption<TextLanguage>(value, "text language");
+
+        private static T ParseTextOption<T>(string value, string optionName) where T : struct, Enum
+        {
+            var option = EnumHelper.EnumDescriptionHelper.GetOptions<T>().FirstOrDefault(option =>
+                string.Equals(option.Description, value, StringComparison.OrdinalIgnoreCase));
+
+            return option?.Value is T result
+                ? result
+                : throw new RpcException(new Status(StatusCode.InvalidArgument, $"A valid {optionName} is required"));
+        }
+
+        public static string ToTextOptionDescription<T>(T value) where T : struct, Enum =>
+            EnumHelper.EnumDescriptionHelper.GetOptions<T>().First(option => Equals(option.Value, value)).Description;
 
         public static CoreSolidType ToCoreSolidType(Api.Grpc.Protobuf.SolidType selectedSolidType)
         {
@@ -80,8 +113,7 @@ namespace NetGenCAD.Designer.Utility
             Repositories.SolidDimensions value, Core.Measurements.Selector.UnitSystem selectedUnit = Core.Measurements.Selector.UnitSystem.Metric) => new()
             {
                 Id = value.Id,
-                AxisDimensionsId = value.AxisDimensionsId ?? 0,
-                ModuleDimensionsId = value.ModuleDimensionsId ?? 0,
+                SolidCallMethod = WrapInModule.ExtractModuleCallMethod(value.OSCADMethod).ToLower(),
                 Description = value.Description ?? string.Empty,
                 ShapeName = value.ShapeName ?? string.Empty,
                 Material = value.Material ?? string.Empty,
@@ -95,6 +127,11 @@ namespace NetGenCAD.Designer.Utility
                 Radius1 = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Radius1_MM : value.Radius1_IN,
                 Radius2 = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Radius2_MM : value.Radius2_IN,
                 CylinderHeight = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.CylinderHeight_MM : value.CylinderHeight_IN,
+                Resolution = value.Resolution,
+                RoundR = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Round_r_MM : value.Round_r_IN,
+                RoundH = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Round_h_MM : value.Round_h_IN,
+                VolumeCm3 = value.Volume_CM3,
+                VolumeIn3 = value.Volume_IN3,
                 XOffset = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.XOffset_MM : value.XOffset_IN,
                 YOffset = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.YOffset_MM : value.YOffset_IN,
                 ZOffset = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.ZOffset_MM : value.ZOffset_IN,
@@ -104,11 +141,17 @@ namespace NetGenCAD.Designer.Utility
                 SurfaceScaleX = value.ScaleX,
                 SurfaceScaleY = value.ScaleY,
                 SurfaceScaleZ = value.ScaleZ,
-                RoundR = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Round_r_MM : value.Round_r_IN,
-                RoundH = selectedUnit == Core.Measurements.Selector.UnitSystem.Metric ? value.Round_h_MM : value.Round_h_IN,
-                Resolution = value.Resolution,
-                VolumeCm3 = value.Volume_CM3,
-                VolumeIn3 = value.Volume_IN3
+                SurfaceFilePath = value.SurfaceFilePath.Replace("\\", "/"),
+                SurfaceCenter = value.SurfaceCenter == 1 ? true : false,
+                SurfaceInvert = value.SurfaceInvert == 1 ? true : false,
+                TextInput = value.TextContent ?? string.Empty,
+                TextSize = value.TextSize,
+                FontInput = value.FontStyle,
+                TextAlign = value.TextHAlign,
+                VerticalAlign = value.TextVAlign,
+                TextDirection = value.TextDirection,
+                LanguageInput = value.LanguageInput,
+                OscadMethod = value.OSCADMethod
             };
 
         public static Repositories.SolidDimensions ToCoreSolidDimensions(
@@ -116,7 +159,7 @@ namespace NetGenCAD.Designer.Utility
             {
                 Id = value.Id,
                 AxisDimensionsId = value.AxisDimensionsId == 0 ? null : value.AxisDimensionsId,
-                ModuleDimensionsId = value.ModuleDimensionsId == 0 ? null : value.ModuleDimensionsId,
+                ModuleDimensionsId = value.ObjectModuleId == 0 ? null : value.ObjectModuleId,
                 //Name = value.Name,
                 Description = value.Description,
                 ShapeName = value.ShapeName,

@@ -8,8 +8,7 @@ using NetGenCAD.Designer.Api.Grpc.Protobuf;
 using NetGenCAD.Designer.Functions;
 using NetGenCAD.Designer.Repositories;
 using NetGenCAD.Designer.Utility;
-using AxisDimensionsEntity = NetGenCAD.Designer.Repositories.AxisDimensions;
-using AxisDimensionsExtensions = NetGenCAD.Designer.Repositories.AxisDimensionsExtensions;
+using System.Globalization;
 using ModuleDimensions = NetGenCAD.Designer.Api.Grpc.Protobuf.ModuleDimensions;
 using SolidDimensions = NetGenCAD.Designer.Api.Grpc.Protobuf.SolidDimensions;
 
@@ -38,50 +37,102 @@ namespace NetGenCAD.Designer.Api.Services
 
             NetGenCAD.Designer.Repositories.SolidDimensions? created = null;
 
+            // Convert the selected solid type from the gRPC request to the corresponding CoreSolidType enum value
+            if (request.SelectedSolidType == 0) { throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid solid type.")); }
+            var selectedSolidType = GrpcUtilities.ToCoreSolidType(request.SelectedSolidType);
+            var selectedSolidTypeName = selectedSolidType switch
+            {
+                Selector.CoreSolidType.Cube => nameof(Selector.CoreSolidType.Cube),
+                Selector.CoreSolidType.RoundCube => "Round Cube",
+                Selector.CoreSolidType.Cylinder => nameof(Selector.CoreSolidType.Cylinder),
+                Selector.CoreSolidType.RoundCylinder => "Round Cylinder",
+                Selector.CoreSolidType.Polyhedron => nameof(Selector.CoreSolidType.Polyhedron),
+                Selector.CoreSolidType.Sphere => nameof(Selector.CoreSolidType.Sphere),
+                Selector.CoreSolidType.Surface => nameof(Selector.CoreSolidType.Surface),
+                Selector.CoreSolidType.Text => nameof(Selector.CoreSolidType.Text),
+                _ => throw new ArgumentException($"Unknown solid type: {selectedSolidType}", nameof(selectedSolidType))
+            };
+
             // Conversions of JSON supplied values to ObjectScadFunctions.CreateObjectWithCallbackAsync parameters are handled within the function itself, including default values and validation.
             if (string.IsNullOrWhiteSpace(request.ObjectName))
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Object name cannot be empty."));
+
+            if (string.IsNullOrWhiteSpace(request.Description))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Solid description cannot be empty."));
+
+            var description = request.Description.Trim();
 
             if (request.Dimensions == null)
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Dimensions cannot be null."));
 
             // Solid Validation - Cube and Round Cube
-            if ((request.SelectedSolidType == SolidType.Cube || request.SelectedSolidType == SolidType.RoundCube) && (request.Dimensions.Length <= 0 || request.Dimensions.Width <= 0 || request.Dimensions.Height <= 0))
+            var length = request.Dimensions.HasLength && request.Dimensions.Length > 0 ? request.Dimensions.Length : 0;
+            var width = request.Dimensions.HasWidth && request.Dimensions.Width > 0 ? request.Dimensions.Width : 0;
+            var height = request.Dimensions.HasHeight && request.Dimensions.Height > 0 ? request.Dimensions.Height : 0;
+            var thickness = request.Dimensions.HasThickness && request.Dimensions.Thickness > 0 ? request.Dimensions.Thickness : 0;
+
+            if ((selectedSolidType == Selector.CoreSolidType.Cube || selectedSolidType == Selector.CoreSolidType.RoundCube) && (length <= 0 || width <= 0 || height <= 0))
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Length, Width, and Height must be greater than zero."));
 
             // Solid Validation - Cylinder and Round Cylinder
-            if (request.Dimensions.HasRadius && request.Dimensions.Radius >= 0)  // If radius is present, then set Radius 1 and Radius 2 to same value
+            var radius = request.Dimensions.HasRadius && request.Dimensions.Radius > 0 ? request.Dimensions.Radius : 0;
+            var radius1 = request.Dimensions.HasRadius1 && request.Dimensions.Radius1 > 0 ? request.Dimensions.Radius1 : 0;
+            var radius2 = request.Dimensions.HasRadius2 && request.Dimensions.Radius2 > 0 ? request.Dimensions.Radius2 : 0;
+            var cylinderHeight = request.Dimensions.HasCylinderHeight && request.Dimensions.CylinderHeight > 0 ? request.Dimensions.CylinderHeight : 0;
+
+            if (radius > 0)  // If radius is present, then set Radius 1 and Radius 2 to same value
             {
-                request.Dimensions.Radius1 = request.Dimensions.Radius;
-                request.Dimensions.Radius2 = request.Dimensions.Radius;
+                radius1 = radius;
+                radius2 = radius;
             }
-            if ((request.SelectedSolidType == SolidType.Cylinder || request.SelectedSolidType == SolidType.RoundCylinder) && ((request.Dimensions.Radius <= 0 && !request.Dimensions.HasRadius1 && !request.Dimensions.HasRadius2) || ((request.Dimensions.Radius1 <= 0 || request.Dimensions.Radius2 <= 0) && !request.Dimensions.HasRadius) || request.Dimensions.CylinderHeight <= 0))
+            if ((selectedSolidType == Selector.CoreSolidType.Cylinder || selectedSolidType == Selector.CoreSolidType.RoundCylinder) && ((radius <= 0 && radius1 <= 0 && radius2 <= 0) || (radius1 <= 0 || radius2 <= 0) || cylinderHeight <= 0))
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Radius or (Radius1 and Radius2) and Cylinder Height must be greater than zero."));
 
-            if (request.SelectedSolidType == 0) { throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid solid type.")); }
 
             if (request.SelectedUnit == 0)
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid unit type."));
 
-            // Convert the selected solid type from the gRPC request to the corresponding CoreSolidType enum value
-            var selectedSolidType = GrpcUtilities.ToCoreSolidType(request.SelectedSolidType);
-            var selectedSolidTypeName =  selectedSolidType switch
-                {
-                    Selector.CoreSolidType.Cube => nameof(Selector.CoreSolidType.Cube),
-                    Selector.CoreSolidType.RoundCube => "Round Cube",
-                    Selector.CoreSolidType.Cylinder => nameof(Selector.CoreSolidType.Cylinder),
-                    Selector.CoreSolidType.RoundCylinder => "Round Cylinder",
-                    Selector.CoreSolidType.Polyhedron => nameof(Selector.CoreSolidType.Polyhedron),
-                    Selector.CoreSolidType.Sphere => nameof(Selector.CoreSolidType.Sphere),
-                    Selector.CoreSolidType.Surface => nameof(Selector.CoreSolidType.Surface),
-                    Selector.CoreSolidType.Text => nameof(Selector.CoreSolidType.Text),
-                    _ => throw new ArgumentException($"Unknown solid type: {selectedSolidType}", nameof(selectedSolidType))
-                };
-
             var selectedUnit = GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit);
+            var decimalPlaces = request.HasDecimalPlaces ? request.DecimalPlaces : 2;
             var colorFromHex = string.Empty;
             var selectedOpenScadColor = Colors.OpenScadColor.Silver; // Default color if no other selected
             var (selectedAxisId, callMethodFromAxisId) = await CreateAxesFunctions.GetAxisByIdAsync(request.AxisId, request.AxisUsedCallingMethod, _db);
+
+            // Surface Validation and Format - same logic as view model
+            var surfaceFilePath = request.Dimensions.HasSurfaceFilePath ? request.Dimensions.SurfaceFilePath : string.Empty;
+            var autoSmoothFile = request.Dimensions.HasSurfaceFileFormat ? request.Dimensions.SurfaceFileFormat : false;
+            var surfaceScaleX = request.Dimensions.HasSurfaceScaleX && request.Dimensions.SurfaceScaleX > 0 ? request.Dimensions.SurfaceScaleX : 1;
+            var surfaceScaleY = request.Dimensions.HasSurfaceScaleY && request.Dimensions.SurfaceScaleY > 0 ? request.Dimensions.SurfaceScaleY : 1;
+            var surfaceScaleZ = request.Dimensions.HasSurfaceScaleZ && request.Dimensions.SurfaceScaleZ > 0 ? request.Dimensions.SurfaceScaleZ : 1;
+            var surfaceInvert = request.Dimensions.HasSurfaceInvert? request.Dimensions.SurfaceInvert : false;
+            var surfaceCenter = request.Dimensions.HasSurfaceCenter ? request.Dimensions.SurfaceCenter : false;
+            var surfaceConvexity = request.Dimensions.HasSurfaceConvexity && request.Dimensions.SurfaceConvexity > 0 ? request.Dimensions.SurfaceConvexity : 1;
+
+            if (selectedSolidType == Selector.CoreSolidType.Surface && string.IsNullOrWhiteSpace(surfaceFilePath))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Surface file path cannot be empty for Surface solid type."));
+            }
+            else if (selectedSolidType == Selector.CoreSolidType.Surface)
+            {
+                // Call the static function to get calculated PNG dimensions
+                var (sLength, sWidth, sHeight, sXOffset, _, updatedFilePath) = ObjectScadFunctions.LoadPngDimensionsData(
+                    filePath: surfaceFilePath,
+                    autoSmoothFile: autoSmoothFile,
+                    selectedUnit: selectedUnit,
+                    decimalPlaces: decimalPlaces,
+                    surfaceScaleX: surfaceScaleX,
+                    surfaceScaleY: surfaceScaleY,
+                    surfaceScaleZ: surfaceScaleZ,
+                    surfaceInvert: surfaceInvert,
+                    _objectFilePath);
+
+                // Same logic as the View Model function; interpet the dimensions based on how the user has selected the surface file format
+                // Length, Width, and Height are mainly references to the dimensions of the surface file, but the actual values used in the SCAD generation are determined by the selected format and scaling factors.
+                length = sLength;
+                width = sWidth;
+                height = sHeight;
+                surfaceFilePath = updatedFilePath; // Update the file path to the processed file path (if any changes were made)
+            }
 
             if (request.HasOscadColor)
             {
@@ -101,32 +152,60 @@ namespace NetGenCAD.Designer.Api.Services
                 colorFromHex = request.ColorHex;
             }
 
+            // Text validation - set height to greater than 0 if not provided, but must be greater than 0 if Text solid type is selected
+            if (selectedSolidType == Selector.CoreSolidType.Text && !request.Dimensions.HasTextInput)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Text input cannot be empty for Text solid type."));
+
+            // Text options use the same defaults and display values as the UI.
+            var caseSensitive = CultureInfo.CurrentCulture.TextInfo;
+            var isText = selectedSolidType == Selector.CoreSolidType.Text;
+            var textInput = isText && request.Dimensions.HasTextInput ? request.Dimensions.TextInput : string.Empty;
+            var textSize = isText ? request.Dimensions.HasTextSize && request.Dimensions.TextSize > 0 ? request.Dimensions.TextSize : 10 : 0;
+            height = isText ? height > 0 ? height : selectedUnit == Selector.UnitSystem.Metric ? 1 : 0.125 : height;
+            var fontInput = isText ? request.Dimensions.HasFontInput ? GrpcUtilities.ToCorePortableFont(request.Dimensions.FontInput).ToString() : "Sans" : string.Empty;
+            var textAlign = isText ? caseSensitive.ToTitleCase(GrpcUtilities.ToTextOptionDescription(request.Dimensions.HasTextAlign ? GrpcUtilities.ToCoreTextHAlign(request.Dimensions.TextAlign) : Selector.TextHAlign.left).ToLower()) : string.Empty;
+            var verticalAlign = isText ? caseSensitive.ToTitleCase(GrpcUtilities.ToTextOptionDescription(request.Dimensions.HasVerticalAlign ? GrpcUtilities.ToCoreTextVAlign(request.Dimensions.VerticalAlign) : Selector.TextVAlign.baseline).ToLower()) : string.Empty;
+            var textDirection = isText ? GrpcUtilities.ToTextOptionDescription(request.Dimensions.HasTextDirection ? GrpcUtilities.ToCoreTextDirection(request.Dimensions.TextDirection) : Selector.TextDirection.ltr).ToUpper().Replace("TO","to") : string.Empty;
+            var languageInput = isText ? (request.Dimensions.HasLanguageInput ? GrpcUtilities.ToCoreTextLanguage(request.Dimensions.LanguageInput) : Selector.TextLanguage.en).ToString().ToUpper() : string.Empty;
+
+            // Rest of supplied variables - translate and rotate values are optional, default to 0 if not provided
+            var xOffset = request.Dimensions.HasXOffset ? request.Dimensions.XOffset : 0;
+            var yOffset = request.Dimensions.HasYOffset ? request.Dimensions.YOffset : 0;
+            var zOffset = request.Dimensions.HasZOffset ? request.Dimensions.ZOffset : 0;
+            var xRotate = request.Dimensions.HasXRotate ? request.Dimensions.XRotate : 0;
+            var yRotate = request.Dimensions.HasYRotate ? request.Dimensions.YRotate : 0;
+            var zRotate = request.Dimensions.HasZRotate ? request.Dimensions.ZRotate : 0;
+            // Other
+            var isPrerendered = request.HasIsPreRendered ? request.IsPreRendered : true;
+            var appendObject = request.HasAppendObject ? request.AppendObject : false;
+
+
             var objectId = await ObjectScadFunctions.CreateObjectWithCallbackAsync(
                 selectedSolidType: selectedSolidTypeName,
                 name: StringFunctions.NameSanitize(request.ObjectName),
-                description: request.Description,
+                description: description,
                 selectedFilament: Core.Material.FilamentType.Other, // Filament option not in current UI, may add in future
                 selectedOperationType: GrpcUtilities.ToCoreOperationType(request.SelectedOperationType),
-                lengthMM: request.Dimensions.HasLength ? request.Dimensions.Length : 0,
-                widthMM: request.Dimensions.HasWidth ? request.Dimensions.Width : 0,
-                heightMM: request.Dimensions.HasHeight ? request.Dimensions.Height : 0,
-                thicknessMM: request.Dimensions.HasThickness ? request.Dimensions.Thickness : 0,
-                radiusMM: request.Dimensions.HasRadius ? request.Dimensions.Radius : 0,
-                radius1MM: request.Dimensions.HasRadius1 ? request.Dimensions.Radius1 : 0,
-                radius2MM: request.Dimensions.HasRadius2 ? request.Dimensions.Radius2 : 0,
-                cylinderHeightMM: request.Dimensions.HasCylinderHeight ? request.Dimensions.CylinderHeight : 0,
-                xOffsetMM: request.Dimensions.HasXOffset ? request.Dimensions.XOffset : 0,
-                yOffsetMM: request.Dimensions.HasYOffset ? request.Dimensions.YOffset : 0,
-                zOffsetMM: request.Dimensions.HasZOffset ? request.Dimensions.ZOffset : 0,
-                xRotate: request.Dimensions.HasXRotate ? request.Dimensions.XRotate : 0,
-                yRotate: request.Dimensions.HasYRotate ? request.Dimensions.YRotate : 0,
-                zRotate: request.Dimensions.HasZRotate ? request.Dimensions.ZRotate : 0,
+                lengthMM: length,
+                widthMM: width,
+                heightMM: height,
+                thicknessMM: thickness,
+                radiusMM: radius,
+                radius1MM: radius1,
+                radius2MM: radius2,
+                cylinderHeightMM: cylinderHeight,
+                xOffsetMM: xOffset,
+                yOffsetMM: yOffset,
+                zOffsetMM: zOffset,
+                xRotate: xRotate,
+                yRotate: yRotate,
+                zRotate: zRotate,
                 selectedOpenScadColor: selectedOpenScadColor,
                 layerIntValue: request.Layer,
                 alphaIntValue: request.HasAlpha ? request.Alpha : 1,
-                surfaceFilePath: request.Dimensions.HasSurfaceFilePath ? request.Dimensions.SurfaceFilePath : string.Empty,
-                surfaceCenter: request.Dimensions.HasSurfaceCenter ? 1 : 0,
-                surfaceInvert: request.Dimensions.HasSurfaceInvert ? 1 : 0,
+                surfaceFilePath: surfaceFilePath,
+                surfaceCenter: surfaceCenter ? 1 : 0,
+                surfaceInvert: surfaceInvert ? 1 : 0,
                 isCubeSelected: selectedSolidType == Selector.CoreSolidType.Cube,
                 isRoundCubeSelected: selectedSolidType == Selector.CoreSolidType.RoundCube,
                 isSurfaceSelected: selectedSolidType == Selector.CoreSolidType.Surface,
@@ -138,10 +217,10 @@ namespace NetGenCAD.Designer.Api.Services
                 isTextSelected: selectedSolidType == Selector.CoreSolidType.Text,
                 selectedPolyhedron: null,
                 selectedUnit: selectedUnit,
-                decimalPlaces: request.HasDecimalPlaces ? request.DecimalPlaces : 2,
+                decimalPlaces: decimalPlaces,
                 axisId: selectedAxisId,
                 axesSelectEnabled: false,
-                appendObject: request.HasAppendObject ? request.AppendObject : false,
+                appendObject: appendObject,
                 dbConnection: _db,
                 generateOscadCallback: solid =>
                 {
@@ -157,69 +236,71 @@ namespace NetGenCAD.Designer.Api.Services
                         isSphereSelected: selectedSolidType == Selector.CoreSolidType.Sphere,
                         isTextSelected: selectedSolidType == Selector.CoreSolidType.Text,
                         selectedUnit: selectedUnit,
-                        decimalPlaces: request.HasDecimalPlaces ? request.DecimalPlaces : 2,
-                        surfaceScaleX: request.Dimensions.HasSurfaceScaleX && request.Dimensions.SurfaceScaleX > 0 ? request.Dimensions.SurfaceScaleX : 1,
-                        surfaceScaleY: request.Dimensions.HasSurfaceScaleY && request.Dimensions.SurfaceScaleY > 0 ? request.Dimensions.SurfaceScaleY : 1,
-                        surfaceScaleZ: request.Dimensions.HasSurfaceScaleZ && request.Dimensions.SurfaceScaleZ > 0 ? request.Dimensions.SurfaceScaleZ : 1,
-                        surfaceFilePath: request.Dimensions.HasSurfaceFilePath ? request.Dimensions.SurfaceFilePath : string.Empty,
-                        surfaceInvert: request.Dimensions.HasSurfaceInvert ? request.Dimensions.SurfaceInvert : false,
-                        surfaceCenter: request.Dimensions.HasSurfaceCenter ? request.Dimensions.SurfaceCenter : false,
-                        surfaceConvexity: request.Dimensions.HasSurfaceConvexity && request.Dimensions.SurfaceConvexity > 0 ? request.Dimensions.SurfaceConvexity : 1,
-                        isPreRendered: request.HasIsPreRendered ? request.IsPreRendered : true,
-                        textInput: request.Dimensions.HasTextInput ? request.Dimensions.TextInput : string.Empty,
-                        textSize: request.Dimensions.HasTextSize ? request.Dimensions.TextSize : 0,
-                        fontInput: request.Dimensions.HasFontInput ? request.Dimensions.FontInput : string.Empty,
-                        textAlign: request.Dimensions.HasTextAlign ? request.Dimensions.TextAlign : string.Empty,
-                        verticalAlign: request.Dimensions.HasVerticalAlign ? request.Dimensions.VerticalAlign : string.Empty,
-                        textDirection: request.Dimensions.HasTextDirection ? request.Dimensions.TextDirection switch
-                        {
-                            "L-to-R" => "ltr",
-                            "R-to-L" => "rtl",
-                            "T-to-B" => "ttb",
-                            "B-to-T" => "btt",
-                            "" => "ltr",
-                            var direction => direction
-                        } : "ltr",
-                        languageInput: request.Dimensions.HasLanguageInput ? request.Dimensions.LanguageInput : string.Empty);
+                        decimalPlaces: decimalPlaces,
+                        surfaceScaleX: surfaceScaleX,
+                        surfaceScaleY: surfaceScaleY,
+                        surfaceScaleZ: surfaceScaleZ,
+                        surfaceFilePath: surfaceFilePath,
+                        surfaceInvert: surfaceInvert,
+                        surfaceCenter: surfaceCenter,
+                        surfaceConvexity: surfaceConvexity,
+                        isPreRendered: isPrerendered,
+                        textInput: textInput,
+                        textSize: textSize,
+                        fontInput: fontInput,
+                        textAlign: textAlign,
+                        verticalAlign: verticalAlign,
+                        textDirection: textDirection,
+                        languageInput: languageInput);
                 },
                 refreshDimensionsCallback: () => Task.CompletedTask,
                 currentAxisDisplay: string.Empty,
                 onObjectCreated: (_, _, _, _) => Task.CompletedTask,
                 isColorFromHex: request.HasColorHex,
                 openScadColorHex: colorFromHex,
-                surfaceScaleX: request.Dimensions.HasSurfaceScaleX && request.Dimensions.SurfaceScaleX > 0 ? request.Dimensions.SurfaceScaleX : 1,
-                surfaceScaleY: request.Dimensions.HasSurfaceScaleY && request.Dimensions.SurfaceScaleY > 0 ? request.Dimensions.SurfaceScaleY : 1,
-                surfaceScaleZ: request.Dimensions.HasSurfaceScaleZ && request.Dimensions.SurfaceScaleZ > 0 ? request.Dimensions.SurfaceScaleZ : 1,
-                textInput: request.Dimensions.HasTextInput ? request.Dimensions.TextInput : string.Empty,
-                textSize: request.Dimensions.HasTextSize ? request.Dimensions.TextSize : 0,
-                fontInput: request.Dimensions.HasFontInput ? request.Dimensions.FontInput : string.Empty,
-                textAlign: request.Dimensions.HasTextAlign ? request.Dimensions.TextAlign : string.Empty,
-                verticalAlign: request.Dimensions.HasVerticalAlign ? request.Dimensions.VerticalAlign : string.Empty,
-                textDirection: request.Dimensions.HasTextDirection ? request.Dimensions.TextDirection : string.Empty,
-                languageInput: request.Dimensions.HasLanguageInput ? request.Dimensions.LanguageInput : string.Empty,
+                surfaceScaleX: surfaceScaleX,
+                surfaceScaleY: surfaceScaleY,
+                surfaceScaleZ: surfaceScaleZ,
+                textInput: textInput,
+                textSize: textSize,
+                fontInput: fontInput,
+                textAlign: textAlign,
+                verticalAlign: verticalAlign,
+                textDirection: textDirection,
+                languageInput: languageInput,
                 objectFilePath: _objectFilePath ?? string.Empty,
-                isPreRendered: request.HasIsPreRendered ? request.IsPreRendered : true);
+                isPreRendered: isPrerendered);
 
             if (objectId == 0 || created == null)
                 throw new RpcException(new Status(StatusCode.Internal, "Object creation failed; no solid was saved."));
 
-            var savedSolid = await new NetGenCAD.Designer.Repositories.SolidDimensions().GetByIdAsync(_db, objectId);
+            // Get Module name and include method to include in response
+            var savedSolid = await new NetGenCAD.Designer.Repositories.SolidDimensions().GetByIdWithModuleAsync(_db, objectId);
+            var _savedSolid = savedSolid.FirstOrDefault();
 
             if (savedSolid == null)
                 throw new RpcException(new Status(
                     StatusCode.Internal, "The created solid could not be reloaded."));
 
-            var protoSolid = GrpcUtilities.ToProtoSolidDimensions(savedSolid, selectedUnit);
+            var protoSolid = GrpcUtilities.ToProtoSolidDimensions(_savedSolid!, selectedUnit);
+            protoSolid.SurfaceFileFormat = autoSmoothFile;
+            protoSolid.SurfaceConvexity = surfaceConvexity;
 
             return new CreateSolidResponse
             {
                 ObjectId = objectId,
-                ObjectName = request.ObjectName,
+                ObjectName = _savedSolid!.Name,
+                OscadFile = Path.Combine(Path.GetDirectoryName(_objectFilePath)!, _savedSolid.ModuleFile!.Replace("include <", "").Replace(">;", "")).Replace("\\", "/"),
                 SelectedUnit = request.SelectedUnit,
-                AxisId = protoSolid.AxisDimensionsId,
+                AxisId = (int)_savedSolid.AxisDimensionsId!,
                 AxisUsedCallingMethod = callMethodFromAxisId,
                 AxisDisplayName = StringFunctions.FormatAxisDisplay(callMethodFromAxisId),
-                CreatedSolid = protoSolid
+                ObjectModule = new ModuleObject
+                {
+                    ObjectModuleId = _savedSolid.ModuleDimensionsId ?? 0,
+                    ObjectModuleName = _savedSolid.ModuleName ?? string.Empty,
+                    CreatedSolid = protoSolid
+                }
             };
         }
 
@@ -238,7 +319,7 @@ namespace NetGenCAD.Designer.Api.Services
             object item = request.ItemType switch
             {
                 ItemType.Solid => new NetGenCAD.Designer.Repositories.SolidDimensions { Id = request.ItemId },
-                ItemType.Module => new NetGenCAD.Designer.Repositories.ModuleDimensions { Id = request.ItemId },
+                ItemType.Module => new NetGenCAD.Designer.Repositories.ModuleDimensions { Id = request.ItemId }, 
                 _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid item type."))
             };
 
@@ -428,69 +509,6 @@ namespace NetGenCAD.Designer.Api.Services
         // -------------------------------------------------------------------------
         // Mapping helpers (expand as needed)
         // -------------------------------------------------------------------------
-
-        private static SolidDimensions ToProto(SolidDimensions src) => new()
-        {
-            Id = src.Id,
-            //Name = src.Name ?? string.Empty,
-            Description = src.Description ?? string.Empty,
-            SolidType = src.SolidType,
-            Length = src.Length,
-            Width = src.Width,
-            Height = src.Height,
-            Thickness = src.Thickness,
-            Radius = src.Radius,
-        };
-
-        private static SolidDimensions ToDomain(SolidDimensions proto) => new()
-        {
-            Id = proto.Id,
-            //Name = proto.Name,
-            Description = proto.Description,
-            SolidType = proto.SolidType,
-            Length = proto.Length,
-            Width = proto.Width,
-            Height = proto.Height,
-            Thickness = proto.Thickness,
-            Radius = proto.Radius,
-        };
-
-        private static ModuleDimensions ToProto(ModuleDimensions src) => new()
-        {
-            Id = src.Id,
-            Name = src.Name ?? string.Empty,
-            ModuleType = src.ModuleType ?? string.Empty,
-            OscadMethod = src.OscadMethod ?? string.Empty,
-            // ...
-        };
-
-        private static ModuleDimensions ToDomain(ModuleDimensions proto) => new()
-        {
-            Id = proto.Id,
-            Name = proto.Name,
-            ModuleType = proto.ModuleType,
-            OscadMethod = proto.OscadMethod,
-            // ...
-        };
-
-        private static Grpc.Protobuf.AxisDimensions ToProto(Repositories.AxisDimensions src) => new()
-        {
-            Id = src.Id,
-            Theme = src.Theme ?? string.Empty,
-            Unit = src.Unit ?? string.Empty,
-            MinX = src.MinX,
-            MaxX = src.MaxX,
-            // ...
-        };
-
-        private static NetGenCAD.Designer.Repositories.AxisDimensions ToDomain(NetGenCAD.Designer.Api.Grpc.Protobuf.AxisDimensions proto) => new()
-        {
-            Id = proto.Id,
-            Theme = proto.Theme,
-            Unit = proto.Unit,
-            MinX = proto.MinX,
-            // ...
-        };
 
         private static NetGenCAD.Axis.Scad.Models.GeneratedModule ToGeneratedModule(NetGenCAD.Designer.Api.Grpc.Protobuf.GeneratedModule proto) => new()
         {
