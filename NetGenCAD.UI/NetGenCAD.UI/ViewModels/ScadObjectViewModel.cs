@@ -17,6 +17,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 using static NetGenCAD.Core.Measurements.Colors;
 using static NetGenCAD.Core.Measurements.Selector;
@@ -143,12 +144,7 @@ namespace NetGenCAD.UI.ViewModels
         private string _textDirection = "ltr";
         private string _languageInput = "EN";
         private bool _isTextSelected = false;
-        //private ObservableCollection<EnumOption> _directionOptions;
-        //private ObservableCollection<EnumOption> _hAlignOptions;
-        //private ObservableCollection<EnumOption> _vAlignOptions;
-        //private ObservableCollection<EnumOption> _languageOptions;
-        //private ObservableCollection<EnumOption> _scriptOptions;
-        //private ObservableCollection<EnumOption> _fontInputOptions;
+
 
         [UnconditionalSuppressMessage("Trimming", "IL2026")]
         [UnconditionalSuppressMessage("AOT", "IL3050")]
@@ -165,18 +161,6 @@ namespace NetGenCAD.UI.ViewModels
             _moduleDimensionsUnions = [];
             _moduleDimensionsDifferences = [];
             _moduleDimensionsIntersections = [];
-            //_directionOptions = [];
-            //_hAlignOptions = [];
-            //_vAlignOptions = [];
-            //_languageOptions = [];
-            //_scriptOptions = [];
-            //_fontInputOptions = [];
-            //DirectionOptions = EnumDescriptionHelper.GetOptions<TextDirection>();
-            //HAlignOptions = EnumDescriptionHelper.GetOptions<TextHAlign>();
-            //VAlignOptions = EnumDescriptionHelper.GetOptions<TextVAlign>();
-            //LanguageOptions = EnumDescriptionHelper.GetOptions<TextLanguage>();
-            //ScriptOptions = EnumDescriptionHelper.GetOptions<TextScript>();
-            //FontInputOptions = EnumHelper.PortableFontEnums;
             DbConnection = App.Services!.GetRequiredService<SqliteConnection>(); // Get the DbConnection from the DI container
             ClearObject();
             GetAxesList();
@@ -206,9 +190,9 @@ namespace NetGenCAD.UI.ViewModels
                 DbConnection!,
                 Name);
 
-            // Update ObservableCollections
-            ModuleDimensions = moduleDimensions;
-            SolidDimensions = solidDimensions;
+            // Update ObservableCollections - Order by Layer and then Operation type, L0, L1... then Union, Intersection, Difference (matching descending order in OSCAD functions)
+            ModuleDimensions = new ObservableCollection<ModuleDimensions>(moduleDimensions.OrderBy(md => md.Layer).ThenByDescending(md => md.ModuleType));
+            SolidDimensions = new ObservableCollection<SolidDimensions>(solidDimensions.OrderBy(sd => sd.Layer).ThenByDescending(sd => sd.OperationType));
             GetPolyhedronsList();
 
             // Update UI selection buttons to reflect current state
@@ -602,7 +586,6 @@ namespace NetGenCAD.UI.ViewModels
             // Call the static function
             await ObjectScadFunctions.PartsToScadFilesAsync(
                 Name,
-                Description,
                 _objectFilePath,
                 DbConnection!,
                 SolidDimensions,
@@ -820,7 +803,6 @@ namespace NetGenCAD.UI.ViewModels
         {
             await CreateUnionModuleAsync(
                 Name,
-                Description,
                 SolidDimensions,
                 ModuleDimensions,
                 DbConnection!,
@@ -834,7 +816,6 @@ namespace NetGenCAD.UI.ViewModels
         {
             await CreateDifferenceModuleAsync(
                 Name,
-                Description,
                 SolidDimensions,
                 ModuleDimensions,
                 DbConnection!,
@@ -848,7 +829,6 @@ namespace NetGenCAD.UI.ViewModels
         {
             await CreateIntersectionModuleAsync(
                 Name,
-                Description,
                 SolidDimensions,
                 ModuleDimensions,
                 DbConnection!,
@@ -945,7 +925,7 @@ namespace NetGenCAD.UI.ViewModels
             var moduleName = ModuleDimensions.FirstOrDefault(m => m.Id == solid.ModuleDimensionsId)?.Name;
             var (title, content) = ObjectScadFunctions.BuildSolidMethodsModal(solid, moduleName);
 
-                ModalTitle = title;
+                ModalTitle = title;  
                 ModalContent = content;
                 IsModalOpen = true;
         }

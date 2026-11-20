@@ -205,6 +205,8 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
     // ====== POINTS DataGrid Methods ======
     private void DataGrid_AutoGeneratingColumnPoints(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
+        NumericDataGridTextColumn.Apply(e);
+
         // List of columns to exclude from display - Hide Imperial columns for Metric view
         var excludedColumns = new[] { "Id", "Name", "CreatedAt", "OSCADMethod", "PointX_IN", "PointY_IN", "PointZ_IN", "Face", "FaceId" };
 
@@ -268,6 +270,8 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
 
     private void DataGrid_AutoGeneratingColumnPointsImperial(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
+        NumericDataGridTextColumn.Apply(e);
+
         // List of columns to exclude from display - Hide Metric columns for Imperial view
         var excludedColumns = new[] { "Id", "Name", "CreatedAt", "OSCADMethod", "PointX_MM", "PointY_MM", "PointZ_MM", "Face", "FaceId" };
 
@@ -332,6 +336,8 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
     // ====== FACES DataGrid Methods ======
     private void DataGrid_AutoGeneratingColumnFaces(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
+        NumericDataGridTextColumn.Apply(e);
+
         // List of columns to exclude from display
         var excludedColumns = new[] { "Id", "CreatedAt", "OSCADMethod", "PointX_MM", "PointX_IN", "PointY_MM", "PointY_IN", "PointZ_MM", "PointZ_IN", "PointsId", "Name" };
 
@@ -583,6 +589,8 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
 
     private void DataGrid_AutoGeneratingColumnShapeDimensions(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
+        NumericDataGridTextColumn.Apply(e);
+
         // Set FontSize to 12 for all columns
         if (e.Column is DataGridTextColumn textColumn)
         {
@@ -636,6 +644,8 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
 
     private void DataGrid_AutoGeneratingColumnShapeDimensionsImperial(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
+        NumericDataGridTextColumn.Apply(e);
+
         // Set FontSize to 12 for all columns
         if (e.Column is DataGridTextColumn textColumn)
         {

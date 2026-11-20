@@ -204,6 +204,22 @@ service AxesService {
   }
 }
 
+// AxisDimensions from NetGenCAD.Designer.Repositories.AxisDimensions
+message AxisDimensions {
+  int32 id = 1;
+  string theme = 2;
+  string unit = 3;
+  double min_x = 4;
+  double max_x = 5;
+  double min_y = 6;
+  double max_y = 7;
+  double min_z = 8;
+  double max_z = 9;
+  string oscad_method = 10;
+  string include_method = 11;
+  int64 created_at_unix = 12;
+}
+
 message GetAxesListResponse {
  // repeated GeneratedModule all_axes = 1;
   repeated GeneratedModule metric_axes = 2;

@@ -80,6 +80,9 @@
 		<None Update="Data\netgencad.db">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
+		<None Update="Scad\Axes\axis_preview.scad">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
 		<None Update="Scad\Axes\axes.scad">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>

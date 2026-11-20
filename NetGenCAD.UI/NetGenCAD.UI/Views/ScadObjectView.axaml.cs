@@ -50,7 +50,7 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
         AddActionButtonColumnToModuleDataGrid();
         AddViewButtonColumnToModuleDataGrid();
         AddSolidCountColumnToModuleDataGrid();
-    }
+    } 
 
     private void AddSolidCountColumnToModuleDataGrid()
     {
@@ -58,9 +58,10 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
             new((item, _) => new TextBlock
             {
                 Text = (item is ModuleDimensions module ? getCount(module) : 0).ToString(),
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                Margin = new Avalonia.Thickness(5),
+                Margin = new Avalonia.Thickness(0), // Reduced Margin
+                Padding = new Avalonia.Thickness(0),  // Reduced padding
                 FontSize = 12
             });
 
@@ -79,46 +80,117 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
         var totalTemplate = CreateCountTemplate(module =>
             ViewModel.SolidDimensions.Count(s => s.ModuleDimensionsId == module.Id));  // Total count of all solid types for the module
 
+
         ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = "Ball",
+            HeaderTemplate = new FuncDataTemplate<object>(
+            (item, ns) => new TextBlock
+            {
+                Text = "Ball",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(0), // Reduced Margin
+                Padding = new Avalonia.Thickness(0),  // Reduced padding
+                FontSize = 12,
+            }),
             CellTemplate = sphereTemplate,
+            CanUserSort = false,
             DisplayIndex = 5
         });
         ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = "Cube",
+            HeaderTemplate = new FuncDataTemplate<object>(
+            (item, ns) => new TextBlock
+            {
+                Text = "Cube",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(0), // Reduced Margin
+                Padding = new Avalonia.Thickness(0),  // Reduced padding
+                FontSize = 12,
+            }),
             CellTemplate = cubeTemplate,
+            CanUserSort = false,
             DisplayIndex = 6
         });
         ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = "Cylin",
+            HeaderTemplate = new FuncDataTemplate<object>(
+            (item, ns) => new TextBlock
+            {
+                Text = "Cyli",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(0), // Reduced Margin
+                Padding = new Avalonia.Thickness(0),  // Reduced padding
+                FontSize = 12,
+            }),
             CellTemplate = cylinderTemplate,
+            CanUserSort = false,
             DisplayIndex = 7
         });
         ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = "Poly",
+            HeaderTemplate = new FuncDataTemplate<object>(
+            (item, ns) => new TextBlock
+            {
+                Text = "Poly",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(0), // Reduced Margin
+                Padding = new Avalonia.Thickness(0),  // Reduced padding
+                FontSize = 12,
+            }),
             CellTemplate = shapeTemplate,
+            CanUserSort = false,
             DisplayIndex = 8
         });
         ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = "Surf",
+            HeaderTemplate = new FuncDataTemplate<object>(
+            (item, ns) => new TextBlock
+            {
+                Text = "Surf",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(0), // Reduced Margin
+                Padding = new Avalonia.Thickness(0),  // Reduced padding
+                FontSize = 12,
+            }),
             CellTemplate = surfaceTemplate,
+            CanUserSort = false,
             DisplayIndex = 9
         });
         ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = "Text",
+            HeaderTemplate = new FuncDataTemplate<object>(
+            (item, ns) => new TextBlock
+            {
+                Text = "Text",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(0), // Reduced Margin
+                Padding = new Avalonia.Thickness(0),  // Reduced padding
+                FontSize = 12,
+            }),
             CellTemplate = textTemplate,
+            CanUserSort = false,
             DisplayIndex = 10
         });
         ModulesDataGrid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = "Total",
+            HeaderTemplate = new FuncDataTemplate<object>(
+            (item, ns) => new TextBlock
+            {
+                Text = "All",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(0), // Reduced Margin
+                Padding = new Avalonia.Thickness(0),  // Reduced padding
+                FontSize = 12,
+            }),
             CellTemplate = totalTemplate,
+            CanUserSort = false,
             DisplayIndex = 11
         });
     }
@@ -502,9 +574,11 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
 
     private void DataGrid_AutoGeneratingColumnObject(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
+        NumericDataGridTextColumn.Apply(e);
+
         // List of columns to exclude from display - Hide Imperial columns for Metric view
         var excludedColumns = new[] { "Id", "ModuleDimensionsId", "OpenSCAD_DecimalPlaces", "CreatedAt", "Resolution", "OSCADMethod", "AxisDimensionsId", "AxisOSCADMethod", "Round_r_MM", "Round_r_IN", "Round_h_MM", "Round_h_IN", "ModuleName",
-            "Length_IN", "Width_IN", "Height_IN", "Thickness_IN", "XOffset_IN", "YOffset_IN", "ZOffset_IN", "Material", "Radius_IN", "Radius1_IN", "Radius2_IN", "CylinderHeight_IN", "Name", "Volume_IN3", "Name", "Volume_CM3", "SurfaceInvert", "SurfaceCenter", "SurfaceFilePath", "Alpha", "ScaleX", "ScaleY", "ScaleZ", "FontStyle", "ModuleFile"  };
+            "Length_IN", "Width_IN", "Height_IN", "Thickness_IN", "XOffset_IN", "YOffset_IN", "ZOffset_IN", "Material", "Radius_IN", "Radius1_IN", "Radius2_IN", "CylinderHeight_IN", "Name", "Volume_IN3", "Name", "Volume_CM3", "SurfaceInvert", "SurfaceCenter", "SurfaceFilePath", "Alpha", "ScaleX", "ScaleY", "ScaleZ", "FontStyle", "ModuleFile", "ObjectDimensionsId"  };
 
         if (excludedColumns.Contains(e.PropertyName))
         {
@@ -556,7 +630,8 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
             { "SurfaceInvert","Invert"},
             { "SurfaceCenter","Center"},
             { "Alpha","Alpha"},
-            { "TextDirection","Dir"}
+            { "TextDirection","Dir"},
+            { "ObjectDimensionsId", "Obj_Id"}
         };
 
         if (columnHeaders.TryGetValue(e.PropertyName, out var header))
@@ -686,8 +761,10 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
 
     private void DataGrid_AutoGeneratingColumnObjectImperial(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
+        NumericDataGridTextColumn.Apply(e);
+
         // List of columns to exclude from display - Hide Metric columns for Imperial view
-        var excludedColumns = new[] { "Id", "ModuleDimensionsId", "OpenSCAD_DecimalPlaces", "CreatedAt", "Resolution", "OSCADMethod", "AxisDimensionsId", "AxisOSCADMethod", "Round_r_MM", "Round_r_IN", "Round_h_MM", "Round_h_IN", "SurfaceInvert", "SurfaceCenter", "SurfaceFilePath", "Length_MM", "Width_MM", "Height_MM", "Thickness_MM", "XOffset_MM", "YOffset_MM", "ZOffset_MM", "Material", "Radius_MM", "Radius1_MM", "Radius2_MM", "CylinderHeight_MM", "Name", "Volume_CM3", "ModuleName", "Name", "Volume_IN3", "Volume_CM3", "Alpha", "ScaleX", "ScaleY", "ScaleZ", "FontStyle", "ModuleFile" };
+        var excludedColumns = new[] { "Id", "ModuleDimensionsId", "OpenSCAD_DecimalPlaces", "CreatedAt", "Resolution", "OSCADMethod", "AxisDimensionsId", "AxisOSCADMethod", "Round_r_MM", "Round_r_IN", "Round_h_MM", "Round_h_IN", "SurfaceInvert", "SurfaceCenter", "SurfaceFilePath", "Length_MM", "Width_MM", "Height_MM", "Thickness_MM", "XOffset_MM", "YOffset_MM", "ZOffset_MM", "Material", "Radius_MM", "Radius1_MM", "Radius2_MM", "CylinderHeight_MM", "Name", "Volume_CM3", "ModuleName", "Name", "Volume_IN3", "Volume_CM3", "Alpha", "ScaleX", "ScaleY", "ScaleZ", "FontStyle", "ModuleFile", "ObjectDimensionsId" };
 
         if (excludedColumns.Contains(e.PropertyName))
         {
@@ -739,7 +816,8 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
             { "SurfaceInvert","Invert"},
             { "SurfaceCenter","Center"},
             { "Alpha","Alpha"},
-            { "TextDirection","Dir"}
+            { "TextDirection","Dir"},
+            { "ObjectDimensionsId", "Obj_Id"}
         };
 
         if (columnHeaders.TryGetValue(e.PropertyName, out var header))

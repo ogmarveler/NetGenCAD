@@ -133,47 +133,16 @@ message ModuleDimensions {
   string module_color = 20;
 }
 
-// AxisDimensions from NetGenCAD.Designer.Repositories.AxisDimensions
-message AxisDimensions {
-  int32 id = 1;
-  string theme = 2;
-  string unit = 3;
-  double min_x = 4;
-  double max_x = 5;
-  double min_y = 6;
-  double max_y = 7;
-  double min_z = 8;
-  double max_z = 9;
-  string oscad_method = 10;
-  string include_method = 11;
-  int64 created_at_unix = 12;
-}
-
-// Request helpers for ObjectScadFunctions
-message CreateAxisRequest {
-  createAxes.GeneratedModule selected_axis = 1;
-  createAxes.UnitSystem selected_axis_unit = 2;
-  double axis_x_position_mm = 3;
-  double axis_y_position_mm = 4;
-  double axis_z_position_mm = 5;
-  int32 decimal_places = 6;
-  string object_file_path = 7;
-}
-
-message UpdateSolidRequest {
-  SolidDimensions solid = 1;
-}
-
 // ---------------------------------------------------------------------------
 // Services
 // ---------------------------------------------------------------------------
 
 service ObjectScadService {
 
-  // Object creation & management
-  rpc CreateUpdateSolid (CreateSolidRequest) returns (CreateSolidResponse) {
+  // Solid creation & management
+  rpc CreateUpdateSolid (CreateUpdateSolidRequest) returns (CreateUpdateSolidResponse) {
     option (google.api.http) = {
-      post: "/v1/objects/createUpdate"
+      post: "/v1/object/solid/createUpdate"
       body: "*"
     };
   }
@@ -181,134 +150,33 @@ service ObjectScadService {
   // Delete a solid or module within an object
   rpc DeleteItem (DeleteItemRequest) returns (createAxes.StringResponse) {
     option (google.api.http) = {
-      delete: "/v1/objects/deleteItem"
+      delete: "/v1/object/solid/deleteItem"
+      body: "*"
+    };
+  }
+
+  // Object creation & management
+  rpc CreateUpdateObject (CreateUpdateObjectRequest) returns (CreateUpdateObjectResponse) {
+    option (google.api.http) = {
+      post: "/v1/object/createUpdate"
       body: "*"
     };
   }
 
   rpc CopyObject (CopyObjectRequest) returns (CopyObjectResponse) {
     option (google.api.http) = {
-      post: "/v1/objects/copy"
-      body: "*"
-    };
-  }
-
-  // SCAD generation
-  rpc GenerateOSCAD (GenerateOSCADRequest) returns (GenerateOSCADResponse) {
-    option (google.api.http) = {
-      post: "/v1/objects/generate-os-cad"
-      body: "*"
-    };
-  }
-
-  rpc PartsToScadFiles (PartsToScadFilesRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/v1/objects/parts-to-scad"
-      body: "*"
-    };
-  }
-
-  rpc ObjectToScadFiles (ObjectToScadFilesRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/v1/objects/to-scad"
-      body: "*"
-    };
-  }
-
-  // Boolean modules
-  rpc CreateUnionModule (CreateBooleanModuleRequest) returns (ModuleDimensions) {
-    option (google.api.http) = {
-      post: "/v1/objects/boolean/union"
-      body: "*"
-    };
-  }
-
-  rpc CreateDifferenceModule (CreateBooleanModuleRequest) returns (ModuleDimensions) {
-    option (google.api.http) = {
-      post: "/v1/objects/boolean/difference"
-      body: "*"
-    };
-  }
-
-  rpc CreateIntersectionModule (CreateBooleanModuleRequest) returns (ModuleDimensions) {
-    option (google.api.http) = {
-      post: "/v1/objects/boolean/intersection"
-      body: "*"
-    };
-  }
-
-  // Queries & helpers
-  rpc GetDimensionsParts (GetDimensionsPartsRequest) returns (GetDimensionsPartsResponse) {
-    option (google.api.http) = {
-      post: "/v1/objects/dimensions"
-      body: "*"
-    };
-  }
-
-  rpc GetFilteredAxesList (GetFilteredAxesListRequest) returns (GetFilteredAxesListResponse) {
-    option (google.api.http) = {
-      post: "/v1/objects/axes/filtered"
-      body: "*"
-    };
-  }
-
-  rpc ConvertInputsToImperial (ConvertSolidInputsRequest) returns (ConvertSolidInputsResponse) {
-    option (google.api.http) = {
-      post: "/v1/objects/convert/imperial"
-      body: "*"
-    };
-  }
-
-  rpc ConvertInputsToMetric (ConvertSolidInputsRequest) returns (ConvertSolidInputsResponse) {
-    option (google.api.http) = {
-      post: "/v1/objects/convert/metric"
-      body: "*"
-    };
-  }
-
-  rpc ExportToStl (ExportToStlRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/v1/objects/export/stl"
+      post: "/v1/object/copy"
       body: "*"
     };
   }
 }
 
-message CreateAxisResponse {
-  int32 axis_id = 1;
-  AxisDimensions axis_dimensions = 2;
-  double axis_x_position_mm = 3;
-  double axis_y_position_mm = 4;
-  double axis_z_position_mm = 5;
-  string object_axis_display = 6;
-  string object_axis_unit_display = 7;
-  createAxes.UnitSystem selected_unit_value = 8;
-}
-
-message UpdateAxisTranslateRequest {
-  bool axis_stored = 1;
-  AxisDimensions axis_dimensions = 2;
-  createAxes.GeneratedModule selected_axis = 3;
-  double axis_x_position_mm = 4;
-  double axis_y_position_mm = 5;
-  double axis_z_position_mm = 6;
-  createAxes.UnitSystem selected_axis_unit = 7;
-  int32 decimal_places = 8;
-  bool remove_axis = 9;
-  string object_file_path = 10;
-}
-
-message UpdateAxisTranslateResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-message CreateSolidRequest {
+message CreateUpdateSolidRequest {
   SolidType selected_solid_type = 1;
   string object_name = 2;
   string description = 3;
   optional int32 axis_id = 4; // Required only if axis calling method not present
-  // optional string selected_filament = 5;
+  optional string selected_filament = 5;
   OperationType selected_operation_type = 6;
   SolidDimensions dimensions = 7;  // carries most numeric params, Imperial or Metric is converted based on selected_unit
   int32 layer = 8;
@@ -322,7 +190,7 @@ message CreateSolidRequest {
   optional string oscad_color = 16; // OpenSCAD available colors; check UI for colors
 }
 
-message CreateSolidResponse {
+message CreateUpdateSolidResponse {
   int32 object_id = 1;
   string object_name = 2;
   string oscad_file = 3;
@@ -339,13 +207,46 @@ message ModuleObject {
   SolidDimensions created_solid = 3;
 }
 
+message CreateUpdateObjectRequest {
+  string object_name = 1;
+  string description = 2;
+  optional int32 axis_id = 3; // Required only if axis calling method not present
+  optional string selected_filament = 4;
+  OperationType selected_operation_type = 5;
+  SolidDimensions dimensions = 6;  // carries most numeric params, Imperial or Metric is converted based on selected_unit
+  int32 layer = 7;
+  optional double alpha = 8; // default is 1
+  createAxes.UnitSystem selected_unit = 9;
+  optional int32 decimal_places = 10; // default is 2 places
+  optional string axis_used_calling_method = 11; // Can be looked up in the list of axes on Create Axes tab (click clipboard)
+  optional bool append_object = 12; // Used for NetGenCAD Set; default is false
+  optional bool is_pre_rendered = 13; // For adding this into the SCAd code itself; default is true
+  optional string color_hex = 14; // if supplied in the request, then use instead of oscad_color
+  optional string oscad_color = 15; // OpenSCAD available colors; check UI for colors
+}
+
+message CreateUpdateObjectResponse {
+  int32 object_id = 1;
+  string object_name = 2;
+  string oscad_file = 3;
+  createAxes.UnitSystem selected_unit = 4;
+  int32 axis_id = 5;
+  string axis_used_calling_method = 6;
+  string axis_display_name = 7;
+  ModuleObject object_module = 8;
+}
+
 message CopyObjectRequest {
-  string source_object_name = 1;
+  optional string source_object_name = 1;
+  optional int32 source_object_id = 2; // ObjectDimensions ID; takes precedence over name
+  string target_object_name = 3;
 }
 
 message CopyObjectResponse {
   repeated SolidDimensions solids = 1;
   repeated ModuleDimensions modules = 2;
+  int32 object_dimensions_id = 3;
+  string object_name = 4;
 }
 
 message DeleteItemRequest {

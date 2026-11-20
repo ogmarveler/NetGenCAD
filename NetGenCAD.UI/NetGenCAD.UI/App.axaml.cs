@@ -120,12 +120,12 @@ namespace NetGenCAD.UI
                         notifications.Publish("axes");
                         break;
 
-                    case "/v1/objects/createUpdate":
+                    case "/v1/object/solid/createUpdate":
                         await Services!.GetRequiredService<MainWindowViewModel>().RefreshFromApiAsync().ConfigureAwait(false); // Refresh Objects for all views that depend on it
                         notifications.Publish("object");
                         break;
 
-                    case "/v1/objects/deleteItem":
+                    case "/v1/objects/solid/deleteItem":
                         await Services!.GetRequiredService<ScadObjectViewModel>().PartsToScadFilesAsync().ConfigureAwait(false); // Match if user was deleting item from UI
                         notifications.Publish("object");
                         break;

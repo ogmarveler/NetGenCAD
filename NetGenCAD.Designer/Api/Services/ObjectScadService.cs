@@ -32,7 +32,15 @@ namespace NetGenCAD.Designer.Api.Services
             ObjectScadFunctions.GetDimensionsPartsAsync(_db, string.Empty).Wait(); // Make sure tables exist in the database before any calls are applied, patience can be a virtue
         }
 
-        public override async Task<CreateSolidResponse> CreateUpdateSolid(CreateSolidRequest request, ServerCallContext context)
+        // Hierarchy of CAD structures: File -> (module Axis, module Set) -> Object -> Module -> Solid.  Each level can be created, updated, or deleted. The gRPC service methods are implemented here to handle these operations.
+
+        /************************* 
+         * gRPC Service Methods - SOLID creation, update, and deletion
+         *************************/
+
+        // HTTP 1.1 --------------------------------------------- /v1/object/solid/createUpdate -------------------------------------------------//
+        // HTTP 2 --------------------------------------------- /objectScad.ObjectScadService/CreateUpdateSolid ---------------------------------//
+        public override async Task<CreateUpdateSolidResponse> CreateUpdateSolid(CreateUpdateSolidRequest request, ServerCallContext context)
         {
 
             NetGenCAD.Designer.Repositories.SolidDimensions? created = null;
@@ -180,7 +188,7 @@ namespace NetGenCAD.Designer.Api.Services
             var appendObject = request.HasAppendObject ? request.AppendObject : false;
 
 
-            var objectId = await ObjectScadFunctions.CreateObjectWithCallbackAsync(
+            var solidId = await ObjectScadFunctions.CreateObjectWithCallbackAsync(
                 selectedSolidType: selectedSolidTypeName,
                 name: StringFunctions.NameSanitize(request.ObjectName),
                 description: description,
@@ -271,11 +279,11 @@ namespace NetGenCAD.Designer.Api.Services
                 objectFilePath: _objectFilePath ?? string.Empty,
                 isPreRendered: isPrerendered);
 
-            if (objectId == 0 || created == null)
+            if (solidId == 0 || created == null)
                 throw new RpcException(new Status(StatusCode.Internal, "Object creation failed; no solid was saved."));
 
             // Get Module name and include method to include in response
-            var savedSolid = await new NetGenCAD.Designer.Repositories.SolidDimensions().GetByIdWithModuleAsync(_db, objectId);
+            var savedSolid = await new NetGenCAD.Designer.Repositories.SolidDimensions().GetByIdWithModuleAsync(_db, solidId);
             var _savedSolid = savedSolid.FirstOrDefault();
 
             if (savedSolid == null)
@@ -286,10 +294,10 @@ namespace NetGenCAD.Designer.Api.Services
             protoSolid.SurfaceFileFormat = autoSmoothFile;
             protoSolid.SurfaceConvexity = surfaceConvexity;
 
-            return new CreateSolidResponse
+            return new CreateUpdateSolidResponse
             {
-                ObjectId = objectId,
-                ObjectName = _savedSolid!.Name,
+                ObjectId = _savedSolid!.ObjectDimensionsId,
+                ObjectName = _savedSolid.Name,
                 OscadFile = Path.Combine(Path.GetDirectoryName(_objectFilePath)!, _savedSolid.ModuleFile!.Replace("include <", "").Replace(">;", "")).Replace("\\", "/"),
                 SelectedUnit = request.SelectedUnit,
                 AxisId = (int)_savedSolid.AxisDimensionsId!,
@@ -304,22 +312,14 @@ namespace NetGenCAD.Designer.Api.Services
             };
         }
 
-        public override async Task<CopyObjectResponse> CopyObject(CopyObjectRequest request, ServerCallContext context)
-        {
-            var (solids, modules) = await ObjectScadFunctions.CopyObjectWithCallbackAsync(request.SourceObjectName, _db);
-
-            var response = new CopyObjectResponse();
-            response.Solids.AddRange(solids.Select(solid => GrpcUtilities.ToProtoSolidDimensions(solid, Core.Measurements.Selector.UnitSystem.Metric)));
-            response.Modules.AddRange(modules.Select(GrpcUtilities.ToProtoModuleDimensions));
-            return response;
-        }
-
+        // HTTP 1.1 --------------------------------------------- /v1/object/solid/deleteItem -------------------------------------------------//
+        // HTTP 2 --------------------------------------------- /objectScad.ObjectScadService/DeleteItem ---------------------------------//
         public override async Task<StringResponse> DeleteItem(DeleteItemRequest request, ServerCallContext context)
         {
             object item = request.ItemType switch
             {
                 ItemType.Solid => new NetGenCAD.Designer.Repositories.SolidDimensions { Id = request.ItemId },
-                ItemType.Module => new NetGenCAD.Designer.Repositories.ModuleDimensions { Id = request.ItemId }, 
+                ItemType.Module => new NetGenCAD.Designer.Repositories.ModuleDimensions { Id = request.ItemId },
                 _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid item type."))
             };
 
@@ -333,201 +333,35 @@ namespace NetGenCAD.Designer.Api.Services
             return new StringResponse { Message = $"{item.GetType().Name.Replace("Dimensions", "")} item with {request.ItemId} deleted successfully." };
         }
 
-        public override async Task<GenerateOSCADResponse> GenerateOSCAD(GenerateOSCADRequest request, ServerCallContext context)
-        {
-            var solid = GrpcUtilities.ToCoreSolidDimensions(request.Solid);
-            var oscad = await ObjectScadFunctions.GenerateOSCADAsync(
-                oDim: solid,
-                isCubeSelected: request.IsCubeSelected,
-                isRoundCubeSelected: request.IsRoundCubeSelected,
-                isSurfaceSelected: request.IsSurfaceSelected,
-                isRoundSurfaceSelected: false,
-                isCylinderSelected: request.IsCylinderSelected,
-                isRoundCylinderSelected: false,
-                isSphereSelected: request.IsSphereSelected,
-                isTextSelected: request.IsTextSelected,
-                selectedUnit: GrpcUtilities.ToCoreUnitSystem(request.SelectedUnit),
-                decimalPlaces: request.DecimalPlaces,
-                surfaceScaleX: request.SurfaceScaleX,
-                surfaceScaleY: request.SurfaceScaleY,
-                surfaceScaleZ: request.SurfaceScaleZ,
-                surfaceFilePath: request.SurfaceFilePath,
-                surfaceInvert: false,
-                surfaceCenter: false,
-                surfaceConvexity: 1,
-                isPreRendered: true,
-                textInput: request.TextInput,
-                textSize: request.TextSize,
-                fontInput: request.FontInput,
-                textAlign: string.Empty,
-                verticalAlign: string.Empty,
-                textDirection: string.Empty,
-                languageInput: string.Empty);
+        /************************* 
+         * gRPC Service Methods - OBJECT creation, update, and deletion
+         *************************/
 
-            return new GenerateOSCADResponse { OscadMethod = oscad };
-        }
-
-        public override async Task<Empty> PartsToScadFiles(PartsToScadFilesRequest request, ServerCallContext context)
+        // HTTP 1.1 --------------------------------------------- /v1/object/copy -------------------------------------------------//
+        // HTTP 2 --------------------------------------------- /objectScad.ObjectScadService/CopyObject ---------------------------------//
+        public override async Task<CopyObjectResponse> CopyObject(CopyObjectRequest request, ServerCallContext context)
         {
-            await ObjectScadFunctions.PartsToScadFilesAsync(
-                request.ObjectName,
-                request.ObjectDescription,
-                request.ObjectFilePath,
-                _db,
-                request.SolidDimensions.Select(GrpcUtilities.ToCoreSolidDimensions),
-                request.ModuleDimensions.Select(GrpcUtilities.ToCoreModuleDimensions));
-            return new Empty();
-        }
+            if (request.HasSourceObjectId && request.SourceObjectId <= 0)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Source object ID must be positive."));
+            if (!request.HasSourceObjectId && string.IsNullOrWhiteSpace(request.SourceObjectName))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "A source object ID or name is required."));
 
-        public override async Task<Empty> ObjectToScadFiles(ObjectToScadFilesRequest request, ServerCallContext context)
-        {
-            await ObjectScadFunctions.ObjectToScadFilesAsync(
-                request.ObjectFilePath,
-                request.ModuleDimensions.Select(GrpcUtilities.ToCoreModuleDimensions),
-                request.XMirror,
-                request.YMirror,
-                request.ZMirror);
-            return new Empty();
-        }
+            var source = request.HasSourceObjectId
+                ? await new ObjectDimensions().GetByIdAsync(_db, request.SourceObjectId)
+                : await new ObjectDimensions().GetByNameAsync(_db, request.SourceObjectName.Trim());
+            if (source == null)
+                throw new RpcException(new Status(StatusCode.NotFound, "Source object was not found."));
 
-        public override async Task<ModuleDimensions> CreateUnionModule(CreateBooleanModuleRequest request, ServerCallContext context)
-        {
-            await ObjectScadFunctions.CreateUnionModuleAsync(
-                request.ObjectName,
-                request.ObjectDescription,
-                request.SolidDimensions.Select(GrpcUtilities.ToCoreSolidDimensions),
-                request.ModuleDimensions.Select(GrpcUtilities.ToCoreModuleDimensions),
-                _db,
-                request.IsPreRendered);
-            return new ModuleDimensions(); // return the created module if the method is adjusted to return it
-        }
-
-        public override async Task<ModuleDimensions> CreateDifferenceModule(CreateBooleanModuleRequest request, ServerCallContext context)
-        {
-            await ObjectScadFunctions.CreateDifferenceModuleAsync(
-                request.ObjectName,
-                request.ObjectDescription,
-                request.SolidDimensions.Select(GrpcUtilities.ToCoreSolidDimensions),
-                request.ModuleDimensions.Select(GrpcUtilities.ToCoreModuleDimensions),
-                _db,
-                request.IsPreRendered);
-            return new ModuleDimensions();
-        }
-
-        public override async Task<ModuleDimensions> CreateIntersectionModule(CreateBooleanModuleRequest request, ServerCallContext context)
-        {
-            await ObjectScadFunctions.CreateIntersectionModuleAsync(
-                request.ObjectName,
-                request.ObjectDescription,
-                request.SolidDimensions.Select(GrpcUtilities.ToCoreSolidDimensions),
-                request.ModuleDimensions.Select(GrpcUtilities.ToCoreModuleDimensions),
-                _db,
-                request.IsPreRendered);
-            return new ModuleDimensions();
-        }
-
-        public override async Task<GetDimensionsPartsResponse> GetDimensionsParts(GetDimensionsPartsRequest request, ServerCallContext context)
-        {
-            var (solids, modules) = await ObjectScadFunctions.GetDimensionsPartsAsync(_db, request.ObjectName);
-            var response = new GetDimensionsPartsResponse();
+            var (solids, modules) = await ObjectScadFunctions.CopyObjectWithCallbackAsync(source.ObjectName, _db);
+            var copyName = solids.FirstOrDefault()?.Name ?? modules.FirstOrDefault()?.ObjectName;
+            if (copyName == null)
+                throw new RpcException(new Status(StatusCode.Internal, "Copy produced no object data."));
+            var copy = await new ObjectDimensions().GetByNameAsync(_db, copyName)
+                ?? throw new RpcException(new Status(StatusCode.Internal, "The copied object could not be reloaded."));
+            var response = new CopyObjectResponse { ObjectDimensionsId = copy.Id, ObjectName = copy.ObjectName };
             response.Solids.AddRange(solids.Select(solid => GrpcUtilities.ToProtoSolidDimensions(solid, Core.Measurements.Selector.UnitSystem.Metric)));
             response.Modules.AddRange(modules.Select(GrpcUtilities.ToProtoModuleDimensions));
             return response;
         }
-
-        public override Task<GetFilteredAxesListResponse> GetFilteredAxesList(GetFilteredAxesListRequest request, ServerCallContext context)
-        {
-            var axes = request.AxesModulesList.Select(ToGeneratedModule).ToList();
-            var (filtered, selectedValue, selected) = ObjectScadFunctions.GetFilteredAxesList(
-                GrpcUtilities.ToCoreUnitSystem(request.SelectedAxisUnit),
-                new System.Collections.ObjectModel.ObservableCollection<NetGenCAD.Axis.Scad.Models.GeneratedModule>(axes),
-                request.AxisStored,
-                request.SelectedAxisValue);
-
-            var response = new GetFilteredAxesListResponse
-            {
-                SelectedAxisValue = selectedValue ?? string.Empty,
-                SelectedAxis = selected != null ? ToProto(selected) : null
-            };
-            response.FilteredAxes.AddRange(filtered);
-            return Task.FromResult(response);
-        }
-
-        public override Task<ConvertSolidInputsResponse> ConvertInputsToImperial(ConvertSolidInputsRequest request, ServerCallContext context)
-        {
-            var result = ObjectScadFunctions.ConvertInputsToImperial(
-                request.Length, request.Width, request.Height, request.Thickness,
-                request.Radius, request.Radius1, request.Radius2, request.CylinderHeight,
-                request.XOffset, request.YOffset, request.ZOffset, request.DecimalPlaces);
-
-            return Task.FromResult(new ConvertSolidInputsResponse
-            {
-                Length = result.Length,
-                Width = result.Width,
-                Height = result.Height,
-                Thickness = result.Thickness,
-                Radius = result.Radius,
-                Radius1 = result.Radius1,
-                Radius2 = result.Radius2,
-                CylinderHeight = result.CylinderHeight,
-                XOffset = result.XOffset,
-                YOffset = result.YOffset,
-                ZOffset = result.ZOffset
-            });
-        }
-
-        public override Task<ConvertSolidInputsResponse> ConvertInputsToMetric(ConvertSolidInputsRequest request, ServerCallContext context)
-        {
-            var result = ObjectScadFunctions.ConvertInputsToMetric(
-                request.Length, request.Width, request.Height, request.Thickness,
-                request.Radius, request.Radius1, request.Radius2, request.CylinderHeight,
-                request.XOffset, request.YOffset, request.ZOffset, request.DecimalPlaces);
-
-            return Task.FromResult(new ConvertSolidInputsResponse
-            {
-                Length = result.Length,
-                Width = result.Width,
-                Height = result.Height,
-                Thickness = result.Thickness,
-                Radius = result.Radius,
-                Radius1 = result.Radius1,
-                Radius2 = result.Radius2,
-                CylinderHeight = result.CylinderHeight,
-                XOffset = result.XOffset,
-                YOffset = result.YOffset,
-                ZOffset = result.ZOffset
-            });
-        }
-
-        public override async Task<Empty> ExportToStl(ExportToStlRequest request, ServerCallContext context)
-        {
-            await ObjectScadFunctions.ExportToStlAsync(request.ObjectFilePath, request.ShouldRestoreAxis);
-            return new Empty();
-        }
-
-
-        // -------------------------------------------------------------------------
-        // Mapping helpers (expand as needed)
-        // -------------------------------------------------------------------------
-
-        private static NetGenCAD.Axis.Scad.Models.GeneratedModule ToGeneratedModule(NetGenCAD.Designer.Api.Grpc.Protobuf.GeneratedModule proto) => new()
-        {
-            CallingMethod = proto.CallingMethod,
-            Unit = proto.Unit,
-            Theme = proto.Theme,
-            MinX = proto.MinX,
-            MaxX = proto.MaxX,
-            // ...
-        };
-
-        private static NetGenCAD.Designer.Api.Grpc.Protobuf.GeneratedModule ToProto(NetGenCAD.Axis.Scad.Models.GeneratedModule src) => new()
-        {
-            CallingMethod = src.CallingMethod ?? string.Empty,
-            Unit = src.Unit ?? string.Empty,
-            Theme = src.Theme ?? string.Empty,
-            MinX = src.MinX,
-            MaxX = src.MaxX,
-            // ...
-        };
     }
 }

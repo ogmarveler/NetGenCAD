@@ -57,6 +57,10 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 ###### 
 #### Layout of Custom Axes Builder
 The Custom Axes Builder has 2 main visual sections: Custom Axis and Generated Axes. The outputs of newly created axes will show up in the tables next to the Custom Axis section.
+
+Create or select an axis and choose **View Output** to open its preview in the default SCAD application. **Preview Color** overrides the axis color only in the preview; **Clear Inputs** restores the axis default. The preview origin choices reflect the axis within its X and Y bounds; they do not change the saved axis or the OpenSCAD camera. Changes to the preview update its file, which may require reloading in the SCAD application. Mirroring also reverses the axis labels.
+
+Choose a mirrored origin and select **Save Mirror** to create a separate axis with its own calling method and file. After saving, the inputs and temporary mirror controls reset, the axes list refreshes, and the preview file is rewritten to call the saved axis without additional top-level transforms. The preview opens if it was not already open. **Mirror Z** independently flips the axis within its Z bounds and can be combined with any corner. It reflects the geometry, not the OpenSCAD camera, and reverses the labels. The saved axis appears in the generated axes list and can be used or deleted independently of the original. Its calling method encodes the millimeter translation and reflected axes, for example `_Orig_300_x_0_x_0_Mirror_X_0_0`. Negative signs are encoded as `N` and decimal points as `D`. Saving the same variant again updates it instead of creating a duplicate.
 ###### 
 ![Axis Creation](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/axisCreation.png)
 ###### 
@@ -67,6 +71,8 @@ Varying axes of different sizes, measurement types, colors, and combinations of 
 * **Imperial axis** - 1/4", 1/8", 1/16", and 1/32" increments
 * **Convert mm to inches** - Enter inputs in Metric (mm) first, then select Imperial (in)
 * **Convert inches to mm** - Enter inputs in Imperial (in) first, then select Metric (mm)
+
+Each object and its solids share one axis reference. Changing or clearing a solid's axis updates the object and its other solids; a new solid without an axis inherits the object's axis. When existing data is migrated, the newest solid's axis is used for its object (creation timestamp, then ID as a tiebreaker). Missing referenced axes must be corrected before migration.
 
 ###### 
 #### Generated SCAD Files

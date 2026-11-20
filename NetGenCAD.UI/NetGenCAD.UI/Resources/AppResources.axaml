@@ -23,6 +23,7 @@
     <conv:UnitSystemToColorConverter x:Key="UnitSystemToColorConverter" />
     <conv:AxisDisplayConverter x:Key="AxisDisplayConverter" />
     <conv:ModuleTypeToColorConverter x:Key="ModuleTypeToColorConverter" />
+    <conv:ModuleDisplayNameConverter x:Key="ModuleDisplayNameConverter" />
     <conv:ThemeToIconConverter x:Key="ThemeToIconConverter" />
     <conv:StringEqualityConverter x:Key="StringEqualityConverter" />
     <conv:PolyhedronOperationTypeConverter x:Key="PolyhedronOperationTypeConverter" />

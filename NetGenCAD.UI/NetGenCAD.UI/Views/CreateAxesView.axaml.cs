@@ -215,7 +215,61 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
 
     private async void CreateCustomAxis(object? sender, RoutedEventArgs e) => await ViewModel.CreateCustomAxisAsync();
 
-    private async void ClearInputsAsync(object? sender, RoutedEventArgs e) => await ViewModel.ClearInputs();
+    private async void ClearInputsAsync(object? sender, RoutedEventArgs e)
+    {
+        await ViewModel.ClearInputs();
+        ResetMirrorControls();
+    }
+
+    private async void ViewAxisOutputButton_Click(object? sender, RoutedEventArgs e) => await ViewModel.ShowAxisPreviewAsync();
+
+    private async void PreviewColor_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is CreateAxesViewModel viewModel)
+            await viewModel.RefreshPreviewColorAsync();
+    }
+
+    private async void PreviewColorHex_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox checkBox && DataContext is CreateAxesViewModel viewModel)
+        {
+            viewModel.IsPreviewColorFromHex = checkBox.IsChecked == true;
+            await viewModel.RefreshPreviewColorAsync();
+        }
+    }
+
+    private async void PreviewColorHex_TextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox textBox && DataContext is CreateAxesViewModel viewModel)
+        {
+            viewModel.PreviewColorHex = textBox.Text ?? string.Empty;
+            await viewModel.RefreshPreviewColorAsync();
+        }
+    }
+
+    private async void SaveMirroredAxisButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (await ViewModel.SaveMirroredAxisAsync())
+            ResetMirrorControls();
+    }
+
+    private void ResetMirrorControls()
+    {
+        this.FindControl<RadioButton>("OriginalAxisCorner")!.IsChecked = true;
+        this.FindControl<CheckBox>("MirrorZCheckBox")!.IsChecked = false;
+    }
+
+    private async void MirrorZ_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox checkBox)
+            await ViewModel.SetPreviewMirrorZAsync(checkBox.IsChecked == true);
+    }
+
+    private async void AxisPreviewCorner_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { Tag: string tag } && Enum.TryParse<AxisPreviewCorner>(tag, out var corner))
+            await ViewModel.SetPreviewCornerAsync(corner);
+    }
 
     private async void DeleteAxisButton_Click(object? sender, RoutedEventArgs e)
     {
@@ -292,6 +346,8 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     [RequiresUnreferencedCode("Calls Avalonia.Data.Binding.Binding(String)")]
     private void DataGrid_AutoGeneratingColumnImperial(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
+        NumericDataGridTextColumn.Apply(e, e.PropertyName == nameof(GeneratedModule.Volume));
+
         // List of columns to exclude from display - Hide Metric columns for Imperial view
         var excludedColumns = new[] { "AxisId" };
 
@@ -301,11 +357,11 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        if (ShouldExcludePropertyWithAllZeros(e.PropertyName))
-        {
-            e.Cancel = true;
-            return;
-        }
+        //if (ShouldExcludePropertyWithAllZeros(e.PropertyName))
+        //{
+        //    e.Cancel = true;
+        //    return;
+        //}
 
         // Customize CallingMethod column to show formatted axis display
         if (e.PropertyName == nameof(Axis.Scad.Models.GeneratedModule.CallingMethod))
@@ -364,6 +420,8 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     {
         if (sender is DataGrid dataGrid && dataGrid.SelectedItem is Axis.Scad.Models.GeneratedModule selected)
         {
+            ViewModel.MirroredAxis = new GeneratedModule { MinX = selected.MinX, MaxX = selected.MaxX, MinY = selected.MinY, MaxY = selected.MaxY };
+            ViewModel.PreviewAxisCallingMethod = selected.CallingMethod ?? string.Empty;
             ViewModel.SelectedUnitValue = UnitSystem.Imperial;
             ViewModel.MinXValue = selected.MinX;
             ViewModel.MaxXValue = selected.MaxX;
@@ -397,6 +455,8 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     {
         if (sender is DataGrid dataGrid && dataGrid.SelectedItem is Axis.Scad.Models.GeneratedModule selected)
         {
+            ViewModel.MirroredAxis = new GeneratedModule { MinX = selected.MinX, MaxX = selected.MaxX, MinY = selected.MinY, MaxY = selected.MaxY };
+            ViewModel.PreviewAxisCallingMethod = selected.CallingMethod ?? string.Empty;
             ViewModel.SelectedUnitValue = UnitSystem.Metric;
             ViewModel.MinXValue = selected.MinX;
             ViewModel.MaxXValue = selected.MaxX;

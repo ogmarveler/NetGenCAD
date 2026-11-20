@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using static NetGenCAD.Core.Measurements.Colors;
 
 namespace NetGenCAD.Core.Utility
@@ -228,22 +230,22 @@ namespace NetGenCAD.Core.Utility
             var sanitizedSolidType = solidType?.Trim().Replace(" ", "_") ?? "nonsolid_difference";
             var sanitizedDescription = description?.Trim().Replace(" ", "_") ?? "nondescription_difference";
             var sanitizedBase = baseObject?.Trim().TrimStart('"').TrimEnd('"').Replace("\\\"", "\"").Trim() ?? string.Empty;
-            
+
             // ✅ Use string.Join instead of StringBuilder for small collections
-            var sanitizedSubtracts = string.Join(" ", subtractObjects.Select(obj => 
+            var sanitizedSubtracts = string.Join(" ", subtractObjects.Select(obj =>
                 obj?.Trim().TrimStart('"').TrimEnd('"').Replace("\\\"", "\"").Trim() ?? string.Empty));
-            
+
             var moduleBody = $"difference() {{ {sanitizedBase} {sanitizedSubtracts} }}";
-            
+
             if (isPreRendered)
             {
                 moduleBody = $"render() {{ {moduleBody} }}";
             }
-            
+
             var moduleName = string.IsNullOrEmpty(description)
                 ? $"difference_{sanitizedName}_{sanitizedSolidType}"
                 : $"difference_{sanitizedName}_{sanitizedDescription}_{sanitizedSolidType}";
-            
+
             return $"module {moduleName}() {{ {moduleBody} }}".ToLower();
         }
 
@@ -388,6 +390,13 @@ namespace NetGenCAD.Core.Utility
                 // If no render(), still wrap the body with color
                 return $"{signature} {{\n    color(\"{colorName}\") {{\n        {body}\n    }}\n}}";
             }
+        }
+
+        public static string ModuleDisplayName(string callMethod)
+        {
+            var caseSensitive = CultureInfo.CurrentCulture.TextInfo;
+
+            return caseSensitive.ToTitleCase(Regex.Replace(callMethod.Replace("_", " ").Replace("();",""), @"[Ll](?=[0-9])", "Layer "));
         }
     }
 }

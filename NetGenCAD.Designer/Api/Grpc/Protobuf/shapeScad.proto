@@ -273,7 +273,7 @@ message GenerateOSCADShapePreviewRequest {
   string object_name = 1;
   string shape_scad_code = 2;
   repeated PolyhedronDimensions polyhedron_dimensions = 3;
-  objectScad.AxisDimensions axis_dimensions = 4;
+  createAxes.AxisDimensions axis_dimensions = 4;
   double axis_x_position_mm = 5;
   double axis_y_position_mm = 6;
   double axis_z_position_mm = 7;
@@ -289,7 +289,7 @@ message ShapeToScadPreviewRequest {
   string object_file_path = 3;
   createAxes.UnitSystem axis_unit = 4;
   repeated PolyhedronDimensions polyhedron_dimensions = 5;
-  objectScad.AxisDimensions axis_dimensions = 6;
+  createAxes.AxisDimensions axis_dimensions = 6;
   double axis_x_position_mm = 7;
   double axis_y_position_mm = 8;
   double axis_z_position_mm = 9;

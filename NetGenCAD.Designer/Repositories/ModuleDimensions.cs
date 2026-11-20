@@ -1,6 +1,8 @@
 ﻿using Dapper;
 using NetGenCAD.Core.Interfaces;
 using Microsoft.Data.Sqlite;
+using static NetGenCAD.Core.Measurements.Conversion;
+
 
 namespace NetGenCAD.Designer.Repositories
 {
@@ -8,17 +10,17 @@ namespace NetGenCAD.Designer.Repositories
     public class ModuleDimensions : IScadObject
     {
         public int Id { get; set; }
+        public int ObjectDimensionsId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string ModuleType { get; set; } = string.Empty; // "Union" or "Difference"
         public string SolidType { get; set; } = string.Empty; // "Cube" or "Cylinder"
         public string ObjectName { get; set; } = string.Empty; // Reference to Object Name
-        public string ObjectDescription { get; set; } = string.Empty; // Reference to Object Description
-        public double XOffset_MM { get; set; } // X-axis translation offset
-        public double YOffset_MM { get; set; } // Y-axis translation offset
-        public double ZOffset_MM { get; set; } // Z-axis translation offset
-        public double XOffset_IN { get; set; } // X-axis translation offset
-        public double YOffset_IN { get; set; } // Y-axis translation offset
-        public double ZOffset_IN { get; set; } // Z-axis translation offset
+        public double XOffset_MM { get; set; } = 0; // X-axis translation offset
+        public double YOffset_MM { get; set; } = 0; // Y-axis translation offset
+        public double ZOffset_MM { get; set; } = 0; // Z-axis translation offset
+        public double XOffset_IN => Math.Round(MillimeterToInches(XOffset_MM), OpenSCAD_DecimalPlaces);
+        public double YOffset_IN => Math.Round(MillimeterToInches(YOffset_MM), OpenSCAD_DecimalPlaces);
+        public double ZOffset_IN => Math.Round(MillimeterToInches(ZOffset_MM), OpenSCAD_DecimalPlaces);
         public double XRotate { get; set; } = 0;
         public double YRotate { get; set; } = 0;
         public double ZRotate { get; set; } = 0;
@@ -27,21 +29,22 @@ namespace NetGenCAD.Designer.Repositories
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int Layer { get; set; } = 0;
         public string ModuleColor { get; set; } = string.Empty; // New property for module color
+        public const int OpenSCAD_DecimalPlaces = 6; // High precision for 3D printing
 
         public Dictionary<string, object> ToDbDictionary() => new()
         {
             { "Id", Id },
+            { "ObjectDimensionsId", Name },
             { "Name", Name },
             { "ModuleType", ModuleType },
             { "SolidType", SolidType },
             { "ObjectName", ObjectName },
-            { "ObjectDescription", ObjectDescription },
             { "XOffset_MM", XOffset_MM },
             { "YOffset_MM", YOffset_MM },
             { "ZOffset_MM", ZOffset_MM },
-            { "XOffset_MM", XOffset_IN },
-            { "YOffset_MM", YOffset_IN },
-            { "ZOffset_MM", ZOffset_IN },
+            { "XOffset_IN", XOffset_IN },
+            { "YOffset_IN", YOffset_IN },
+            { "ZOffset_IN", ZOffset_IN },
             { "XRotate", XRotate },
             { "YRotate", YRotate },
             { "ZRotate", ZRotate },
@@ -65,11 +68,11 @@ namespace NetGenCAD.Designer.Repositories
         private static readonly (string Name, Type Type, bool IsNullable)[] Properties =
         [
             (nameof(ModuleDimensions.Id), typeof(int), false),
+            (nameof(ModuleDimensions.ObjectDimensionsId), typeof(int), false),
             (nameof(ModuleDimensions.Name), typeof(string), false),
             (nameof(ModuleDimensions.ModuleType), typeof(string), false),
             (nameof(ModuleDimensions.SolidType), typeof(string), false),
             (nameof(ModuleDimensions.ObjectName), typeof(string), false),
-            (nameof(ModuleDimensions.ObjectDescription), typeof(string), false),
             (nameof(ModuleDimensions.XOffset_MM), typeof(double), false),
             (nameof(ModuleDimensions.YOffset_MM), typeof(double), false),
             (nameof(ModuleDimensions.ZOffset_MM), typeof(double), false),
@@ -145,7 +148,7 @@ namespace NetGenCAD.Designer.Repositories
 
         public static async Task UpdateIncludeMethodByNameDescriptionSolidTypeAsync(this ModuleDimensions entity, SqliteConnection connection)
         {
-            string updateSql = $"UPDATE ModuleDimensions SET IncludeMethod = @IncludeMethod WHERE ObjectName = @ObjectName AND SolidType = @SolidType AND ObjectDescription = @ObjectDescription";
+            string updateSql = $"UPDATE ModuleDimensions SET IncludeMethod = @IncludeMethod WHERE ObjectName = @ObjectName AND SolidType = @SolidType";
             await connection.ExecuteAsync(updateSql, entity);
         }
 

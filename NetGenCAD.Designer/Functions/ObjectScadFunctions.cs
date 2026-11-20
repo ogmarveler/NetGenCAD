@@ -1111,7 +1111,6 @@ namespace NetGenCAD.Designer.Functions
         /// Updates the include method in the database and writes formatted SCAD code to file.
         /// </summary>
         /// <param name="objectName">Name of the object (used for filename)</param>
-        /// <param name="objectDescription">Description of the object</param>
         /// <param name="objectFilePath">Root path where Solids folder exists</param>
         /// <param name="dbConnection">Database connection for updates</param>
         /// <param name="solidDimensions">Collection of solid dimensions to include</param>
@@ -1119,7 +1118,6 @@ namespace NetGenCAD.Designer.Functions
         /// <returns>Task representing the async file write operation</returns>
         public static async Task PartsToScadFilesAsync(
             string objectName,
-            string objectDescription,
             string objectFilePath,
             SqliteConnection dbConnection,
             IEnumerable<SolidDimensions> solidDimensions,
@@ -1132,7 +1130,6 @@ namespace NetGenCAD.Designer.Functions
             // Update ModuleDimensions OSCADMethod in DB
             var moduleUpdate = new ModuleDimensions
             {
-                ObjectDescription = objectDescription,
                 ObjectName = objectName,
                 SolidType = "Object",
                 IncludeMethod = moduleIncludeMethod,
@@ -1305,7 +1302,6 @@ namespace NetGenCAD.Designer.Functions
         /// Organizes solids by layer and operation type, generates union modules, and updates database.
         /// </summary>
         /// <param name="objectName">Name of the object</param>
-        /// <param name="objectDescription">Description of the object</param>
         /// <param name="solidDimensions">Collection of solids to organize into union modules</param>
         /// <param name="moduleDimensions">Existing module dimensions for context</param>
         /// <param name="dbConnection">Database connection for persistence</param>
@@ -1313,7 +1309,6 @@ namespace NetGenCAD.Designer.Functions
         /// <returns>Task representing the async database operations</returns>
         public static async Task CreateUnionModuleAsync(
             string objectName,
-            string objectDescription,
             IEnumerable<SolidDimensions> solidDimensions,
             IEnumerable<ModuleDimensions> moduleDimensions,
             SqliteConnection dbConnection,
@@ -1347,7 +1342,6 @@ namespace NetGenCAD.Designer.Functions
                 {
                     ModuleType = "Union",
                     ObjectName = objectName,
-                    ObjectDescription = objectDescription,
                     SolidType = "Object",
                     OSCADMethod = ToUnionModule(addMethods, objectName, string.Empty, solidType, isPreRendered).ToLower(),
                     CreatedAt = DateTime.UtcNow,
@@ -1369,7 +1363,6 @@ namespace NetGenCAD.Designer.Functions
         /// First creates union modules, then creates difference modules with union as base.
         /// </summary>
         /// <param name="objectName">Name of the object</param>
-        /// <param name="objectDescription">Description of the object</param>
         /// <param name="solidDimensions">Collection of solids to organize into modules</param>
         /// <param name="moduleDimensions">Existing module dimensions for context and updates</param>
         /// <param name="dbConnection">Database connection for persistence</param>
@@ -1377,14 +1370,13 @@ namespace NetGenCAD.Designer.Functions
         /// <returns>Task representing the async database operations</returns>
         public static async Task CreateDifferenceModuleAsync(
             string objectName,
-            string objectDescription,
             IEnumerable<SolidDimensions> solidDimensions,
             IEnumerable<ModuleDimensions> moduleDimensions,
             SqliteConnection dbConnection,
             bool isPreRendered)
         {
             // First create union modules
-            await CreateUnionModuleAsync(objectName, objectDescription, solidDimensions, moduleDimensions, dbConnection, isPreRendered);
+            await CreateUnionModuleAsync(objectName, solidDimensions, moduleDimensions, dbConnection, isPreRendered);
 
             var objects = solidDimensions
                 .Where(o => o.OperationType == "Difference")
@@ -1424,7 +1416,6 @@ namespace NetGenCAD.Designer.Functions
                     {
                         ModuleType = "Difference",
                         ObjectName = objectName,
-                        ObjectDescription = objectDescription,
                         SolidType = "Object",
                         OSCADMethod = ToDifferenceModule(baseCallMethod, subtractMethods, objectName, string.Empty, solidType, isPreRendered).ToLower(),
                         CreatedAt = DateTime.UtcNow,
@@ -1447,7 +1438,6 @@ namespace NetGenCAD.Designer.Functions
         /// Creates intersection modules with union modules as the base.
         /// </summary>
         /// <param name="objectName">Name of the object</param>
-        /// <param name="objectDescription">Description of the object</param>
         /// <param name="solidDimensions">Collection of solids to organize into modules</param>
         /// <param name="moduleDimensions">Existing module dimensions for context</param>
         /// <param name="dbConnection">Database connection for persistence</param>
@@ -1455,7 +1445,6 @@ namespace NetGenCAD.Designer.Functions
         /// <returns>Task representing the async database operations</returns>
         public static async Task CreateIntersectionModuleAsync(
             string objectName,
-            string objectDescription,
             IEnumerable<SolidDimensions> solidDimensions,
             IEnumerable<ModuleDimensions> moduleDimensions,
             SqliteConnection dbConnection,
@@ -1491,7 +1480,6 @@ namespace NetGenCAD.Designer.Functions
                     {
                         ModuleType = "Intersection",
                         ObjectName = objectName,
-                        ObjectDescription = objectDescription,
                         SolidType = "Object",
                         OSCADMethod = ToIntersectionModule(baseCallMethod, intersectMethods, objectName, string.Empty, solidType, isPreRendered).ToLower(),
                         CreatedAt = DateTime.UtcNow,
@@ -1786,12 +1774,7 @@ namespace NetGenCAD.Designer.Functions
             SqliteConnection dbConnection,
             string objectName)
         {
-            // Ensure all necessary tables exist, for both solids, shapes, polyhedrons, and modules
-            await AxisDimensionsExtensions.CreateTable(dbConnection);
-            await SolidDimensionsExtensions.CreateTable(dbConnection);
-            await ModuleDimensionsExtensions.CreateTable(dbConnection);
-            await PolyhedronDimensionsExtensions.CreateTable(dbConnection);
-            await ShapeDimensionsExtensions.CreateTable(dbConnection);
+            await ObjectDimensionsExtensions.EnsureSchemaAsync(dbConnection);
 
             // Get records from database with both Axis and Module joins
             var records = await new SolidDimensions().GetByNameWithAxisAndModuleAsync(dbConnection, objectName);
@@ -1946,10 +1929,15 @@ namespace NetGenCAD.Designer.Functions
             if (module == null)
                 return (string.Empty, string.Empty);
     
-            var title = $"Module Call Method: {module.Name}";
+            var title = $"Module Display Name: {WrapInModule.ModuleDisplayName(module.Name)}";
 
             var sb = new StringBuilder();
-           // sb.AppendLine($"{new string('-', 20)} Module OSCAD {new string('-', 20)}");
+            sb.AppendLine($"Module Id: {module.Id} ⇒ Object Id: {module.ObjectDimensionsId}");
+            sb.AppendLine();
+            sb.AppendLine($"Module Call Method: {module.Name}");
+            sb.AppendLine();
+            sb.AppendLine($"{new string('-', 20)} Module OSCAD {new string('-', 20)}");
+            sb.AppendLine();
             sb.AppendLine(module.OSCADMethod);
             sb.AppendLine();
             return (title, sb.ToString());
@@ -1960,9 +1948,13 @@ namespace NetGenCAD.Designer.Functions
             if (solid == null)
                 return (string.Empty, string.Empty);
 
-            var title = $"Solid Call Method: {ExtractModuleCallMethod(solid.OSCADMethod)}";
+            var title = $"Solid Description: {solid.Description}";
 
             var sb = new StringBuilder();
+            sb.AppendLine($"Solid Id: {solid.Id} ⇒ Module Id: {solid.ModuleDimensionsId} ⇒ Object Id: {solid.ObjectDimensionsId}");
+            sb.AppendLine();
+            sb.AppendLine($"Solid Call Method: {WrapInModule.ExtractModuleCallMethod(solid.OSCADMethod)}");
+            sb.AppendLine();
             sb.AppendLine($"Module Call Method: {moduleName}");
             sb.AppendLine();
             sb.AppendLine($"{new string('-', 20)} Solid OSCAD {new string('-', 20)}");
@@ -2021,7 +2013,6 @@ namespace NetGenCAD.Designer.Functions
         /// <param name="xOffsetInches">X offset in inches</param>
         /// <param name="yOffsetInches">Y offset in inches</param>
         /// <param name="zOffsetInches">Z offset in inches</param>
-        /// <param name="textDepthInches">Text depth in inches</param>
         /// <param name="decimalPlaces">Number of decimal places for rounding</param>
         /// <returns>Tuple containing converted metric values in the same order</returns>
         public static (double Length, double Width, double Height, double Thickness, double Radius, double Radius1, double Radius2, double CylinderHeight, double XOffset, double YOffset, double ZOffset) ConvertInputsToMetric(
@@ -2043,32 +2034,12 @@ namespace NetGenCAD.Designer.Functions
             return (convertedLength, convertedWidth, convertedHeight, convertedThickness, convertedRadius, convertedRadius1, convertedRadius2, convertedCylinderHeight, convertedXOffset, convertedYOffset, convertedZOffset);
         }
 
-        /// <summary>
-        /// Copies all object data (solids and modules) from source to new object with callback.
-        /// Performs database copy operation off the UI thread, retrieves dimensions, then invokes callback.
-        /// </summary>
+        /// <summary>Copies an object's database records and returns the copied solids and modules.</summary>
         public static async Task<(ObservableCollection<SolidDimensions>, ObservableCollection<ModuleDimensions>)> CopyObjectWithCallbackAsync(string sourceObjectName, SqliteConnection dbConnection)
         {
-            try
-            {
-                // Perform database copy operation off UI thread
-                await Task.Run(async () =>
-                {
-                    var sourceSolid = new SolidDimensions { Name = sourceObjectName };
-                    await sourceSolid.CopyObjectAsync(dbConnection);
-                });
-
-                // Refresh dimensions from database
-                var (updatedSolidDimensions, updatedModuleDimensions) = await GetDimensionsPartsAsync(dbConnection, $"{sourceObjectName}_copy");
-
-                // Invoke callback with all updated data
-                return (updatedSolidDimensions, updatedModuleDimensions);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error copying object: {ex.Message}");
-                return (new ObservableCollection<SolidDimensions>(), new ObservableCollection<ModuleDimensions>());
-            }
+            await GetDimensionsPartsAsync(dbConnection, string.Empty);
+            var copyName = await ObjectCopy.CopyAsync(dbConnection, sourceObjectName);
+            return await GetDimensionsPartsAsync(dbConnection, copyName);
         }
 
         // Return the operation type module name for the solid just created; this is the parent module that the solid is called from on the main object.scad file
@@ -2081,27 +2052,27 @@ namespace NetGenCAD.Designer.Functions
             {
                 case OperationType.Union:
                     await CreateDifferenceModuleAsync(
-                        objectName, objectDescription, solids, modules,
+                        objectName, solids, modules,
                         dbConnection, isPreRendered);
                     break;
 
                 case OperationType.Difference:
                     // Difference needs the current union module as its base.
                     await CreateUnionModuleAsync(
-                        objectName, objectDescription, solids, modules,
+                        objectName, solids, modules,
                         dbConnection, isPreRendered);
 
                     (solids, modules) = await GetDimensionsPartsAsync(
                         dbConnection, objectName);
 
                     await CreateDifferenceModuleAsync(
-                        objectName, objectDescription, solids, modules,
+                        objectName, solids, modules,
                         dbConnection, isPreRendered);
                     break;
 
                 case OperationType.Intersection:
                     await CreateIntersectionModuleAsync(
-                        objectName, objectDescription, solids, modules,
+                        objectName, solids, modules,
                         dbConnection, isPreRendered);
                     break;
 
@@ -2115,7 +2086,7 @@ namespace NetGenCAD.Designer.Functions
                 dbConnection, objectName);
 
             await PartsToScadFilesAsync(
-                objectName, objectDescription, objectFilePath,
+                objectName, objectFilePath,
                 dbConnection, solids, modules);
         }
     }

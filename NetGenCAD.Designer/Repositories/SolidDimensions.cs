@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using Microsoft.Data.Sqlite;
 using NetGenCAD.Core.Interfaces;
+using NetGenCAD.Designer.Utility;
 using static NetGenCAD.Core.Measurements.Conversion;
 using static NetGenCAD.Core.Measurements.VolumeConverter;
 
@@ -12,6 +13,7 @@ namespace NetGenCAD.Designer.Repositories
         public int Id { get; set; }
         public int? AxisDimensionsId { get; set; } // Foreign key to AxisDimensions
         public int? ModuleDimensionsId { get; set; } // Foreign key to ModuleDimensions
+        public int ObjectDimensionsId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? ShapeName { get; set; } = string.Empty;
@@ -193,6 +195,7 @@ namespace NetGenCAD.Designer.Repositories
             { "Id", Id },
             { "AxisDimensionsId", AxisDimensionsId ?? (object)DBNull.Value },
             { "ModuleDimensionsId", ModuleDimensionsId ?? (object)DBNull.Value },
+            { "ObjectDimensionsId", ObjectDimensionsId },
             { "Name", Name },
             { "Description", Description ?? (object)DBNull.Value },
             { "ShapeName", ShapeName ?? (object)DBNull.Value },
@@ -261,6 +264,7 @@ namespace NetGenCAD.Designer.Repositories
             (nameof(SolidDimensions.Id), typeof(int), false),
             (nameof(SolidDimensions.AxisDimensionsId), typeof(int), true),
             (nameof(SolidDimensions.ModuleDimensionsId), typeof(int), true),
+            (nameof(SolidDimensions.ObjectDimensionsId), typeof(int), false),
             (nameof(SolidDimensions.Name), typeof(string), true),
             (nameof(SolidDimensions.Description), typeof(string), true),
             (nameof(SolidDimensions.ShapeName), typeof(string), true),
@@ -338,43 +342,57 @@ namespace NetGenCAD.Designer.Repositories
         // Insert a single SolidDimensions and return the new Id
         public static async Task<int> InsertAsync(this SolidDimensions entity, SqliteConnection connection)
         {
+            ValidateObjectName(entity);
+            await ObjectDimensionsExtensions.EnsureSchemaAsync(connection);
             // Calculate volume before insert
             entity.CalculateVolume();
 
-            IEnumerable<string> columns = Properties.Where(p => p.Name != "Id").Select(p => p.Name);
+            using var transaction = connection.BeginTransaction();
+            var objectId = await ObjectDimensionsExtensions.GetOrCreateIdAsync(connection, entity.Name, transaction);
+            IEnumerable<string> columns = Properties.Where(p => p.Name != "Id").Select(p => p.Name).Append(nameof(SolidDimensions.ObjectDimensionsId));
             IEnumerable<string> parameters = columns.Select(c => $"@{c}");
             string sql = $"INSERT INTO SolidDimensions ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)}); SELECT last_insert_rowid();";
-            var id = await connection.ExecuteScalarAsync<int>(sql, entity);
-            entity.Id = id; // Update the entity with the new Id
+            entity.ObjectDimensionsId = objectId;
+            var id = await connection.ExecuteScalarAsync<int>(sql, entity, transaction);
+            entity.AxisDimensionsId = await connection.QuerySingleAsync<int?>("SELECT AxisDimensionsId FROM SolidDimensions WHERE Id = @Id", new { Id = id }, transaction);
+            transaction.Commit();
+            entity.Id = id;
             return id;
         }
 
         // Upsert (INSERT OR REPLACE) and return the Id - Only updates if Name and Description match
         public static async Task<int> UpsertAsync(this SolidDimensions entity, SqliteConnection connection)
         {
+            ValidateObjectName(entity);
+            await ObjectDimensionsExtensions.EnsureSchemaAsync(connection);
             // Calculate volume before upsert
             entity.CalculateVolume();
 
+            using var transaction = connection.BeginTransaction();
+            entity.ObjectDimensionsId = await ObjectDimensionsExtensions.GetOrCreateIdAsync(connection, entity.Name, transaction);
             // First, try to find an existing record with matching Name and Description
             const string selectSql = "SELECT Id FROM SolidDimensions WHERE Name = @Name AND Description = @Description AND OperationType = @OperationType LIMIT 1";
-            var existingId = await connection.QuerySingleOrDefaultAsync<int?>(selectSql, new { entity.Name, entity.Description, OperationType = entity.OperationType.ToString() });
+            var existingId = await connection.QuerySingleOrDefaultAsync<int?>(selectSql, new { entity.Name, entity.Description, OperationType = entity.OperationType.ToString() }, transaction);
 
             if (existingId.HasValue)
             {
                 // Update the existing record
                 entity.Id = existingId.Value;
-                IEnumerable<string> setClause = Properties.Where(p => p.Name != "Id").Select(p => $"{p.Name} = @{p.Name}");
+                IEnumerable<string> setClause = Properties.Where(p => p.Name != "Id").Select(p => $"{p.Name} = @{p.Name}").Append("ObjectDimensionsId = @ObjectDimensionsId");
                 string updateSql = $"UPDATE SolidDimensions SET {string.Join(", ", setClause)} WHERE Id = @Id";
-                await connection.ExecuteAsync(updateSql, entity);
+                await connection.ExecuteAsync(updateSql, entity, transaction);
+                transaction.Commit();
                 return existingId.Value;
             }
             else
             {
                 // Insert as a new record
-                IEnumerable<string> columns = Properties.Where(p => p.Name != "Id").Select(p => p.Name);
+                IEnumerable<string> columns = Properties.Where(p => p.Name != "Id").Select(p => p.Name).Append(nameof(SolidDimensions.ObjectDimensionsId));
                 IEnumerable<string> parameters = columns.Select(c => $"@{c}");
                 string insertSql = $"INSERT INTO SolidDimensions ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)}); SELECT last_insert_rowid();";
-                var id = await connection.ExecuteScalarAsync<int>(insertSql, entity);
+                var id = await connection.ExecuteScalarAsync<int>(insertSql, entity, transaction);
+                entity.AxisDimensionsId = await connection.QuerySingleAsync<int?>("SELECT AxisDimensionsId FROM SolidDimensions WHERE Id = @Id", new { Id = id }, transaction);
+                transaction.Commit();
                 entity.Id = id;
                 return id;
             }
@@ -383,12 +401,24 @@ namespace NetGenCAD.Designer.Repositories
         // Update
         public static async Task UpdateAsync(this SolidDimensions entity, SqliteConnection connection)
         {
+            ValidateObjectName(entity);
+            await ObjectDimensionsExtensions.EnsureSchemaAsync(connection);
             // Calculate volume before update
             entity.CalculateVolume();
 
-            IEnumerable<string> setClause = Properties.Where(p => p.Name != "Id").Select(p => $"{p.Name} = @{p.Name}");
+            using var transaction = connection.BeginTransaction();
+            entity.ObjectDimensionsId = await ObjectDimensionsExtensions.GetOrCreateIdAsync(connection, entity.Name, transaction);
+            IEnumerable<string> setClause = Properties.Where(p => p.Name != "Id").Select(p => $"{p.Name} = @{p.Name}").Append("ObjectDimensionsId = @ObjectDimensionsId");
             string sql = $"UPDATE SolidDimensions SET {string.Join(", ", setClause)} WHERE Id = @Id";
-            await connection.ExecuteAsync(sql, entity);
+            if (await connection.ExecuteAsync(sql, entity, transaction) != 1)
+                throw new InvalidOperationException($"Solid {entity.Id} was not found.");
+            transaction.Commit();
+        }
+
+        private static void ValidateObjectName(SolidDimensions entity)
+        {
+            if (string.IsNullOrWhiteSpace(entity.Name))
+                throw new ArgumentException("A solid must have an object name.", nameof(entity));
         }
 
         // Update ModuleDimensionsId for multiple SolidDimensions
@@ -597,73 +627,8 @@ namespace NetGenCAD.Designer.Repositories
 
         public static async Task CopyObjectAsync(this SolidDimensions source, SqliteConnection connection)
         {
-            const string sql = @"
-            INSERT INTO SolidDimensions
-            SELECT NULL,
-                   AxisDimensionsId,
-                   ModuleDimensionsId,
-                   Name || '_' || 'copy' AS Name,
-                   Description,
-                   ShapeName,
-                   Material,
-                   OperationType,
-                   SolidType,
-                   Length_MM,
-                   Width_MM,
-                   Height_MM,
-                   Thickness_MM,
-                   Radius_MM,
-                   Radius1_MM,
-                   Radius2_MM,
-                   CylinderHeight_MM,
-                   XOffset_MM,
-                   YOffset_MM,
-                   ZOffset_MM,
-                   XRotate,
-                   YRotate,
-                   ZRotate,
-                   ScaleX,
-                   ScaleY,
-                   ScaleZ,
-                   Length_IN,
-                   Width_IN,
-                   Height_IN,
-                   Thickness_IN,
-                   Radius_IN,
-                   Radius1_IN,
-                   Radius2_IN,
-                   CylinderHeight_IN,
-                   XOffset_IN,
-                   YOffset_IN,
-                   ZOffset_IN,
-                   Round_r_MM,
-                   Round_h_MM,
-                   Round_r_IN,
-                   Round_h_IN,
-                   Resolution,
-                   Volume_CM3,
-                   Volume_IN3,
-                   OSCADMethod,
-                   CreatedAt,
-                   ModuleColor,
-                   SurfaceFilePath,
-                   SurfaceInvert,
-                   SurfaceCenter,
-                   Layer,
-                   Alpha,
-                   TextSize,
-                   TextContent,
-                   TextDirection,
-                   TextHAlign,
-                   TextVAlign,
-                   FontStyle,
-                   LanguageInput
-                   FROM SolidDimensions
-                   WHERE Name = @Name";
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = sql;
-            cmd.Parameters.AddWithValue("@Name", source.Name);
-            await cmd.ExecuteNonQueryAsync();
+            await ObjectDimensionsExtensions.EnsureSchemaAsync(connection);
+            await ObjectCopy.CopyAsync(connection, source.Name);
         }
     }
 }

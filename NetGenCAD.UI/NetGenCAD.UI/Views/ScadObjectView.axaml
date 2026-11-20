@@ -1397,53 +1397,51 @@
                         Orientation="Horizontal"
                         Spacing="15">
 
+						<!--  Color Picker  -->
+						<StackPanel Width="155" Classes="inputGroup">
+							<StackPanel.IsVisible>
+								<Binding Path="!IsColorFromHex" />
+							</StackPanel.IsVisible>
+							<TextBlock Classes="standardLabel" Text="Preset Color" />
+							<ComboBox
+                                Padding="10,5,0,5"
+                                HorizontalAlignment="Stretch"
+                                ItemsSource="{Binding OpenSCADColors}"
+                                PlaceholderText="Select"
+                                SelectedItem="{Binding SelectedOpenSCADColor, Mode=TwoWay}">
+								<ToolTip.Tip>
+									<TextBlock Text="Color selection from default OpenSCAD colors" />
+								</ToolTip.Tip>
+							</ComboBox>
+						</StackPanel>
+
+						<!--  Color Text Box  -->
+						<StackPanel Width="155" Classes="inputGroup">
+							<StackPanel.IsVisible>
+								<Binding Path="IsColorFromHex" />
+							</StackPanel.IsVisible>
+							<TextBlock Classes="standardLabel" Text="Color From Hex" />
+							<TextBox
+                                Classes="standardInput"
+                                Text="{Binding OpenSCADColorHex, Mode=TwoWay}"
+                                PlaceholderText="#RRGGBB">
+								<ToolTip.Tip>
+									<TextBlock Text="Color selection (visible when Color checkbox is selected)" />
+								</ToolTip.Tip>
+							</TextBox>
+						</StackPanel>
+					</StackPanel>
+						
                         <!--  Custom Color  -->
                         <StackPanel Width="25" Classes="inputGroup">
-                            <TextBlock
-                                HorizontalAlignment="Left"
-                                Classes="standardLabel"
-                                Text="Hex" />
-                            <CheckBox HorizontalAlignment="Left" IsChecked="{Binding IsColorFromHex, Mode=TwoWay}">
+                            <TextBlock Classes="standardLabel" Text="Hex" />
+                            <CheckBox HorizontalAlignment="Stretch" IsChecked="{Binding IsColorFromHex, Mode=TwoWay}">
                                 <ToolTip.Tip>
                                     <TextBlock Text="Enables HEX color input" />
                                 </ToolTip.Tip>
                             </CheckBox>
                         </StackPanel>
 
-                        <!--  Color Picker  -->
-                        <StackPanel Width="155" Classes="inputGroup">
-                            <StackPanel.IsVisible>
-                                <Binding Path="!IsColorFromHex" />
-                            </StackPanel.IsVisible>
-                            <TextBlock Classes="standardLabel" Text="Preset Color" />
-                            <ComboBox
-                                Padding="10,5,0,5"
-                                HorizontalAlignment="Stretch"
-                                ItemsSource="{Binding OpenSCADColors}"
-                                PlaceholderText="Select"
-                                SelectedItem="{Binding SelectedOpenSCADColor, Mode=TwoWay}">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Color selection from default OpenSCAD colors" />
-                                </ToolTip.Tip>
-                            </ComboBox>
-                        </StackPanel>
-
-                        <!--  Color Text Box  -->
-                        <StackPanel Width="155" Classes="inputGroup">
-                            <StackPanel.IsVisible>
-                                <Binding Path="IsColorFromHex" />
-                            </StackPanel.IsVisible>
-                            <TextBlock Classes="standardLabel" Text="Color From Hex" />
-                            <TextBox
-                                Classes="standardInput"
-                                Text="{Binding OpenSCADColorHex, Mode=TwoWay}"
-                                PlaceholderText="#RRGGBB">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Color selection (visible when Color checkbox is selected)" />
-                                </ToolTip.Tip>
-                            </TextBox>
-                        </StackPanel>
-                    </StackPanel>
 
                     <!--  Alpha Integer Input  -->
                     <StackPanel
@@ -1782,7 +1780,7 @@
                         x:Name="ModulesGrid"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Center"
-                        ColumnSpacing="15"
+                        ColumnSpacing="10"
                         RowSpacing="0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -1805,17 +1803,18 @@
 								BorderBrush="{DynamicResource DarkBlueForeground}"
 								CanUserReorderColumns="False"
 								CanUserResizeColumns="True"
-								ClipToBounds="True"
+								ClipToBounds="False"
+								Margin="0"
 								ColumnWidth="Auto"
 								CornerRadius="6"
 								GridLinesVisibility="All"
 								IsReadOnly="True"
 								ItemsSource="{Binding ModuleDimensions}"
-								SelectionMode="Single" >
+								SelectionMode="Single">
 								<DataGrid.Columns>
-									<DataGridTextColumn Header="L" Binding="{Binding Layer, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" />
-                                    <DataGridTextColumn Header="Call Method" Binding="{Binding Name, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" />
-                                    <DataGridTextColumn Header="Module Type" Binding="{Binding ModuleType, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" FontWeight="SemiBold" />
+									<controls:NumericDataGridTextColumn Header="L" Binding="{Binding Layer, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" />
+									<DataGridTextColumn Header="Module Name" Binding="{Binding Name, DataType={x:Type repo:ModuleDimensions}, Converter={StaticResource ModuleDisplayNameConverter}}" FontSize="12" />
+									<DataGridTextColumn Header="Module Type" Binding="{Binding ModuleType, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" FontWeight="SemiBold" />
 								</DataGrid.Columns>
 							</DataGrid>
                         </StackPanel>

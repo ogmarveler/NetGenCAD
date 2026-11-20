@@ -146,9 +146,8 @@ namespace NetGenCAD.Designer.Functions
             SqliteConnection dbConnection,
             string objectName)
         {
-            // Ensure the polyhedron and shape dimension tables exists if not already created in the database
-            await PolyhedronDimensionsExtensions.CreateTable(dbConnection);
-            await ShapeDimensionsExtensions.CreateTable(dbConnection);
+            // Initialize the shared schema, including the shape-to-polyhedron relationship.
+            await ObjectScadFunctions.GetDimensionsPartsAsync(dbConnection, string.Empty);
 
             // Get records from database by object name
             var records = await new PolyhedronDimensions().GetByObjectNameAsync(dbConnection, objectName);

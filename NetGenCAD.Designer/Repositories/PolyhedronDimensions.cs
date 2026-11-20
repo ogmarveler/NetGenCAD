@@ -9,6 +9,7 @@ namespace NetGenCAD.Designer.Repositories
     public class PolyhedronDimensions : IScadObject
     {
         public int Id { get; set; }
+        public int? ShapeDimensionsId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string PolyhedronOperationType { get; set; } = Core.Primitives.PolyhedronOperationType.Points.ToString(); // Points or Faces
@@ -165,7 +166,9 @@ namespace NetGenCAD.Designer.Repositories
         public static async Task CopyObjectAsync(this PolyhedronDimensions source, SqliteConnection connection)
         {
             const string sql = @"
-            INSERT INTO PolyhedronDimensions
+            INSERT INTO PolyhedronDimensions (Id, Name, Description, PolyhedronOperationType,
+                PointX_MM, PointY_MM, PointZ_MM, PointX_IN, PointY_IN, PointZ_IN,
+                PointsId, Face, FaceId, OSCADMethod, CreatedAt)
             SELECT NULL,
                    Name || '_' || 'copy' AS Name,
                    Description,

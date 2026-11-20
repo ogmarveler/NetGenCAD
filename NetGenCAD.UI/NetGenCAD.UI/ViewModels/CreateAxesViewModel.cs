@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NetGenCAD.Axis.Scad.Models;
 using NetGenCAD.Designer.Functions;
 using NetGenCAD.Designer.Repositories;
+using NetGenCAD.Designer.Utility;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
@@ -10,14 +11,21 @@ using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using static NetGenCAD.Axis.SCAD.Utility.AxisConfig;
+using static NetGenCAD.Core.Measurements.Colors;
 using static NetGenCAD.Core.Measurements.Selector;
 
 namespace NetGenCAD.UI.ViewModels
 {
+    public enum AxisPreviewCorner { Origin, X, XY, Y }
+
     public class CreateAxesViewModel : ValidatableBase
     {
         private UnitSystem _selectedUnit;         // Pass these back to backend functions
@@ -53,6 +61,19 @@ namespace NetGenCAD.UI.ViewModels
         private string _modalContent = string.Empty;
         private bool _isModalOpen;
         private SqliteConnection? _dbConnection;
+        private string _previewAxisCallingMethod = string.Empty;
+        private OpenScadColor? _selectedPreviewColor;
+        private bool _isPreviewColorFromHex;
+        private string _previewColorHex = string.Empty;
+        private AxisPreviewCorner _previewCorner;
+        private bool _previewMirrorZ;
+        private bool _previewOpened;
+        private bool _previewOpening;
+        private bool _savingMirroredAxis;
+        private readonly SemaphoreSlim _previewLock = new(1, 1);
+        private GeneratedModule _mirroredAxis = new GeneratedModule();
+
+
 
         [UnconditionalSuppressMessage("Trimming", "IL2026")]
         [UnconditionalSuppressMessage("AOT", "IL3050")]
@@ -95,7 +116,7 @@ namespace NetGenCAD.UI.ViewModels
         }
 
         public SqliteConnection? DbConnection { get => _dbConnection; set => this.RaiseAndSetIfChanged(ref _dbConnection, value); }
-        public void RaisePropertyChanged(string propertyName) { this.RaisePropertyChanged(propertyName); }
+        //public void RaisePropertyChanged(string propertyName) { this.RaisePropertyChanged(propertyName); }
         public double MinXValue { get => _minX; set { this.RaiseAndSetIfChanged(ref _minX, value); _ = ValidateMinMax(); } }
         public double MaxXValue { get => _maxX; set { this.RaiseAndSetIfChanged(ref _maxX, value); _ = ValidateMinMax(); } }
         public double MinYValue { get => _minY; set { this.RaiseAndSetIfChanged(ref _minY, value); _ = ValidateMinMax(); } }
@@ -144,6 +165,201 @@ namespace NetGenCAD.UI.ViewModels
         public string ModalTitle { get => _modalTitle; set => this.RaiseAndSetIfChanged(ref _modalTitle, value); }
         public string ModalContent { get => _modalContent; set => this.RaiseAndSetIfChanged(ref _modalContent, value); }
         public bool IsModalOpen { get => _isModalOpen; set => this.RaiseAndSetIfChanged(ref _isModalOpen, value); }
+        public GeneratedModule MirroredAxis { get => _mirroredAxis; set => this.RaiseAndSetIfChanged(ref _mirroredAxis, value); }
+        public OpenScadColor[] PreviewColors { get; } = Enum.GetValues<OpenScadColor>();
+        public OpenScadColor? SelectedPreviewColor { get => _selectedPreviewColor; set => this.RaiseAndSetIfChanged(ref _selectedPreviewColor, value); }
+        public bool IsPreviewColorFromHex
+        {
+            get => _isPreviewColorFromHex;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _isPreviewColorFromHex, value);
+                this.RaisePropertyChanged(nameof(HasInvalidPreviewColorHex));
+            }
+        }
+        public string PreviewColorHex
+        {
+            get => _previewColorHex;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _previewColorHex, value);
+                this.RaisePropertyChanged(nameof(HasInvalidPreviewColorHex));
+            }
+        }
+        public bool HasInvalidPreviewColorHex => IsPreviewColorFromHex && !string.IsNullOrEmpty(PreviewColorHex) &&
+            !Regex.IsMatch(PreviewColorHex, @"\A#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})\z");
+
+        public async Task RefreshPreviewColorAsync()
+        {
+            if (!HasInvalidPreviewColorHex && (_previewOpened || _previewOpening) && CanPreviewAxis)
+                await UpdateAxisPreviewAsync(openFile: false);
+        }
+
+        public string PreviewAxisCallingMethod
+        {
+            get => _previewAxisCallingMethod;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _previewAxisCallingMethod, value);
+                this.RaisePropertyChanged(nameof(CanPreviewAxis));
+                this.RaisePropertyChanged(nameof(CanSaveMirroredAxis));
+            }
+        }
+        public bool CanPreviewAxis => !string.IsNullOrWhiteSpace(PreviewAxisCallingMethod);
+        public bool CanSaveMirroredAxis => CanPreviewAxis && (_previewCorner != AxisPreviewCorner.Origin || _previewMirrorZ) && !_savingMirroredAxis;
+
+        public async Task SetPreviewMirrorZAsync(bool mirrorZ)
+        {
+            _previewMirrorZ = mirrorZ;
+            this.RaisePropertyChanged(nameof(CanSaveMirroredAxis));
+            if ((_previewOpened || _previewOpening) && CanPreviewAxis)
+                await UpdateAxisPreviewAsync(openFile: false);
+        }
+
+        public async Task SetPreviewCornerAsync(AxisPreviewCorner corner)
+        {
+            _previewCorner = corner;
+            this.RaisePropertyChanged(nameof(CanSaveMirroredAxis));
+            if ((_previewOpened || _previewOpening) && CanPreviewAxis)
+                await UpdateAxisPreviewAsync(openFile: false);
+        }
+
+        public async Task<bool> SaveMirroredAxisAsync()
+        {
+            if (!CanSaveMirroredAxis)
+                return false;
+
+            var callingMethod = PreviewAxisCallingMethod;
+            var corner = _previewCorner;
+            var mirrorZ = _previewMirrorZ;
+            var savedSuccessfully = false;
+            _savingMirroredAxis = true;
+            this.RaisePropertyChanged(nameof(CanSaveMirroredAxis));
+            try
+            {
+                if (DbConnection == null)
+                    throw new InvalidOperationException("The axis database is unavailable.");
+                var saved = await MirroredAxisFunctions.SaveAsync(DbConnection, callingMethod,
+                    corner is AxisPreviewCorner.X or AxisPreviewCorner.XY,
+                    corner is AxisPreviewCorner.Y or AxisPreviewCorner.XY, mirrorZ);
+                savedSuccessfully = true;
+                var previewColor = SelectedPreviewColor;
+                var isPreviewColorFromHex = IsPreviewColorFromHex;
+                var previewColorHex = PreviewColorHex;
+                await ClearInputs();
+                SelectedPreviewColor = previewColor;
+                PreviewColorHex = previewColorHex;
+                IsPreviewColorFromHex = isPreviewColorFromHex;
+                await GetAxesList();
+                var savedAxis = AxesList.FirstOrDefault(axis => string.Equals(axis.CallingMethod, saved, StringComparison.Ordinal))
+                    ?? throw new InvalidDataException($"Saved {saved}, but it could not be found in the refreshed axes list.");
+                MirroredAxis = savedAxis;
+                PreviewAxisCallingMethod = saved;
+                if (!await UpdateAxisPreviewAsync(openFile: !_previewOpened))
+                {
+                    ModalContent = $"The axis was saved, but its preview could not be reloaded. {ModalContent}";
+                    return true;
+                }
+                ModalTitle = "Mirrored Axis Saved";
+                ModalContent = $"Saved {saved} as a separate axis.";
+                IsModalOpen = true;
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or InvalidOperationException or SqliteException)
+            {
+                ModalTitle = savedSuccessfully ? "Axis Saved, Reload Failed" : "Save Mirrored Axis Error";
+                ModalContent = ex.Message;
+                IsModalOpen = true;
+                return savedSuccessfully;
+            }
+            finally
+            {
+                _savingMirroredAxis = false;
+                this.RaisePropertyChanged(nameof(CanSaveMirroredAxis));
+            }
+        }
+
+        public async Task ShowAxisPreviewAsync()
+        {
+            _previewOpening = true;
+            try
+            {
+                await UpdateAxisPreviewAsync(openFile: true);
+            }
+            finally
+            {
+                _previewOpening = false;
+            }
+        }
+
+        private async Task<bool> UpdateAxisPreviewAsync(bool openFile)
+        {
+            await _previewLock.WaitAsync();
+            try
+            {
+                if (!openFile && (!_previewOpened || !CanPreviewAxis))
+                    return false;
+                var corner = _previewCorner;
+                var mirrorZ = _previewMirrorZ;
+                if (HasInvalidPreviewColorHex)
+                    throw new InvalidDataException("Enter a preview color in #RGB or #RRGGBB format.");
+                var previewColor = IsPreviewColorFromHex ? PreviewColorHex : SelectedPreviewColor?.ToString();
+                var callingMethod = PreviewAxisCallingMethod.Trim();
+                var method = Regex.Match(callingMethod, @"^([A-Za-z_][A-Za-z0-9_]*)\(\);$");
+                if (!method.Success)
+                    throw new InvalidDataException("The selected axis does not have a valid OpenSCAD calling method.");
+
+                var axesPath = Path.Combine("Scad", "Axes", "axes.scad");
+                var axesContent = await File.ReadAllTextAsync(axesPath);
+                var settings = Regex.Matches(axesContent,
+                    @"(?m)^// Settings: [^\r\n]*?MinX=(?<minX>.*?), MaxX=(?<maxX>.*?), MinY=(?<minY>.*?), MaxY=(?<maxY>.*?), MinZ=(?<minZ>.*?), MaxZ=(?<maxZ>[^\r\n]*)\r?\n[ \t]*include[ \t]*<[^>\r\n]+>;[ \t]*\r?\n[ \t]*module[ \t]+" + Regex.Escape(method.Groups[1].Value) + @"[ \t]*\(").Cast<Match>().LastOrDefault();
+                if (settings == null)
+                    throw new InvalidDataException("The selected axis or its bounds were not found in axes.scad. Create or select an existing axis.");
+
+                bool mirrorX = corner is AxisPreviewCorner.X or AxisPreviewCorner.XY;
+                bool mirrorY = corner is AxisPreviewCorner.Y or AxisPreviewCorner.XY;
+                var x = (mirrorX ? ParseAxisBound(settings.Groups["minX"].Value) + ParseAxisBound(settings.Groups["maxX"].Value) : 0).ToString("R", CultureInfo.InvariantCulture);
+                var y = (mirrorY ? ParseAxisBound(settings.Groups["minY"].Value) + ParseAxisBound(settings.Groups["maxY"].Value) : 0).ToString("R", CultureInfo.InvariantCulture);
+                var z = (mirrorZ ? ParseAxisBound(settings.Groups["minZ"].Value) + ParseAxisBound(settings.Groups["maxZ"].Value) : 0).ToString("R", CultureInfo.InvariantCulture);
+
+                var transform = mirrorX || mirrorY || mirrorZ ? $"translate([{x}, {y}, {z}]) " : string.Empty;
+                if (mirrorX) transform += "mirror([1, 0, 0]) ";
+                if (mirrorY) transform += "mirror([0, 1, 0]) ";
+                if (mirrorZ) transform += "mirror([0, 0, 1]) ";
+
+                var previewPath = Path.Combine("Scad", "Axes", "axis_preview.scad");
+                var previewCall = !string.IsNullOrEmpty(previewColor)
+                    ? $"{method.Groups[1].Value}(colorVal = \"{previewColor}\");"
+                    : callingMethod;
+                await File.WriteAllTextAsync(previewPath, $"use <axes.scad>;{Environment.NewLine}{transform}{previewCall}{Environment.NewLine}");
+                if (openFile)
+                {
+                    if (!await ScadFileOperations.OpenScadFileAsync(previewPath, allowDuplicates: false))
+                        throw new IOException("Could not open the preview. Check the default application for .scad files.");
+                    _previewOpened = true;
+                }
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
+            {
+                ModalTitle = "Axis Preview Error";
+                ModalContent = ex.Message;
+                IsModalOpen = true;
+                return false;
+            }
+            finally
+            {
+                _previewLock.Release();
+            }
+        }
+
+        private static double ParseAxisBound(string value)
+        {
+            if ((double.TryParse(value, NumberStyles.Float, CultureInfo.CurrentCulture, out var bound) ||
+                 double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out bound)) && double.IsFinite(bound))
+                return bound;
+            throw new InvalidDataException($"Invalid axis bound: {value}");
+        }
 
         public async Task CreateCustomAxisAsync()
         {
@@ -179,6 +395,8 @@ namespace NetGenCAD.UI.ViewModels
                 TotalCubicVolumeScale = customAxis.TotalCubicVolumeScale;
                 ModuleName = customAxis.ModuleName;
                 CallingMethod = customAxis.CallingMethod;
+                MirroredAxis = new GeneratedModule { MinX = displayMinX, MaxX = displayMaxX, MinY = displayMinY, MaxY = displayMaxY };
+                PreviewAxisCallingMethod = customAxis.CallingMethod;
                 CallingMethodLength = callingMethodLength;
                 IncludeFile = $"include <{customAxis.CallingMethod.ToLower().Replace("();", "")}.scad>";
                 AxisDetailsShown = true;
@@ -222,6 +440,13 @@ namespace NetGenCAD.UI.ViewModels
             TotalCubicVolumeScale = 0;
             ModuleName = string.Empty;
             CallingMethod = string.Empty;
+            PreviewAxisCallingMethod = string.Empty;
+            SelectedPreviewColor = null;
+            IsPreviewColorFromHex = false;
+            PreviewColorHex = string.Empty;
+            _previewCorner = AxisPreviewCorner.Origin;
+            _previewMirrorZ = false;
+            this.RaisePropertyChanged(nameof(CanSaveMirroredAxis));
             IncludeFile = string.Empty;
             MaxXValue = 300;
             MaxYValue = 300;
@@ -229,6 +454,7 @@ namespace NetGenCAD.UI.ViewModels
             MinXValue = 0;  // Set to 0 for coordinates
             MinYValue = 0;
             MinZValue = 0;
+            MirroredAxis = new GeneratedModule();
             return Task.CompletedTask;
         }
 
@@ -244,6 +470,11 @@ namespace NetGenCAD.UI.ViewModels
 
                     // Call the static deletion function
                     await CreateAxesFunctions.DeleteAxisAsync(axis.AxisId, axis.CallingMethod, DbConnection!);
+                    if (string.Equals(PreviewAxisCallingMethod, axis.CallingMethod, StringComparison.Ordinal))
+                    {
+                        PreviewAxisCallingMethod = string.Empty;
+                        MirroredAxis = new GeneratedModule();
+                    }
 
                     switch (axis.Unit)
                     {

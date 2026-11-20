@@ -321,9 +321,10 @@
     </Style>
 
     <!--  Global DataGrid header centering  -->
-    <Style Selector="DataGridColumnHeader">
+    <Style Selector="DataGridColumnHeader.header">
         <Setter Property="HorizontalContentAlignment" Value="Center" />
-        <Setter Property="FontSize" Value="13" />
+		<Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontSize" Value="12" />
         <Setter Property="Padding" Value="4,2" />
         <Setter Property="MinHeight" Value="28" />
     </Style>

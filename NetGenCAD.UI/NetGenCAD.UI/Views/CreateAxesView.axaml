@@ -74,6 +74,8 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" MinWidth="140" />
@@ -193,7 +195,7 @@
                         Grid.Row="1"
                         Grid.Column="0"
                         Width="140"
-                        Margin="10,0,0,0"
+                        Margin="10,12,0,0"
                         HorizontalAlignment="Left"
                         Classes="inputGroup">
                         <TextBlock Classes="standardLabel" Text="Unit Type" />
@@ -234,6 +236,7 @@
                         Grid.Row="1"
                         Grid.Column="1"
                         Width="110"
+						Margin="0,12,0,0"
                         Classes="inputGroup">
                         <TextBlock Classes="standardLabel" Text="Theme" />
                         <ComboBox
@@ -254,6 +257,7 @@
                         Grid.Row="1"
                         Grid.Column="2"
                         Width="110"
+						Margin="0,12,0,0"
                         Classes="inputGroup">
                         <TextBlock Classes="standardLabel" Text="" />
                         <Button
@@ -275,6 +279,7 @@
                         Grid.Row="1"
                         Grid.Column="3"
                         Width="110"
+						Margin="0,12,0,0"
                         Classes="inputGroup">
                         <TextBlock Classes="standardLabel" Text="" />
                         <Button
@@ -288,62 +293,217 @@
                         </Button>
                     </StackPanel>
 
-                    <!--  Module Name  -->
+                    <!--  View Output Button  -->
                     <StackPanel
                         Grid.Row="1"
                         Grid.Column="4"
-                        Grid.ColumnSpan="3"
-                        Width="360"
+                        Width="110"
+						Margin="0,12,0,0"
+                        Classes="inputGroup">
+                        <TextBlock Classes="standardLabel" Text="" />
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            BorderBrush="{DynamicResource CardForeground}"
+                            BorderThickness="1"
+                            Click="ViewAxisOutputButton_Click"
+                            Content="View Output"
+                            IsEnabled="{Binding CanPreviewAxis}">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Open the created or selected axis in the default application for .scad files." />
+                            </ToolTip.Tip>
+                        </Button>
+					</StackPanel>
+
+					<!--  Preview Color Options  -->
+					<StackPanel
+						Grid.Row="1"
+						Grid.Column="5"
+						Grid.ColumnSpan="2"
+						Width="220"
+						Margin="-15,12,0,0"
+						HorizontalAlignment="Stretch"
+						Orientation="Horizontal"
+						Spacing="15">
+						
+						<StackPanel HorizontalAlignment="Left" Width="180" Classes="inputGroup" IsVisible="{Binding !IsPreviewColorFromHex}">
+							<TextBlock Margin="-18,0,0,0" Classes="standardLabel" Text="Preview Color" />
+							<ComboBox
+								Padding="0,5,0,5"
+								ItemsSource="{Binding PreviewColors}"
+								PlaceholderText="Axis default"
+								SelectedItem="{Binding SelectedPreviewColor, Mode=TwoWay}"
+								SelectionChanged="PreviewColor_SelectionChanged">
+								<ToolTip.Tip>
+									<TextBlock Text="Choose an OpenSCAD color for the axis preview. Clear Inputs restores the axis default." />
+								</ToolTip.Tip>
+							</ComboBox>
+						</StackPanel>
+						
+						<StackPanel HorizontalAlignment="Left" Width="180" Classes="inputGroup" IsVisible="{Binding IsPreviewColorFromHex}">
+							<TextBlock Margin="-15,0,0,0" Classes="standardLabel" Text="Color From Hex" />
+							<TextBox
+								Classes="standardInput"
+								PlaceholderText="#RRGGBB"
+								Text="{Binding PreviewColorHex, Mode=TwoWay}"
+								TextChanged="PreviewColorHex_TextChanged">
+								<ToolTip.Tip>
+									<TextBlock Text="Enter #RGB or #RRGGBB. Leave empty for the axis default." />
+								</ToolTip.Tip>
+							</TextBox>
+							<TextBlock IsVisible="{Binding HasInvalidPreviewColorHex}" Text="Use #RGB or #RRGGBB." TextWrapping="Wrap" />
+						</StackPanel>
+						
+						<StackPanel Margin="5,0,0,0" HorizontalAlignment="Center" Width="25" Classes="inputGroup">
+							<TextBlock Classes="standardLabel" Text="Hex" />
+							<CheckBox IsChecked="{Binding IsPreviewColorFromHex, Mode=TwoWay}" Click="PreviewColorHex_Click">
+								<ToolTip.Tip>
+									<TextBlock Text="Enables HEX color input" />
+								</ToolTip.Tip>
+							</CheckBox>
+						</StackPanel>
+					</StackPanel>
+
+					
+					<!--  Mirror Origin  -->
+					<StackPanel
+                        Grid.Row="3"
+                        Grid.Column="0"
+                        Width="140"
+                        Margin="0,10,0,0"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
                         Classes="inputGroup">
+						<TextBlock
+                            HorizontalAlignment="Stretch"
+                            Classes="textbox"
+                            FontSize="15"
+                            FontWeight="SemiBold"
+                            Opacity="0.75"
+                            Text="Mirror Origin" />
+					</StackPanel>
 
-                        <StackPanel
-                            Margin="0,20,0,0"
-                            VerticalAlignment="Center"
-                            Orientation="Horizontal"
-                            Spacing="60">
+					<!--  Origin Radio BUtton  -->
+					<StackPanel
+                        Grid.Row="3"
+                        Grid.Column="1"
+						Width="110"
+						Classes="inputGroup">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Spacing="10">
+							<TextBlock Classes="standardLabel" Text="0rigin" />
+							<RadioButton x:Name="OriginalAxisCorner" GroupName="AxisPreviewCorner" Tag="Origin" IsChecked="True" Click="AxisPreviewCorner_Click">
+								<StackPanel Orientation="Horizontal">
+									<TextBlock Text="{Binding MirroredAxis.MinX}" />
+									<TextBlock Text=", " />
+									<TextBlock Text="{Binding MirroredAxis.MinY}" />
+								</StackPanel>
+								<ToolTip.Tip>
+									<TextBlock Text="Bottom right (Original Axis)" />
+								</ToolTip.Tip>
+							</RadioButton>
+						</StackPanel>
+					</StackPanel>
 
-                            <!--  Volume Display (Horizontal Layout)  -->
-                            <StackPanel Orientation="Horizontal" Spacing="5">
-                                <TextBlock
-                                    Classes="standardLabel"
-                                    FontSize="13"
-                                    Text="Volume:" />
-                                <TextBlock
-                                    FontSize="13"
-                                    FontWeight="SemiBold"
-                                    Text="{Binding TotalCubicVolume, StringFormat={}{0:N2}}" />
-                                <TextBlock
-                                    FontSize="13"
-                                    IsVisible="{Binding IsMetric}"
-                                    Text="cm³" />
-                                <TextBlock
-                                    FontSize="13"
-                                    IsVisible="{Binding IsImperial}"
-                                    Text="in³" />
-                            </StackPanel>
+					<!--  X,0 Radio BUtton  -->
+					<StackPanel
+                        Grid.Row="3"
+                        Grid.Column="2"
+						Width="110"
+						Classes="inputGroup">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Spacing="10">
+							<TextBlock Classes="standardLabel" Text="Top Right" />
+							<RadioButton GroupName="AxisPreviewCorner" Tag="X" Click="AxisPreviewCorner_Click">
+								<StackPanel Orientation="Horizontal">
+									<TextBlock FontSize="15" Text="{Binding MirroredAxis.MaxX}" />
+									<TextBlock FontSize="15" Text=", " />
+									<TextBlock FontSize="15" Text="{Binding MirroredAxis.MinY}" />
+								</StackPanel>
+								<ToolTip.Tip>
+									<TextBlock Text="Top right (Mirror X,0)" />
+								</ToolTip.Tip>
+							</RadioButton>
+						</StackPanel>
+					</StackPanel>
 
-                            <StackPanel Orientation="Horizontal" Spacing="5">
-                                <TextBlock
-                                    Classes="standardLabel"
-                                    FontSize="13"
-                                    Text="Scale Volume:" />
-                                <TextBlock
-                                    FontSize="13"
-                                    FontWeight="SemiBold"
-                                    Text="{Binding TotalCubicVolumeScale, StringFormat={}{0:N2}}" />
-                                <TextBlock
-                                    FontSize="13"
-                                    IsVisible="{Binding IsMetric}"
-                                    Text="m³" />
-                                <TextBlock
-                                    FontSize="13"
-                                    IsVisible="{Binding IsImperial}"
-                                    Text="ft³" />
-                            </StackPanel>
-                        </StackPanel>
-                    </StackPanel>
+					<!--  X,Y Radio Button  -->
+					<StackPanel
+                        Grid.Row="3"
+                        Grid.Column="3"
+						Width="110"
+						Classes="inputGroup">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Spacing="10">
+							<TextBlock Classes="standardLabel" Text="Top Left" />
+							<RadioButton GroupName="AxisPreviewCorner" Tag="XY" Click="AxisPreviewCorner_Click">
+								<StackPanel Orientation="Horizontal">
+									<TextBlock FontSize="15" Text="{Binding MirroredAxis.MaxX}" />
+									<TextBlock FontSize="15" Text=", " />
+									<TextBlock FontSize="15" Text="{Binding MirroredAxis.MaxY}" />
+								</StackPanel>
+								<ToolTip.Tip>
+									<TextBlock Text="Top left (Mirror X,Y)" />
+								</ToolTip.Tip>
+							</RadioButton>
+						</StackPanel>
+					</StackPanel>
+
+					<!--  0,Y Radio Button  -->
+					<StackPanel
+                        Grid.Row="3"
+                        Grid.Column="4"
+						Width="110"
+						Margin="0,0,4,0"
+						Classes="inputGroup">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Spacing="10">
+							<TextBlock Classes="standardLabel" Text="Bot Left" />
+							<RadioButton GroupName="AxisPreviewCorner" Tag="Y" Click="AxisPreviewCorner_Click">
+								<StackPanel Orientation="Horizontal">
+									<TextBlock FontSize="15" Text="{Binding MirroredAxis.MinX}" />
+									<TextBlock FontSize="15" Text=", " />
+									<TextBlock FontSize="15" Text="{Binding MirroredAxis.MaxY}" />
+								</StackPanel>
+								<ToolTip.Tip>
+									<TextBlock Text="Bottom left (Mirror 0,Y)" />
+								</ToolTip.Tip>
+							</RadioButton>
+						</StackPanel>
+					</StackPanel>
+
+					<!--  Z Mirror Button  -->
+					<StackPanel
+                        Grid.Row="3"
+                        Grid.Column="5"
+						Width="110"
+						Margin="0,0,5,0"
+						Classes="inputGroup">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Spacing="10">
+							<TextBlock Classes="standardLabel" Text="Mirror Z" />
+							<CheckBox x:Name="MirrorZCheckBox" Click="MirrorZ_Click">
+								<ToolTip.Tip>
+									<TextBlock Text="Flip the axis within its Z bounds for bottom-up measurement." />
+								</ToolTip.Tip>
+							</CheckBox>
+						</StackPanel>
+					</StackPanel>
+
+					<!--  Save Mirror Button  -->
+					<StackPanel
+                        Grid.Row="3"
+                        Grid.Column="6"
+						Width="110"
+						Classes="inputGroup">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Spacing="10">
+							<Button
+                            HorizontalAlignment="Center"
+                            BorderBrush="{DynamicResource CardForeground}"
+                            BorderThickness="1"
+                            Click="SaveMirroredAxisButton_Click"
+                            Content="Save Mirror"
+                            IsEnabled="{Binding CanSaveMirroredAxis}">
+								<ToolTip.Tip>
+									<TextBlock Text="Save the selected mirrored orientation as a separate axis." />
+								</ToolTip.Tip>
+							</Button>
+						</StackPanel>
+					</StackPanel>
                 </Grid>
             </StackPanel>
         </Border>
