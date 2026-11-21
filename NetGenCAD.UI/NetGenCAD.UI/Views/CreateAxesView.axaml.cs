@@ -4,19 +4,21 @@ using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
-using NetGenCAD.Core.Measurements;
+using Microsoft.Extensions.DependencyInjection;
+using NetGenCAD.Axis.Scad.Models;
+using NetGenCAD.Axis.SCAD.Modules;
+using NetGenCAD.Core.Models;
 using NetGenCAD.UI.Converters;
 using NetGenCAD.UI.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reactive;
 using System.Text;
 using static NetGenCAD.Core.Measurements.Selector;
-using NetGenCAD.Designer.Repositories;
-using NetGenCAD.Axis.Scad.Models;
 
 namespace NetGenCAD.UI.Views;
 
@@ -35,6 +37,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     {
         InitializeComponent();
         DataContext = App.Services!.GetRequiredService<CreateAxesViewModel>();
+        // ViewModel.PropertyChanged += ViewModel_PropertyChanged;
 
         // Wait for the control to be attached to the visual tree to access the parent window
         this.AttachedToVisualTree += CreateAxesView_AttachedToVisualTree;
@@ -109,7 +112,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
             {
                 if (module?.CallingMethod != null)
                 {
-                    ShowCallingMethodModal(module.CallingMethod);
+                    ShowCallingMethodModal(module);
                 }
             };
 
@@ -131,20 +134,24 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
         dataGrid.Columns.Add(actionColumn);
     }
 
-    private void ShowCallingMethodModal(string? callingMethod)
+    private void ShowCallingMethodModal(GeneratedModule? module)
     {
-        if (string.IsNullOrEmpty(callingMethod))
-            return;
-
         var sb = new StringBuilder();
-        sb.AppendLine("// Custom axis scad file");
-        sb.AppendLine("use <../Axes/axes.scad>;");  // For NetGenCAD.UI where nested folder scad files are used. NetGenCAD-Axis may be slightly different.
+        sb.AppendLine($"Axis Id: {module?.AxisId}");
         sb.AppendLine();
-        sb.AppendLine("// Translate: move axis around object");
-        sb.AppendLine($"translate ([0, 0, 0])  {callingMethod}");
+        sb.AppendLine("// If calling the axis in an object file");
+        sb.AppendLine("use <../Axes/axes.scad>;");  // For NetGenCAD.UI where nested folder scad files are used. NetGenCAD-Axis may be slightly different
+        sb.AppendLine();
+        sb.AppendLine("// translate moves the axis around the object");
+        sb.AppendLine($"translate ([0, 0, 0])  {module?.CallingMethod}");
+        //sb.AppendLine();
+        //sb.AppendLine($"{new string('-', 20)} Axis OSCAD {new string('-', 20)}");
+        //sb.AppendLine();
+        //sb.AppendLine(ViewModel.AxisModule);
+
 
         // Set ViewModel properties for the modal
-        ViewModel.ModalTitle = "To Use in Your Main SCAD File";
+        ViewModel.ModalTitle = $"To Use In Your Main SCAD File";
         ViewModel.ModalContent = sb.ToString();
         ViewModel.IsModalOpen = true;
     }
@@ -170,6 +177,8 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
 
     private void CreateAxesView_AttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
     {
+        ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         _parentWindow = this.FindAncestorOfType<Window>();
 
         if (_parentWindow != null)
@@ -262,7 +271,9 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     private async void MirrorZ_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is CheckBox checkBox)
+        {
             await ViewModel.SetPreviewMirrorZAsync(checkBox.IsChecked == true);
+        }
     }
 
     private async void AxisPreviewCorner_Click(object? sender, RoutedEventArgs e)
@@ -400,6 +411,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
             nameof(Axis.Scad.Models.GeneratedModule.MinZ) => "Zₘᵢₙ",
             nameof(Axis.Scad.Models.GeneratedModule.MaxZ) => "Zₘₐₓ",
             nameof(Axis.Scad.Models.GeneratedModule.Volume) => "Vol",
+           // nameof(Axis.Scad.Models.GeneratedModule.AxisId) => "ID",
             _ => e.PropertyName
         };
 
@@ -418,92 +430,28 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
 
     private void DataGridImperial_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (sender is DataGrid dataGrid && dataGrid.SelectedItem is Axis.Scad.Models.GeneratedModule selected)
+        if (sender is DataGrid dataGrid && dataGrid.SelectedItem is GeneratedModule selected)
         {
-            ViewModel.MirroredAxis = new GeneratedModule { MinX = selected.MinX, MaxX = selected.MaxX, MinY = selected.MinY, MaxY = selected.MaxY };
-            ViewModel.PreviewAxisCallingMethod = selected.CallingMethod ?? string.Empty;
-            ViewModel.SelectedUnitValue = UnitSystem.Imperial;
-            ViewModel.MinXValue = selected.MinX;
-            ViewModel.MaxXValue = selected.MaxX;
-            ViewModel.MinYValue = selected.MinY;
-            ViewModel.MaxYValue = selected.MaxY;
-            ViewModel.MinZValue = selected.MinZ;
-            ViewModel.MaxZValue = selected.MaxZ;
-
-            if (!string.IsNullOrWhiteSpace(selected.Volume) &&
-                double.TryParse(selected.Volume.Replace(" in³", "").Trim(),
-                                System.Globalization.NumberStyles.Float,
-                                System.Globalization.CultureInfo.InvariantCulture,
-                                out double volumeIn3))
-            {
-                ViewModel.TotalCubicVolume = volumeIn3;
-                ViewModel.TotalCubicVolumeScale = VolumeConverter.ConvertIn3ToFt3(volumeIn3);
-            }
-            else
-            {
-                ViewModel.TotalCubicVolume = 0;
-                ViewModel.TotalCubicVolumeScale = 0;
-            }
-
-            ViewModel.SelectedBackgroundValue = selected.Theme?.Contains("Light") == true
-                ? BackgroundType.Light
-                : BackgroundType.Dark;
+            
+            ViewModel.SelectAxis(selected, selected.Unit!);
+            dataGrid.ScrollIntoView(selected, null);
         }
+
     }
 
     private void DataGridMetric_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (sender is DataGrid dataGrid && dataGrid.SelectedItem is Axis.Scad.Models.GeneratedModule selected)
+        if (sender is DataGrid dataGrid && dataGrid.SelectedItem is GeneratedModule selected)
         {
-            ViewModel.MirroredAxis = new GeneratedModule { MinX = selected.MinX, MaxX = selected.MaxX, MinY = selected.MinY, MaxY = selected.MaxY };
-            ViewModel.PreviewAxisCallingMethod = selected.CallingMethod ?? string.Empty;
-            ViewModel.SelectedUnitValue = UnitSystem.Metric;
-            ViewModel.MinXValue = selected.MinX;
-            ViewModel.MaxXValue = selected.MaxX;
-            ViewModel.MinYValue = selected.MinY;
-            ViewModel.MaxYValue = selected.MaxY;
-            ViewModel.MinZValue = selected.MinZ;
-            ViewModel.MaxZValue = selected.MaxZ;
-
-            if (!string.IsNullOrWhiteSpace(selected.Volume) &&
-                 double.TryParse(selected.Volume.Replace(" cm³", "").Trim(),
-                                 System.Globalization.NumberStyles.Float,
-                                 System.Globalization.CultureInfo.InvariantCulture,
-                                 out double volumeCm3))
-            {
-                ViewModel.TotalCubicVolume = volumeCm3;
-                ViewModel.TotalCubicVolumeScale = VolumeConverter.ConvertCm3ToM3(volumeCm3);
-            }
-            else
-            {
-                ViewModel.TotalCubicVolume = 0;
-                ViewModel.TotalCubicVolumeScale = 0;
-            }
-
-            ViewModel.SelectedBackgroundValue = selected.Theme?.Contains("Light") == true
-                ? BackgroundType.Light
-                : BackgroundType.Dark;
+            ViewModel.SelectAxis(selected, selected.Unit!);
+            dataGrid.ScrollIntoView(selected, null);
         }
     }
 
-    private bool ShouldExcludePropertyWithAllZeros(string propertyName)
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (ViewModel?.AxesList == null || !ViewModel.AxesList.Any())
-            return false;
-
-        return propertyName switch
-        {
-            "RangeX" => ViewModel.AxesList.All(s => Math.Abs(s.RangeX) == 0.0),
-            "RangeY" => ViewModel.AxesList.All(s => Math.Abs(s.RangeY) == 0.0),
-            "RangeZ" => ViewModel.AxesList.All(s => Math.Abs(s.RangeZ) == 0.0),
-            "MinX" => ViewModel.AxesList.All(s => Math.Abs(s.MinX) == 0.0),
-            "MinY" => ViewModel.AxesList.All(s => Math.Abs(s.MinY) == 0.0),
-            "MinZ" => ViewModel.AxesList.All(s => Math.Abs(s.MinZ) == 0.0),
-            "MaxX" => ViewModel.AxesList.All(s => Math.Abs(s.MaxX) == 0.0),
-            "MaxY" => ViewModel.AxesList.All(s => Math.Abs(s.MaxY) == 0.0),
-            "MaxZ" => ViewModel.AxesList.All(s => Math.Abs(s.MaxZ) == 0.0),
-            _ => false
-        };
+        if (e.PropertyName == nameof(CreateAxesViewModel.SelectedAxis))
+            Dispatcher.UIThread.Post(() => Console.WriteLine($"SelectedAxis changed: {ViewModel.SelectedAxis}"));
     }
 
     private void AdjustLayoutForNarrowScreen()
@@ -541,6 +489,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
         base.OnDetachedFromVisualTree(e);
         _clientSizeObserver?.Dispose();
         _clientSizeObserver = null;

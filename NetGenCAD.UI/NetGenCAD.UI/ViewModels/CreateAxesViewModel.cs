@@ -1,15 +1,14 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using NetGenCAD.Axis.Scad.Models;
+using NetGenCAD.Core.Measurements;
 using NetGenCAD.Designer.Functions;
-using NetGenCAD.Designer.Repositories;
 using NetGenCAD.Designer.Utility;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
-using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
@@ -18,9 +17,10 @@ using System.Reactive.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using static NetGenCAD.Axis.SCAD.Utility.AxisConfig;
 using static NetGenCAD.Core.Measurements.Colors;
 using static NetGenCAD.Core.Measurements.Selector;
+using static NetGenCAD.Designer.Functions.CreateAxesFunctions;
+using Enum = System.Enum;
 
 namespace NetGenCAD.UI.ViewModels
 {
@@ -71,7 +71,10 @@ namespace NetGenCAD.UI.ViewModels
         private bool _previewOpening;
         private bool _savingMirroredAxis;
         private readonly SemaphoreSlim _previewLock = new(1, 1);
-        private GeneratedModule _mirroredAxis = new GeneratedModule();
+        private GeneratedModule? _mirroredAxis;
+        private GeneratedModule? _selectedAxis;
+        private string? _unitAbbrev;
+        private string? _axisModule;
 
 
 
@@ -165,7 +168,79 @@ namespace NetGenCAD.UI.ViewModels
         public string ModalTitle { get => _modalTitle; set => this.RaiseAndSetIfChanged(ref _modalTitle, value); }
         public string ModalContent { get => _modalContent; set => this.RaiseAndSetIfChanged(ref _modalContent, value); }
         public bool IsModalOpen { get => _isModalOpen; set => this.RaiseAndSetIfChanged(ref _isModalOpen, value); }
-        public GeneratedModule MirroredAxis { get => _mirroredAxis; set => this.RaiseAndSetIfChanged(ref _mirroredAxis, value); }
+        public GeneratedModule? MirroredAxis { get => _mirroredAxis; set => this.RaiseAndSetIfChanged(ref _mirroredAxis, value); }
+        public GeneratedModule? SelectedAxis { get => _selectedAxis; set => this.RaiseAndSetIfChanged(ref _selectedAxis, value); }
+        public string? UnitAbbrev { get => _unitAbbrev; set => this.RaiseAndSetIfChanged(ref _unitAbbrev, value); }
+        public string? AxisModule { get => _axisModule; set => this.RaiseAndSetIfChanged(ref _axisModule, value); }
+
+        internal void SelectAxis(GeneratedModule selected, string unit)
+        {
+            MirroredAxis = new GeneratedModule
+            {
+                MinX = selected.MinX,
+                MaxX = selected.MaxX,
+                MinY = selected.MinY,
+                MaxY = selected.MaxY
+            };
+            SelectedAxis = new GeneratedModule
+            {
+                MinX = selected.MinX,
+                MaxX = selected.MaxX,
+                MinY = selected.MinY,
+                MaxY = selected.MaxY,
+                MinZ = selected.MinZ,
+                MaxZ = selected.MaxZ,
+                CallingMethod = selected.CallingMethod,
+                AxisId = selected.AxisId,
+                Theme = selected.Theme,
+                Unit = selected.Unit,
+                RangeX = selected.RangeX,
+                RangeY = selected.RangeY,
+                RangeZ = selected.RangeZ,
+                Volume = selected.Volume
+            };
+
+            UnitAbbrev = selected.Unit;
+            PreviewAxisCallingMethod = selected.CallingMethod ?? string.Empty;
+            SelectedUnitValue = unit == "mm" ? UnitSystem.Metric : UnitSystem.Imperial;
+            MinXValue = selected.MinX;
+            MaxXValue = selected.MaxX;
+            MinYValue = selected.MinY;
+            MaxYValue = selected.MaxY;
+            MinZValue = selected.MinZ;
+            MaxZValue = selected.MaxZ;
+
+            var volumeSuffix = unit == "mm" ? " cm³" : " in³";
+            if (!string.IsNullOrWhiteSpace(selected.Volume) &&
+                double.TryParse(selected.Volume.Replace(volumeSuffix, "").Trim(),
+                                NumberStyles.Float,
+                                CultureInfo.InvariantCulture,
+                                out var volume))
+            {
+                TotalCubicVolume = volume;
+                TotalCubicVolumeScale = unit == "mm"
+                    ? VolumeConverter.ConvertCm3ToM3(volume)
+                    : VolumeConverter.ConvertIn3ToFt3(volume);
+            }
+            else
+            {
+                TotalCubicVolume = 0;
+                TotalCubicVolumeScale = 0;
+            }
+
+            SelectedBackgroundValue = selected.Theme?.Contains("Light") == true
+                ? BackgroundType.Light
+                : BackgroundType.Dark;
+
+            if (SelectedAxis != null)
+            {
+                ModuleName = SelectedAxis.CallingMethod?.Replace("();", "") ?? string.Empty;
+                CallingMethod = SelectedAxis.CallingMethod ?? string.Empty;
+                IncludeFile = $"include <{ModuleName.ToLower()}.scad>";
+                CallingMethodLength = CallingMethod.Length;
+            }
+        }
+
         public OpenScadColor[] PreviewColors { get; } = Enum.GetValues<OpenScadColor>();
         public OpenScadColor? SelectedPreviewColor { get => _selectedPreviewColor; set => this.RaiseAndSetIfChanged(ref _selectedPreviewColor, value); }
         public bool IsPreviewColorFromHex
@@ -207,10 +282,11 @@ namespace NetGenCAD.UI.ViewModels
         }
         public bool CanPreviewAxis => !string.IsNullOrWhiteSpace(PreviewAxisCallingMethod);
         public bool CanSaveMirroredAxis => CanPreviewAxis && (_previewCorner != AxisPreviewCorner.Origin || _previewMirrorZ) && !_savingMirroredAxis;
+        public bool PreviewMirrorZ { get => _previewMirrorZ; set => this.RaiseAndSetIfChanged(ref _previewMirrorZ, value); }
 
         public async Task SetPreviewMirrorZAsync(bool mirrorZ)
         {
-            _previewMirrorZ = mirrorZ;
+            PreviewMirrorZ = mirrorZ;  // For toggling the Preview Mirror button
             this.RaisePropertyChanged(nameof(CanSaveMirroredAxis));
             if ((_previewOpened || _previewOpening) && CanPreviewAxis)
                 await UpdateAxisPreviewAsync(openFile: false);
@@ -364,6 +440,7 @@ namespace NetGenCAD.UI.ViewModels
         public async Task CreateCustomAxisAsync()
         {
             AxisDetailsShown = false; // Disables display of previous generated output details
+            SelectedAxis = new GeneratedModule(); // Clear the selected axis when creating a new one
 
             // Define the callback to update ViewModel properties
             CreateAxesFunctions.CreateCustomAxisCallbackAsync onAxisCreated = async (
@@ -395,18 +472,16 @@ namespace NetGenCAD.UI.ViewModels
                 TotalCubicVolumeScale = customAxis.TotalCubicVolumeScale;
                 ModuleName = customAxis.ModuleName;
                 CallingMethod = customAxis.CallingMethod;
-                MirroredAxis = new GeneratedModule { MinX = displayMinX, MaxX = displayMaxX, MinY = displayMinY, MaxY = displayMaxY };
-                PreviewAxisCallingMethod = customAxis.CallingMethod;
                 CallingMethodLength = callingMethodLength;
                 IncludeFile = $"include <{customAxis.CallingMethod.ToLower().Replace("();", "")}.scad>";
                 AxisDetailsShown = true;
-
+                AxisModule = customAxis.AxisModule;
                 // Refresh the axes list
                 await GetAxesList();
             };
 
             // Call the static function with callback
-            await CreateAxesFunctions.CreateCustomAxisWithCallbackAsync(
+           var axisId = await CreateAxesFunctions.CreateCustomAxisWithCallbackAsync(
                 _minX, _maxX,
                 _minY, _maxY,
                 _minZ, _maxZ,
@@ -416,6 +491,33 @@ namespace NetGenCAD.UI.ViewModels
                 UnitHasChanged,
                 onAxisCreated,
                 DbConnection);
+
+            if (axisId != null)
+            {
+                // If axis creation was successful, select the newly created axis from the DB. They should match
+                var selectedAxis = await Designer.Repositories.AxisDimensionsExtensions.GetByIdAsync(new Designer.Repositories.AxisDimensions(), _dbConnection!, (int)axisId);
+                SelectedAxis.AxisId = selectedAxis!.Id;
+                SelectedAxis.MinX = selectedAxis.MinX;
+                SelectedAxis.MaxX = selectedAxis.MaxX;
+                SelectedAxis.MinY = selectedAxis.MinY;
+                SelectedAxis.MaxY = selectedAxis.MaxY;
+                SelectedAxis.MinZ = selectedAxis.MinZ;
+                SelectedAxis.MaxZ = selectedAxis.MaxZ;
+                SelectedAxis.Theme = selectedAxis.Theme;
+                SelectedAxis.Unit = selectedAxis.Unit;
+                SelectedAxis.CallingMethod = CallingMethod;
+                MirroredAxis = SelectedAxis; // Initially set MirroredAxis to the newly created axis
+                PreviewAxisCallingMethod = SelectedAxis.CallingMethod;
+                UnitAbbrev = SelectedAxis.Unit;
+
+            }
+            else
+            {
+                // Handle the case where axis creation failed
+                ModalTitle = "Axis Creation Error";
+                ModalContent = "Failed to create the custom axis. Please check your input values.";
+                IsModalOpen = true;
+            }
 
             // Handle invalid input case
             if (!AxisDetailsShown)
@@ -455,6 +557,7 @@ namespace NetGenCAD.UI.ViewModels
             MinYValue = 0;
             MinZValue = 0;
             MirroredAxis = new GeneratedModule();
+            SelectedAxis = new GeneratedModule();
             return Task.CompletedTask;
         }
 
@@ -509,36 +612,47 @@ namespace NetGenCAD.UI.ViewModels
 
         public async Task ConvertInputs(int decimalPlaces)
         {
+            AxisConversionResult result = new AxisConversionResult()
+            {
+                MinX = _minX,
+                MaxX = _maxX,
+                MinY = _minY,
+                MaxY = _maxY,
+                MinZ = _minZ,
+                MaxZ = _maxZ,
+                Volume = _totalCubicVolume,
+                VolumeScale = _totalCubicVolumeScale
+            };
+
             if (_selectedUnit == UnitSystem.Imperial && UnitHasChanged)
             {
-                var result = CreateAxesFunctions.ConvertInputToImperial(
+                result = CreateAxesFunctions.ConvertInputToImperial(
                     _minX, _maxX, _minY, _maxY, _minZ, _maxZ, _totalCubicVolume, _totalCubicVolumeScale, decimalPlaces);
-
-                MinXValue = result.MinX;
-                MaxXValue = result.MaxX;
-                MinYValue = result.MinY;
-                MaxYValue = result.MaxY;
-                MinZValue = result.MinZ;
-                MaxZValue = result.MaxZ;
-                TotalCubicVolume = result.Volume;
-                TotalCubicVolumeScale = result.VolumeScale;
-                UnitHasChanged = false;
             }
             else if (_selectedUnit == UnitSystem.Metric && UnitHasChanged)
             {
-                var result = CreateAxesFunctions.ConvertInputToMetric(
+                result = CreateAxesFunctions.ConvertInputToMetric(
                     _minX, _maxX, _minY, _maxY, _minZ, _maxZ, _totalCubicVolume, _totalCubicVolumeScale, decimalPlaces);
-
-                MinXValue = result.MinX;
-                MaxXValue = result.MaxX;
-                MinYValue = result.MinY;
-                MaxYValue = result.MaxY;
-                MinZValue = result.MinZ;
-                MaxZValue = result.MaxZ;
-                TotalCubicVolume = result.Volume;
-                TotalCubicVolumeScale = result.VolumeScale;
-                UnitHasChanged = false;
             }
+
+            MinXValue = result.MinX;
+            MaxXValue = result.MaxX;
+            MinYValue = result.MinY;
+            MaxYValue = result.MaxY;
+            MinZValue = result.MinZ;
+            MaxZValue = result.MaxZ;
+            TotalCubicVolume = result.Volume;
+            TotalCubicVolumeScale = result.VolumeScale;
+
+            /* Mirrored Axis Radio coordinates
+            MirroredAxis.MinX = result.MinX;
+            MirroredAxis.MaxX = result.MaxX;
+            MirroredAxis.MinY = result.MinY;
+            MirroredAxis.MaxY = result.MaxY;
+            MirroredAxis.MinZ = result.MinZ;
+            MirroredAxis.MaxZ = result.MaxZ;*/
+
+            UnitHasChanged = false;
 
             await Task.CompletedTask;
         }

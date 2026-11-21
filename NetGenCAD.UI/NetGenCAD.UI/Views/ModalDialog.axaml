@@ -18,7 +18,7 @@
             MinWidth="800"
             MinHeight="200"
             MaxWidth="1240"
-            MaxHeight="680"
+            MaxHeight="800"
             Margin="20"
             Padding="0"
             HorizontalAlignment="Center"

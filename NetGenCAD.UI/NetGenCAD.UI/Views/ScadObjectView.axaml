@@ -1397,6 +1397,16 @@
                         Orientation="Horizontal"
                         Spacing="15">
 
+						<!--  Custom Color  -->
+						<StackPanel Width="25" Classes="inputGroup">
+							<TextBlock Classes="standardLabel" Text="Hex" />
+							<CheckBox HorizontalAlignment="Stretch" IsChecked="{Binding IsColorFromHex, Mode=TwoWay}">
+								<ToolTip.Tip>
+									<TextBlock Text="Enables HEX color input" />
+								</ToolTip.Tip>
+							</CheckBox>
+						</StackPanel>
+						
 						<!--  Color Picker  -->
 						<StackPanel Width="155" Classes="inputGroup">
 							<StackPanel.IsVisible>
@@ -1430,17 +1440,11 @@
 								</ToolTip.Tip>
 							</TextBox>
 						</StackPanel>
+
+						
 					</StackPanel>
 						
-                        <!--  Custom Color  -->
-                        <StackPanel Width="25" Classes="inputGroup">
-                            <TextBlock Classes="standardLabel" Text="Hex" />
-                            <CheckBox HorizontalAlignment="Stretch" IsChecked="{Binding IsColorFromHex, Mode=TwoWay}">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Enables HEX color input" />
-                                </ToolTip.Tip>
-                            </CheckBox>
-                        </StackPanel>
+                        
 
 
                     <!--  Alpha Integer Input  -->
@@ -1935,8 +1939,9 @@
             Grid.ColumnSpan="2"
             IsOpen="{Binding IsModalOpen, Mode=TwoWay}">
             <controls:ModalDialog.Content>
-                <TextBlock
+				<SelectableTextBlock
                     FontFamily="Courier New"
+					SelectionBrush="{DynamicResource LabelBackground}"
                     Text="{Binding ModalContent}"
                     TextWrapping="Wrap" />
             </controls:ModalDialog.Content>

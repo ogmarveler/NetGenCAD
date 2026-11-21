@@ -26,7 +26,7 @@ namespace NetGenCAD.Core.Utility
             var withoutModuleKeyword = moduleDefinition.Trim();
             if (withoutModuleKeyword.StartsWith("module ", StringComparison.OrdinalIgnoreCase))
             {
-                withoutModuleKeyword = withoutModuleKeyword["module ".Length..].Trim();
+                withoutModuleKeyword = withoutModuleKeyword["module ".Length..].Trim(); 
             }
 
             // Find the closing parenthesis after the module name

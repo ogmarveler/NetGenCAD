@@ -328,4 +328,24 @@
         <Setter Property="Padding" Value="4,2" />
         <Setter Property="MinHeight" Value="28" />
     </Style>
+	
+	<!--  Global PathIcon rotation  -->
+	<Style Selector="PathIcon">
+		<Setter Property="RenderTransform" Value="rotate(0deg)" />
+		<Setter Property="Transitions">
+			<Transitions>
+				<TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.5" />
+			</Transitions>
+		</Setter>
+	</Style>
+
+	<Style Selector="PathIcon.rotated">
+		<Setter Property="RenderTransform" Value="rotate(180deg)" />
+		<Setter Property="Transitions">
+			<Transitions>
+				<TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.5" />
+			</Transitions>
+		</Setter>
+	</Style>
+	
 </Styles>
