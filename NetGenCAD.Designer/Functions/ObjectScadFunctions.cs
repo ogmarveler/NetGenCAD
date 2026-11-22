@@ -26,6 +26,9 @@ namespace NetGenCAD.Designer.Functions
     /// </summary>
     public static class ObjectScadFunctions
     {
+        public static string ResolveColor(bool isColorFromHex, string colorHex, string selectedColor) =>
+            isColorFromHex && !string.IsNullOrEmpty(colorHex) ? colorHex : selectedColor;
+
         // Add this delegate type at the top of the ObjectScadFunctions class
         public delegate Task CreateAxisCallbackAsync(
             int? axisId,
@@ -68,9 +71,9 @@ namespace NetGenCAD.Designer.Functions
 
             axisDimensions.OSCADMethod = $"{axisDimensions.IncludeMethod} {selectedAxis.CallingMethod}";
 
-            var axisId = await axisDimensions.UpsertAsync(dbConnection);
+            int? axisId = await axisDimensions.UpsertAsync(dbConnection);
 
-            if (axisId != null)
+            if (axisId is not null && axisId > 0)
             {
                 // Convert offsets to metric if imperial
                 if (selectedAxisUnit == UnitSystem.Imperial)
@@ -302,10 +305,7 @@ namespace NetGenCAD.Designer.Functions
         {
             try
             {
-                // Determine the color to use: if hex is selected and not blank, use hex; otherwise use selected color
-                var colorToUse = isColorFromHex && !string.IsNullOrEmpty(openScadColorHex)
-                    ? openScadColorHex
-                    : selectedOpenScadColor.ToString();
+                var colorToUse = ResolveColor(isColorFromHex, openScadColorHex, selectedOpenScadColor.ToString());
 
                 if (isTextSelected)
                 {

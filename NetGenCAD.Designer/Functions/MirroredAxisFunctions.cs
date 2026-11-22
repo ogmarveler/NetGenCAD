@@ -127,25 +127,29 @@ namespace NetGenCAD.Designer.Functions
             using var transaction = connection.BeginTransaction();
             try
             {
-                using var command = connection.CreateCommand();
-                command.Transaction = transaction;
-                command.CommandText = targetId.HasValue
-                    ? @"UPDATE AxisDimensions SET Theme=$theme, Unit=$unit, MinX=$minX, MaxX=$maxX, MinY=$minY, MaxY=$maxY, MinZ=$minZ, MaxZ=$maxZ, IncludeMethod=$include, OSCADMethod=$method, CreatedAt=$created WHERE Id=$id"
-                    : @"INSERT INTO AxisDimensions (Theme, Unit, MinX, MaxX, MinY, MaxY, MinZ, MaxZ, IncludeMethod, OSCADMethod, CreatedAt)
-                        VALUES ($theme, $unit, $minX, $maxX, $minY, $maxY, $minZ, $maxZ, $include, $method, $created)";
-                if (targetId.HasValue) command.Parameters.AddWithValue("$id", targetId.Value);
-                command.Parameters.AddWithValue("$theme", source.Theme);
-                command.Parameters.AddWithValue("$unit", source.Unit);
-                command.Parameters.AddWithValue("$minX", source.MinX);
-                command.Parameters.AddWithValue("$maxX", source.MaxX);
-                command.Parameters.AddWithValue("$minY", source.MinY);
-                command.Parameters.AddWithValue("$maxY", source.MaxY);
-                command.Parameters.AddWithValue("$minZ", source.MinZ);
-                command.Parameters.AddWithValue("$maxZ", source.MaxZ);
-                command.Parameters.AddWithValue("$include", source.IncludeMethod);
-                command.Parameters.AddWithValue("$method", $"{source.IncludeMethod} {newCall}");
-                command.Parameters.AddWithValue("$created", DateTime.UtcNow);
-                await command.ExecuteNonQueryAsync();
+                var mirrored = new AxisDimensions
+                {
+                    Id = targetId.GetValueOrDefault(),
+                    Theme = source.Theme,
+                    Unit = source.Unit,
+                    MinX = source.MinX,
+                    MaxX = source.MaxX,
+                    MinY = source.MinY,
+                    MaxY = source.MaxY,
+                    MinZ = source.MinZ,
+                    MaxZ = source.MaxZ,
+                    IncludeMethod = source.IncludeMethod,
+                    OSCADMethod = $"{source.IncludeMethod} {newCall}",
+                    AxesOSCADMethod = newEntry[1..],
+                    AxisColor = source.AxisColor,
+                    ColorFromHex = source.ColorFromHex,
+                    AxisColorAlpha = source.AxisColorAlpha,
+                    CreatedAt = DateTime.UtcNow
+                };
+                if (targetId.HasValue)
+                    await mirrored.UpdateAsync(connection, transaction);
+                else
+                    await mirrored.InsertAsync(connection, transaction);
 
                 await using (var file = new FileStream(newPath, fileExists ? FileMode.Truncate : FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 {

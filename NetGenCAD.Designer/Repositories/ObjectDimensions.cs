@@ -32,6 +32,7 @@ namespace NetGenCAD.Designer.Repositories
         public double YMirror { get; set; } = 0.0;
         public double ZMirror { get; set; } = 0.0;
         public string Color { get; set; } = string.Empty;
+        public int? ColorFromHex { get; set; } = 0;
         public double Alpha { get; set; } = 1;
         public int Layer { get; set; } = 0;
         public string IncludeMethod { get; set; } = string.Empty;
@@ -66,7 +67,7 @@ namespace NetGenCAD.Designer.Repositories
                     XRotate REAL NOT NULL DEFAULT 0, YRotate REAL NOT NULL DEFAULT 0, ZRotate REAL NOT NULL DEFAULT 0,
                     XMirror REAL NOT NULL DEFAULT 0, YMirror REAL NOT NULL DEFAULT 0, ZMirror REAL NOT NULL DEFAULT 0,
                     ScaleX REAL NOT NULL DEFAULT 1, ScaleY REAL NOT NULL DEFAULT 1, ScaleZ REAL NOT NULL DEFAULT 1,
-                    Color TEXT NOT NULL DEFAULT '', Alpha REAL NOT NULL DEFAULT 1,
+                    Color TEXT NOT NULL DEFAULT '', ColorFromHex INTEGER DEFAULT 0, Alpha REAL NOT NULL DEFAULT 1,
                     Layer INTEGER NOT NULL DEFAULT 0, IncludeMethod TEXT NOT NULL DEFAULT '', CreatedAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), OSCADMethod TEXT NOT NULL DEFAULT ''
                 );");
 

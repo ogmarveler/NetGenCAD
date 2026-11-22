@@ -26,6 +26,11 @@ namespace NetGenCAD.Axis.Scad.Utility
                 int originIndex = formatted.IndexOf(", Origin: ");
                 if (originIndex >= 0)
                 {
+                    int mirrorIndex = formatted.IndexOf("Mirror", originIndex, StringComparison.Ordinal);
+                    if (mirrorIndex >= 0)
+                    {
+                        return $"{formatted.Substring(0, originIndex)} {formatted.Substring(mirrorIndex)}";
+                    }
                     return formatted.Substring(0, originIndex);
                 }
                 return formatted;

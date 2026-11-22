@@ -16,5 +16,9 @@
         public double MaxZ { get; set; } = 0;
         public string? Volume { get; set; } = "0";
         public int AxisId { get; set; } = 0;
+        public string? AxesOscadMethod { get; set; } = string.Empty;
+        public string? AxisColor { get; set; } = string.Empty;
+        public double AxisColorAlpha { get; set; } = 1;
+        public bool? ColorFromHex { get; set; } = false;
     }
 }

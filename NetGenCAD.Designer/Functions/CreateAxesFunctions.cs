@@ -6,10 +6,6 @@ using NetGenCAD.Axis.SCAD.Modules;
 using NetGenCAD.Core.Measurements;
 using NetGenCAD.Designer.Repositories;
 using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using static Google.Rpc.Context.AttributeContext.Types;
 using static NetGenCAD.Axis.SCAD.Utility.AxisConfig;
 using static NetGenCAD.Core.Measurements.Conversion;
 using static NetGenCAD.Core.Measurements.Selector;
@@ -40,10 +36,11 @@ namespace NetGenCAD.Designer.Functions
             var allAxes = parser.AxesModulesList(filePath);
 
             var metricAxes = new ObservableCollection<GeneratedModule>(
-                allAxes.Where(x => x.CallingMethod != null && x.CallingMethod.Contains("_MM_")));
+               allAxes.Where(x => x.CallingMethod != null && x.CallingMethod.Contains("_MM_")));
 
             var imperialAxes = new ObservableCollection<GeneratedModule>(
                 allAxes.Where(x => x.CallingMethod != null && x.CallingMethod.Contains("_Inch_")));
+
 
             return (allAxes, metricAxes, imperialAxes);
         }
@@ -339,7 +336,10 @@ namespace NetGenCAD.Designer.Functions
             int decimalPlaces,
             bool unitHasChanged,
             CreateCustomAxisCallbackAsync onAxisCreated,
-            SqliteConnection? dbConnection = null)
+            SqliteConnection? dbConnection = null,
+            string? axisColor = null,
+            bool colorFromHex = false,
+            double axisColorAlpha = 1)
         {
             // Validate input values are numeric
             if (double.IsNaN(minX) || double.IsNaN(maxX) ||
@@ -385,7 +385,10 @@ namespace NetGenCAD.Designer.Functions
                     minY: convertedMinY,
                     maxY: convertedMaxY,
                     minZ: convertedMinZ,
-                    maxZ: convertedMaxZ);
+                    maxZ: convertedMaxZ,
+                    axisColorOverride: axisColor,
+                    colorFromHex: colorFromHex,
+                    axisColorAlphaOverride: axisColorAlpha);
 
                 // Call backend to generate axis
                 var customAxis = await GUI.SetAxis(axisSettings);
@@ -434,7 +437,7 @@ namespace NetGenCAD.Designer.Functions
                     newUnitHasChanged);
 
                 // Store the created axis in the database for later retrieval and use
-                return await EnsureAxisStoredAsync(customAxis, displayMinX, displayMaxX, displayMinY, displayMaxY, displayMinZ, displayMaxZ, dbConnection);
+                return await EnsureAxisStoredAsync(customAxis, displayMinX, displayMaxX, displayMinY, displayMaxY, displayMinZ, displayMaxZ, dbConnection!);
             }
             catch (Exception ex)
             {
@@ -534,6 +537,7 @@ namespace NetGenCAD.Designer.Functions
         // UI driven model requires an axis be selected first when creating a new object, so this is a convenience method to store the selected axis in the database for object-driven creation through API
         public static async Task<int> EnsureAxisStoredAsync(CustomAxis selectedAxis, double minX, double maxX, double minY, double maxY, double minZ, double maxZ, SqliteConnection dbConnection)
         {
+            Console.WriteLine($"Ensuring axis stored: {selectedAxis.Settings.AxisColor} {selectedAxis.Settings.ColorFromHex}");
             if (selectedAxis == null)
                 throw new ArgumentNullException(nameof(selectedAxis));
 
@@ -548,6 +552,10 @@ namespace NetGenCAD.Designer.Functions
                 MaxY = maxY,
                 MinZ = minZ,
                 MaxZ = maxZ,
+                ColorFromHex = selectedAxis.Settings.ColorFromHex ? 1 : 0,
+                AxisColor = selectedAxis.Settings.AxisColor ?? string.Empty,
+                AxisColorAlpha = selectedAxis.Settings.AxisColorAlpha,
+                AxesOSCADMethod = selectedAxis.AxesModule ?? string.Empty,
                 OSCADMethod = selectedAxis.CallingMethod ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };

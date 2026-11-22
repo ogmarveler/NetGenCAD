@@ -167,7 +167,6 @@ namespace NetGenCAD.Axis.SCAD.Modules
             var unit = axSet.UnitSystem == UnitSystem.Imperial ? "in" : "mm";
             var unitLabel = axSet.UnitSystem == UnitSystem.Imperial ? "Inch" : "MM";
             var scale = axSet.UnitSystem == UnitSystem.Imperial ? Inch.Inch.ToMm(1) : 1;
-            var axisColor = axSet.OpenScadColor.ToString().ToLower();
 
             // Labels for module names and call methods
             axMod.ModuleName = $"{axSet.BackgroundType}_{xLabel}x{yLabel}x{zLabel}_{unitLabel}";

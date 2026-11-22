@@ -22,7 +22,11 @@ namespace NetGenCAD.Designer.Repositories
         public double MinZ { get; set; }
         public double MaxZ { get; set; }
         public string OSCADMethod { get; set; } = string.Empty;
+        public string AxesOSCADMethod { get; set; } = string.Empty;
         public string IncludeMethod { get; set; } = "use <../Axes/axes.scad>;";
+        public string? AxisColor { get; set; } = string.Empty; // New property for axis color
+        public int ColorFromHex { get; set; } = 0; // New property to indicate if the color is from hex
+        public double AxisColorAlpha { get; set; } = 1; // From 0 to 1, representing transparency (0 = fully transparent, 1 = fully opaque)
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public Dictionary<string, object> ToDbDictionary() => new()
@@ -38,6 +42,10 @@ namespace NetGenCAD.Designer.Repositories
             { "MaxZ", MaxZ },
             { "IncludeMethod", IncludeMethod },
             { "OSCADMethod", OSCADMethod },
+            { "AxesOSCADMethod", AxesOSCADMethod },
+            { "AxisColor", AxisColor ?? string.Empty },
+            { "AxisColorAlpha", AxisColorAlpha },
+            { "ColorFromHex", ColorFromHex },
             { "CreatedAt", CreatedAt }
         };
     }
@@ -59,6 +67,10 @@ namespace NetGenCAD.Designer.Repositories
             (nameof(AxisDimensions.MaxZ), typeof(double), false),
             (nameof(AxisDimensions.IncludeMethod), typeof(string), false),
             (nameof(AxisDimensions.OSCADMethod), typeof(string), false),
+            (nameof(AxisDimensions.AxesOSCADMethod), typeof(string), false),
+            (nameof(AxisDimensions.AxisColor), typeof(string), true),
+            (nameof(AxisDimensions.AxisColorAlpha), typeof(double), false),
+            (nameof(AxisDimensions.ColorFromHex), typeof(int), false),
             (nameof(AxisDimensions.CreatedAt), typeof(DateTime), false)
         ];
 
@@ -73,12 +85,12 @@ namespace NetGenCAD.Designer.Repositories
         }
 
         // Insert a single AxisDimensions and return the new Id
-        public static async Task<int> InsertAsync(this AxisDimensions entity, SqliteConnection connection)
+        public static async Task<int> InsertAsync(this AxisDimensions entity, SqliteConnection connection, SqliteTransaction? transaction = null)
         {
             IEnumerable<string> columns = Properties.Where(p => p.Name != "Id").Select(p => p.Name);
             IEnumerable<string> parameters = columns.Select(c => $"@{c}");
             string sql = $"INSERT INTO AxisDimensions ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)}); SELECT last_insert_rowid();";
-            var id = await connection.ExecuteScalarAsync<int>(sql, entity);
+            var id = await connection.ExecuteScalarAsync<int>(sql, entity, transaction);
             entity.Id = id; // Update the entity with the new Id
             return id;
         }
@@ -99,6 +111,10 @@ namespace NetGenCAD.Designer.Repositories
                 AND MaxZ = @MaxZ 
                 AND IncludeMethod = @IncludeMethod 
                 AND (OSCADMethod = @OSCADMethod OR (OSCADMethod IS NULL AND @OSCADMethod IS NULL))
+                AND (AxesOSCADMethod = @AxesOSCADMethod OR (AxesOSCADMethod IS NULL AND @AxesOSCADMethod IS NULL))
+                AND (AxisColor = @AxisColor OR (AxisColor IS NULL AND @AxisColor IS NULL))
+                AND ColorFromHex = @ColorFromHex
+                AND AxisColorAlpha = @AxisColorAlpha
                 LIMIT 1";
 
             var existingId = await connection.QuerySingleOrDefaultAsync<int?>(
@@ -114,7 +130,11 @@ namespace NetGenCAD.Designer.Repositories
                     entity.MinZ,
                     entity.MaxZ,
                     entity.IncludeMethod,
-                    entity.OSCADMethod
+                    entity.OSCADMethod,
+                    entity.AxesOSCADMethod,
+                    entity.AxisColor,
+                    entity.AxisColorAlpha,
+                    entity.ColorFromHex
                 });
 
             if (existingId.HasValue)
@@ -136,11 +156,11 @@ namespace NetGenCAD.Designer.Repositories
         }
 
         // Update
-        public static async Task UpdateAsync(this AxisDimensions entity, SqliteConnection connection)
+        public static async Task UpdateAsync(this AxisDimensions entity, SqliteConnection connection, SqliteTransaction? transaction = null)
         {
             IEnumerable<string> setClause = Properties.Where(p => p.Name != "Id").Select(p => $"{p.Name} = @{p.Name}");
             string sql = $"UPDATE AxisDimensions SET {string.Join(", ", setClause)} WHERE Id = @Id";
-            await connection.ExecuteAsync(sql, entity);
+            await connection.ExecuteAsync(sql, entity, transaction);
         }
 
         // Delete by Id
@@ -171,6 +191,16 @@ namespace NetGenCAD.Designer.Repositories
         public static async Task<int?> GetIdByCallingMethodAsync(this AxisDimensions _, SqliteConnection connection, string callingMethod) =>
             await connection.QuerySingleOrDefaultAsync<int?>(
                 @"SELECT Id
+                    FROM AxisDimensions
+                    WHERE TRIM(REPLACE(OSCADMethod,IncludeMethod,'')) = @CallingMethod
+                  ORDER BY CreatedAt DESC
+                  LIMIT 1",
+                new { CallingMethod = callingMethod.Trim() });
+
+        // Get the most recently saved axis by its calling method
+        public static async Task<AxisDimensions?> GetAllByCallingMethodAsync(this AxisDimensions _, SqliteConnection connection, string callingMethod) =>
+            await connection.QuerySingleOrDefaultAsync<AxisDimensions>(
+                @"SELECT *
                     FROM AxisDimensions
                     WHERE TRIM(REPLACE(OSCADMethod,IncludeMethod,'')) = @CallingMethod
                   ORDER BY CreatedAt DESC

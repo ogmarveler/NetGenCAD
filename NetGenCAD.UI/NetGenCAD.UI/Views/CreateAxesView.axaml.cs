@@ -8,17 +8,14 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using NetGenCAD.Axis.Scad.Models;
-using NetGenCAD.Axis.SCAD.Modules;
-using NetGenCAD.Core.Models;
+using NetGenCAD.Axis.Scad.Utility;
 using NetGenCAD.UI.Converters;
 using NetGenCAD.UI.ViewModels;
 using System;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reactive;
 using System.Text;
-using static NetGenCAD.Core.Measurements.Selector;
 
 namespace NetGenCAD.UI.Views;
 
@@ -137,21 +134,20 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     private void ShowCallingMethodModal(GeneratedModule? module)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Axis Id: {module?.AxisId}");
-        sb.AppendLine();
-        sb.AppendLine("// If calling the axis in an object file");
+        sb.AppendLine("// If calling the axis in an object file. Translate function can move the axis around the object");
         sb.AppendLine("use <../Axes/axes.scad>;");  // For NetGenCAD.UI where nested folder scad files are used. NetGenCAD-Axis may be slightly different
-        sb.AppendLine();
-        sb.AppendLine("// translate moves the axis around the object");
         sb.AppendLine($"translate ([0, 0, 0])  {module?.CallingMethod}");
-        //sb.AppendLine();
-        //sb.AppendLine($"{new string('-', 20)} Axis OSCAD {new string('-', 20)}");
-        //sb.AppendLine();
-        //sb.AppendLine(ViewModel.AxisModule);
+        sb.AppendLine();
+        sb.AppendLine($"{new string('-', 40)} Axes Module OSCAD {new string('-', 40)}");
+        sb.AppendLine();
+        sb.AppendLine($"{module?.AxesOscadMethod}");
+        sb.AppendLine($"{new string('-', 40)} Axis OSCAD {new string('-', 40)}");
+        sb.AppendLine();
+        sb.AppendLine(ViewModel.AxisModule);
 
 
         // Set ViewModel properties for the modal
-        ViewModel.ModalTitle = $"To Use In Your Main SCAD File";
+        ViewModel.ModalTitle = $"{StringFunctions.FormatAxisDisplay(module?.CallingMethod)}";
         ViewModel.ModalContent = sb.ToString();
         ViewModel.IsModalOpen = true;
     }
@@ -360,19 +356,13 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
         NumericDataGridTextColumn.Apply(e, e.PropertyName == nameof(GeneratedModule.Volume));
 
         // List of columns to exclude from display - Hide Metric columns for Imperial view
-        var excludedColumns = new[] { "AxisId" };
+        var excludedColumns = new[] { "AxesOscadMethod", "AxisColorAlpha", "ColorFromHex" };
 
         if (excludedColumns.Contains(e.PropertyName))
         {
             e.Cancel = true;
             return;
         }
-
-        //if (ShouldExcludePropertyWithAllZeros(e.PropertyName))
-        //{
-        //    e.Cancel = true;
-        //    return;
-        //}
 
         // Customize CallingMethod column to show formatted axis display
         if (e.PropertyName == nameof(Axis.Scad.Models.GeneratedModule.CallingMethod))
@@ -381,7 +371,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
             var axisDisplayColumn = new DataGridTextColumn
             {
                 Header = "Axis Display",
-                Width = new DataGridLength(230),
+                Width = new DataGridLength(320),
                 CanUserResize = false,
                 IsReadOnly = true,
                 Binding = new Binding(nameof(Axis.Scad.Models.GeneratedModule.CallingMethod))
@@ -411,7 +401,9 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
             nameof(Axis.Scad.Models.GeneratedModule.MinZ) => "Zₘᵢₙ",
             nameof(Axis.Scad.Models.GeneratedModule.MaxZ) => "Zₘₐₓ",
             nameof(Axis.Scad.Models.GeneratedModule.Volume) => "Vol",
-           // nameof(Axis.Scad.Models.GeneratedModule.AxisId) => "ID",
+            nameof(Axis.Scad.Models.GeneratedModule.AxisColor) => "Color",
+            nameof(Axis.Scad.Models.GeneratedModule.AxisColorAlpha) => "Alpha",
+            nameof(Axis.Scad.Models.GeneratedModule.AxisId) => "ID",
             _ => e.PropertyName
         };
 
@@ -428,22 +420,22 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
         DataGrid_AutoGeneratingColumnImperial(sender, e);
     }
 
-    private void DataGridImperial_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void DataGridImperial_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (sender is DataGrid dataGrid && dataGrid.SelectedItem is GeneratedModule selected)
         {
-            
             ViewModel.SelectAxis(selected, selected.Unit!);
+            await ViewModel.ShowAxisPreviewAsync();
             dataGrid.ScrollIntoView(selected, null);
         }
-
     }
 
-    private void DataGridMetric_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void DataGridMetric_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (sender is DataGrid dataGrid && dataGrid.SelectedItem is GeneratedModule selected)
         {
             ViewModel.SelectAxis(selected, selected.Unit!);
+            await ViewModel.ShowAxisPreviewAsync();
             dataGrid.ScrollIntoView(selected, null);
         }
     }

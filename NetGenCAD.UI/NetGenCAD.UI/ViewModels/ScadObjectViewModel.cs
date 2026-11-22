@@ -963,14 +963,6 @@ namespace NetGenCAD.UI.ViewModels
             }
         }
 
-        /*** Public Variables ***/
-        //public ObservableCollection<EnumOption> DirectionOptions { get; set => this.RaiseAndSetIfChanged(ref _directionOptions, value); }
-        //public ObservableCollection<EnumOption> HAlignOptions { get => _hAlignOptions; set => this.RaiseAndSetIfChanged(ref _hAlignOptions, value); }
-        //public ObservableCollection<EnumOption> VAlignOptions { get => _vAlignOptions; set => this.RaiseAndSetIfChanged(ref _vAlignOptions, value); }
-        //public ObservableCollection<EnumOption> LanguageOptions { get => _languageOptions; set => this.RaiseAndSetIfChanged(ref _languageOptions, value); }
-        //public ObservableCollection<EnumOption> ScriptOptions { get => _scriptOptions; set => this.RaiseAndSetIfChanged(ref _scriptOptions, value); }
-        //public ObservableCollection<EnumOption> FontInputOptions { get => _fontInputOptions; set => this.RaiseAndSetIfChanged(ref _fontInputOptions, value); }
-
         public string TextInput { get => _textInput; set => this.RaiseAndSetIfChanged(ref _textInput, value); }
         public string TextAlign { get => _textAlign; set => this.RaiseAndSetIfChanged(ref _textAlign, value); }
         public double TextSize { get => _textSize; set => this.RaiseAndSetIfChanged(ref _textSize, value); }

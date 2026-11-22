@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using NetGenCAD.Axis.Scad.Models;
+using NetGenCAD.Axis.SCAD.Utility;
 using NetGenCAD.Core.Measurements;
 using NetGenCAD.Designer.Functions;
 using NetGenCAD.Designer.Utility;
@@ -9,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
+using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
@@ -75,6 +77,7 @@ namespace NetGenCAD.UI.ViewModels
         private GeneratedModule? _selectedAxis;
         private string? _unitAbbrev;
         private string? _axisModule;
+        private double _alpha = 1.0; // Default alpha value for axis color
 
 
 
@@ -172,6 +175,7 @@ namespace NetGenCAD.UI.ViewModels
         public GeneratedModule? SelectedAxis { get => _selectedAxis; set => this.RaiseAndSetIfChanged(ref _selectedAxis, value); }
         public string? UnitAbbrev { get => _unitAbbrev; set => this.RaiseAndSetIfChanged(ref _unitAbbrev, value); }
         public string? AxisModule { get => _axisModule; set => this.RaiseAndSetIfChanged(ref _axisModule, value); }
+        public double Alpha { get => _alpha; set => this.RaiseAndSetIfChanged(ref _alpha, value); } // Default alpha value for axis color
 
         internal void SelectAxis(GeneratedModule selected, string unit)
         {
@@ -250,6 +254,8 @@ namespace NetGenCAD.UI.ViewModels
             {
                 this.RaiseAndSetIfChanged(ref _isPreviewColorFromHex, value);
                 this.RaisePropertyChanged(nameof(HasInvalidPreviewColorHex));
+                if (HasInvalidPreviewColorHex)
+                    PreviewColorHex = string.Empty;
             }
         }
         public string PreviewColorHex
@@ -379,7 +385,7 @@ namespace NetGenCAD.UI.ViewModels
                 var mirrorZ = _previewMirrorZ;
                 if (HasInvalidPreviewColorHex)
                     throw new InvalidDataException("Enter a preview color in #RGB or #RRGGBB format.");
-                var previewColor = IsPreviewColorFromHex ? PreviewColorHex : SelectedPreviewColor?.ToString();
+                var previewColor = GetPreviewColor();
                 var callingMethod = PreviewAxisCallingMethod.Trim();
                 var method = Regex.Match(callingMethod, @"^([A-Za-z_][A-Za-z0-9_]*)\(\);$");
                 if (!method.Success)
@@ -437,10 +443,24 @@ namespace NetGenCAD.UI.ViewModels
             throw new InvalidDataException($"Invalid axis bound: {value}");
         }
 
+        private string GetPreviewColor() => ObjectScadFunctions.ResolveColor(
+            IsPreviewColorFromHex, PreviewColorHex,
+            IsPreviewColorFromHex ? string.Empty : SelectedPreviewColor?.ToString() ?? string.Empty);
+
         public async Task CreateCustomAxisAsync()
         {
             AxisDetailsShown = false; // Disables display of previous generated output details
             SelectedAxis = new GeneratedModule(); // Clear the selected axis when creating a new one
+
+            // Validate the input values before proceeding
+            string _color = string.Empty;
+            bool _isOverride = false;
+            if (SelectedPreviewColor is not null && !IsPreviewColorFromHex)
+                _color = SelectedPreviewColor.Value.ToString();
+            else
+                (_color, _isOverride) = AxisConfig.ValidateAxisColor(PreviewColorHex, IsPreviewColorFromHex, SelectedBackgroundValue == BackgroundType.Dark ? OpenScadColor.White : OpenScadColor.Black);
+
+            var _alphaValid = AxisConfig.ValidateAxisAlpha(Alpha);
 
             // Define the callback to update ViewModel properties
             CreateAxesFunctions.CreateCustomAxisCallbackAsync onAxisCreated = async (
@@ -476,40 +496,50 @@ namespace NetGenCAD.UI.ViewModels
                 IncludeFile = $"include <{customAxis.CallingMethod.ToLower().Replace("();", "")}.scad>";
                 AxisDetailsShown = true;
                 AxisModule = customAxis.AxisModule;
-                // Refresh the axes list
-                await GetAxesList();
             };
 
             // Call the static function with callback
-           var axisId = await CreateAxesFunctions.CreateCustomAxisWithCallbackAsync(
-                _minX, _maxX,
-                _minY, _maxY,
-                _minZ, _maxZ,
-                _selectedUnit,
-                _selectedBackground,
-                _decimalPlaces,
-                UnitHasChanged,
-                onAxisCreated,
-                DbConnection);
+            var axisId = await CreateAxesFunctions.CreateCustomAxisWithCallbackAsync(
+                minX: _minX, maxX: _maxX,
+                minY: _minY, maxY: _maxY,
+                minZ: _minZ, maxZ: _maxZ,
+                selectedUnit: _selectedUnit,
+                selectedBackground: _selectedBackground,
+                decimalPlaces: _decimalPlaces,
+                unitHasChanged: UnitHasChanged,
+                onAxisCreated: onAxisCreated,
+                dbConnection: DbConnection,
+                axisColor: _color,
+                colorFromHex: _isOverride,
+                axisColorAlpha: _alphaValid);
 
             if (axisId != null)
             {
-                // If axis creation was successful, select the newly created axis from the DB. They should match
                 var selectedAxis = await Designer.Repositories.AxisDimensionsExtensions.GetByIdAsync(new Designer.Repositories.AxisDimensions(), _dbConnection!, (int)axisId);
-                SelectedAxis.AxisId = selectedAxis!.Id;
-                SelectedAxis.MinX = selectedAxis.MinX;
-                SelectedAxis.MaxX = selectedAxis.MaxX;
-                SelectedAxis.MinY = selectedAxis.MinY;
-                SelectedAxis.MaxY = selectedAxis.MaxY;
-                SelectedAxis.MinZ = selectedAxis.MinZ;
-                SelectedAxis.MaxZ = selectedAxis.MaxZ;
-                SelectedAxis.Theme = selectedAxis.Theme;
-                SelectedAxis.Unit = selectedAxis.Unit;
-                SelectedAxis.CallingMethod = CallingMethod;
-                MirroredAxis = SelectedAxis; // Initially set MirroredAxis to the newly created axis
-                PreviewAxisCallingMethod = SelectedAxis.CallingMethod;
-                UnitAbbrev = SelectedAxis.Unit;
+                if (selectedAxis != null)
+                {
+                    SelectedAxis?.AxisId = selectedAxis.Id;
+                    SelectedAxis?.MinX = selectedAxis.MinX;
+                    SelectedAxis?.MaxX = selectedAxis.MaxX;
+                    SelectedAxis?.MinY = selectedAxis.MinY;
+                    SelectedAxis?.MaxY = selectedAxis.MaxY;
+                    SelectedAxis?.MinZ = selectedAxis.MinZ;
+                    SelectedAxis?.MaxZ = selectedAxis.MaxZ;
+                    SelectedAxis?.Theme = selectedAxis.Theme;
+                    SelectedAxis?.Unit = selectedAxis.Unit;
+                    SelectedAxis?.CallingMethod = CallingMethod;
+                    SelectedAxis?.AxesOscadMethod = selectedAxis.AxesOSCADMethod;
+                    SelectedAxis?.AxisColor = selectedAxis.AxisColor;
+                    SelectedAxis?.AxisColorAlpha = selectedAxis.AxisColorAlpha;
+                    SelectedAxis?.ColorFromHex = selectedAxis.ColorFromHex == 1 || selectedAxis.AxisColor!.Contains("#") ? true : false;
 
+                    MirroredAxis = SelectedAxis; // Initially set MirroredAxis to the newly created axis
+                    PreviewAxisCallingMethod = SelectedAxis!.CallingMethod ?? string.Empty;
+                    UnitAbbrev = SelectedAxis?.Unit;
+                    IsPreviewColorFromHex = SelectedAxis?.ColorFromHex ?? false;
+                    PreviewColorHex = SelectedAxis?.AxisColor ?? string.Empty;
+                    SelectedPreviewColor = !IsPreviewColorFromHex ? Enum.TryParse<OpenScadColor>(SelectedAxis?.AxisColor, out var parsedColor) ? parsedColor : null : null;
+                }
             }
             else
             {
@@ -525,6 +555,8 @@ namespace NetGenCAD.UI.ViewModels
                 CallingMethod = "Please enter only numeric coordinates";
                 AxisDetailsShown = true;
             }
+            // Refresh the axes list
+            await GetAxesList();
         }
 
         public Task ClearInputs()
@@ -558,6 +590,7 @@ namespace NetGenCAD.UI.ViewModels
             MinZValue = 0;
             MirroredAxis = new GeneratedModule();
             SelectedAxis = new GeneratedModule();
+            Alpha = 1.0; // Reset alpha to default value
             return Task.CompletedTask;
         }
 
@@ -572,7 +605,7 @@ namespace NetGenCAD.UI.ViewModels
                 case GeneratedModule axis:
 
                     // Call the static deletion function
-                    await CreateAxesFunctions.DeleteAxisAsync(axis.AxisId, axis.CallingMethod, DbConnection!);
+                    await CreateAxesFunctions.DeleteAxisAsync(axis.AxisId, axis.CallingMethod!, DbConnection!);
                     if (string.Equals(PreviewAxisCallingMethod, axis.CallingMethod, StringComparison.Ordinal))
                     {
                         PreviewAxisCallingMethod = string.Empty;
@@ -597,17 +630,48 @@ namespace NetGenCAD.UI.ViewModels
         }
 
         /**** Axes List DataGrid ****/
-        public Task GetAxesList()
+        public async Task GetAxesList()
         {
             // Call the static function
             var (allAxes, metricAxes, imperialAxes) = CreateAxesFunctions.GetAxesList();
 
             // Update ViewModel properties
             _axesList = allAxes;
+
+
+            // Get Axis Ids and Calling Methods for All Axes from the database
+            Parallel.ForEach(metricAxes, async axis =>
+            {
+                var index = metricAxes.IndexOf(axis);
+                var axisIdFromDb = await Designer.Repositories.AxisDimensionsExtensions.GetAllByCallingMethodAsync(new Designer.Repositories.AxisDimensions(), _dbConnection!, axis.CallingMethod!);
+                if (axisIdFromDb != null)
+                {
+                    metricAxes[index].AxisId = axisIdFromDb.Id;
+                    metricAxes[index].AxisColor = axisIdFromDb.AxisColor!.Contains("#") ? axisIdFromDb.AxisColor.ToUpper() : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(axisIdFromDb.AxisColor!);
+                    metricAxes[index].AxisColorAlpha = axisIdFromDb.AxisColorAlpha;
+                    metricAxes[index].ColorFromHex = axisIdFromDb.ColorFromHex == 1 || axisIdFromDb.AxisColor!.Contains("#") ? true : false;
+                    metricAxes[index].AxesOscadMethod = axisIdFromDb.AxesOSCADMethod;
+                }
+            });
+
+            // Get Axis Ids and Calling Methods for All Axes from the database
+            Parallel.ForEach(imperialAxes, async axis =>
+            {
+                var index = imperialAxes.IndexOf(axis);
+                var axisIdFromDb = await Designer.Repositories.AxisDimensionsExtensions.GetAllByCallingMethodAsync(new Designer.Repositories.AxisDimensions(), _dbConnection!, axis.CallingMethod!);
+                if (axisIdFromDb != null)
+                {
+                    imperialAxes[index].AxisId = axisIdFromDb.Id;
+                    imperialAxes[index].AxisColor = axisIdFromDb.AxisColor!.Contains("#") ? axisIdFromDb.AxisColor.ToUpper() : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(axisIdFromDb.AxisColor!);
+                    imperialAxes[index].AxisColorAlpha = axisIdFromDb.AxisColorAlpha;
+                    imperialAxes[index].ColorFromHex = axisIdFromDb.ColorFromHex == 1 || axisIdFromDb.AxisColor!.Contains("#") ? true : false;
+                    imperialAxes[index].AxesOscadMethod = axisIdFromDb.AxesOSCADMethod;
+                }
+            });
+
+            // Update View properties
             AxesListMetric = metricAxes;
             AxesListImperial = imperialAxes;
-
-            return Task.CompletedTask;
         }
 
         public async Task ConvertInputs(int decimalPlaces)
@@ -643,15 +707,6 @@ namespace NetGenCAD.UI.ViewModels
             MaxZValue = result.MaxZ;
             TotalCubicVolume = result.Volume;
             TotalCubicVolumeScale = result.VolumeScale;
-
-            /* Mirrored Axis Radio coordinates
-            MirroredAxis.MinX = result.MinX;
-            MirroredAxis.MaxX = result.MaxX;
-            MirroredAxis.MinY = result.MinY;
-            MirroredAxis.MaxY = result.MaxY;
-            MirroredAxis.MinZ = result.MinZ;
-            MirroredAxis.MaxZ = result.MaxZ;*/
-
             UnitHasChanged = false;
 
             await Task.CompletedTask;

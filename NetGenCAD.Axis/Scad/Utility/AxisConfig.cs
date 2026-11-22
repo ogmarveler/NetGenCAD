@@ -88,9 +88,37 @@ namespace NetGenCAD.Axis.SCAD.Utility
                 "// - MinZ, MaxZ: Minimum and maximum values for the Z axis (default: 0 to 300mm)\n";
         }
 
-        public class AxisSettings(string outputDirectory, BackgroundType backgroundType = BackgroundType.Light, UnitSystem measureType = UnitSystem.Metric,
-            double minX = 0, double minY = 0, double minZ = 0, double maxX = 300, double maxY = 300, double maxZ = 300)
+        public static (string Color, bool IsOverride) ValidateAxisColor(string? color, bool colorFromHex, OpenScadColor defaultColor)
         {
+            if (!string.IsNullOrEmpty(color))
+            {
+                if (colorFromHex && color[0] == '#' && (color.Length == 4 || color.Length == 7) &&
+                    color.AsSpan(1).IndexOfAnyExcept("0123456789abcdefABCDEF") < 0 &&
+                    !System.Drawing.ColorTranslator.FromHtml(color).IsEmpty)
+                    return (color, true);
+
+                if (!colorFromHex && Enum.TryParse<OpenScadColor>(color, ignoreCase: true, out var namedColor) &&
+                    string.Equals(color, namedColor.ToString(), StringComparison.OrdinalIgnoreCase))
+                    return (namedColor.ToString().ToLowerInvariant(), true);
+            }
+
+            return (defaultColor.ToString().ToLowerInvariant(), false);
+        }
+
+        public static double ValidateAxisAlpha(double alpha)
+        {
+            if (alpha >= 0 && alpha <= 1)
+                return Math.Max(0.01, Math.Round(alpha, 3)); // Base-2 or Base-10, ensure alpha is at least 0.01 to avoid complete transparency, if the user sets it to 0, we default to 0.01 for visibility
+
+            return 1;
+        }
+
+        public class AxisSettings(string outputDirectory, BackgroundType backgroundType = BackgroundType.Light, UnitSystem measureType = UnitSystem.Metric,
+            double minX = 0, double minY = 0, double minZ = 0, double maxX = 300, double maxY = 300, double maxZ = 300, string? axisColorOverride = null, bool colorFromHex = false, double axisColorAlphaOverride = 1)
+        {
+            private (string Color, bool IsOverride) _axisColor = ValidateAxisColor(axisColorOverride, colorFromHex, backgroundType == BackgroundType.Light ? OpenScadColor.Black : OpenScadColor.White);
+            private double _axisColorAlpha = ValidateAxisAlpha(axisColorAlphaOverride);
+
             public BackgroundType BackgroundType { get; set; } = backgroundType;
             public UnitSystem UnitSystem { get; set; } = measureType;
             public double MinX { get; set; } = minX;
@@ -103,7 +131,9 @@ namespace NetGenCAD.Axis.SCAD.Utility
             // Non-editable properties
             public string OutputDirectory { get; set; } = Path.Combine(outputDirectory, "Scad", "Axes");
             public OpenScadColor OpenScadColor => BackgroundType == BackgroundType.Light ? OpenScadColor.Black : OpenScadColor.White; // Default color if light or dark background
-            public double AxisColorAlpha = 1;
+            public string AxisColor => _axisColor.IsOverride ? _axisColor.Color : OpenScadColor.ToString().ToLowerInvariant();
+            public bool ColorFromHex => _axisColor.IsOverride && _axisColor.Color.StartsWith("#");
+            public double AxisColorAlpha => _axisColorAlpha;
             public double IncrementX => UnitSystem == UnitSystem.Imperial ? Inch4.ToMm(1) : 20;
             public double IncrementY => UnitSystem == UnitSystem.Imperial ? Inch4.ToMm(1) : 20;
             public double IncrementZ => UnitSystem == UnitSystem.Imperial ? Inch4.ToMm(1) : 20;
@@ -121,14 +151,20 @@ namespace NetGenCAD.Axis.SCAD.Utility
 
         public class CustomAxis
         {
+            public CustomAxis()
+            {
+                Settings = new AxisSettings(outputDirectory: PathHelper.GetProjectRoot());
+            }
+
             public string AxisModule { get; set; } = string.Empty;
-            public AxisSettings Settings { get; set; } = new AxisSettings(outputDirectory: PathHelper.GetProjectRoot());
+            public AxisSettings Settings { get; set; } // Axis color and alpha are system-driven colors when no user input is provided, but can be overridden by user input
             public string CallingMethod { get; set; } = string.Empty;
             public string ModuleName { get; set; } = string.Empty;
             public string MainFileInstruction = "use <../Axes/axes.scad>;  // add to your main file";
             public double TotalCubicVolume { get; set; } = 0;
             public double TotalCubicVolumeScale { get; set; } = 0;
             public int AxisId { get; set; } = 0; // Unique identifier for this axis configuration; used in API and database operations
+            public string AxesModule { get; set; } = string.Empty;
         }
     }
 }

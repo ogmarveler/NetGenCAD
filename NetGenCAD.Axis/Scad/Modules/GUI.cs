@@ -22,7 +22,6 @@ namespace NetGenCAD.Axis.SCAD.Modules
 
             // Since this is a code-driven module, always overwrite generated module since it regenerates in real-time
             await Output.WriteToSCAD(content: _customAxis.AxisModule, filePath: _axisFilePath, overWrite: true, cancellationToken: cancellationToken);
-            var axisColor = _customAxis.Settings.OpenScadColor.ToString().ToLower();
 
             // Store in Axes reference file - Comments and Instructions
             var _moduleComment = $"// 3D Axis Module - {_customAxis.ModuleName.Replace("_", " ")}\n" +
@@ -30,15 +29,21 @@ namespace NetGenCAD.Axis.SCAD.Modules
                 $"// Settings: UnitSystem={_customAxis.Settings.UnitSystem}, BackgroundType={_customAxis.Settings.BackgroundType}, MinX={_customAxis.Settings.MinX}, MaxX={_customAxis.Settings.MaxX}, MinY={_customAxis.Settings.MinY}, " +
                 $"MaxY={_customAxis.Settings.MaxY}, MinZ={_customAxis.Settings.MinZ}, MaxZ={_customAxis.Settings.MaxZ}";
 
+            // Custom color for axis lines and labels
+            var _axisColor = _customAxis.Settings.AxisColor;
+            var _colorAlpha = _customAxis.Settings.AxisColorAlpha.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
             // Store in Axes reference file - Module definition and contents
             var _scadFilePath = Path.Combine(_customAxis.Settings.OutputDirectory, $"axes.scad");
             var _importStatement = $"{_moduleComment}\n" +
                 $"include <{_moduleNameLower}.scad>;\n" +
-                $"module Get_{_customAxis.ModuleName}(colorVal = \"{(_customAxis.Settings.BackgroundType == Selector.BackgroundType.Light ? Colors.OpenScadColor.Black : Colors.OpenScadColor.White)}\", " +
-                $"alpha = {axSet.AxisColorAlpha}) {{\n" +
+                $"module Get_{_customAxis.ModuleName}(colorVal = \"{_axisColor}\", " +
+                $"alpha = {_colorAlpha}) {{\n" +
                 $"  {_moduleNameLower}(colorVal = colorVal, alpha = alpha);\n" +
                 $"}}\n\n";
             await Output.AppendToSCAD(content: _importStatement, filePath: _scadFilePath, cancellationToken: cancellationToken);
+            // AxesModule is the content of the generated module, while the import statement is what gets added to axes.scad for reference. The import statement includes the module definition and comments for clarity.
+            _customAxis.AxesModule = _importStatement;
             return _customAxis;
         }
 
