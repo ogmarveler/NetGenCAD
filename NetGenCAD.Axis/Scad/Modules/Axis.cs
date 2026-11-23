@@ -96,7 +96,7 @@ namespace NetGenCAD.Axis.SCAD.Modules
                     axSet.MinZ = Math.Abs(axSet.MaxZ - axSet.MinZ) * -1;
                     axSet.MaxZ = 0;
                 }
-                // Use range if min and max inverted default to min and max
+                // Use range if min and max inverted default to min and max;
                 else if (axSet.MaxZ < axSet.MinZ)
                 {
                     if (axSet.MaxZ < 0) // MaxZ = 0, MinZ --> -Z

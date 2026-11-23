@@ -9,6 +9,7 @@ using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using NetGenCAD.Axis.Scad.Models;
 using NetGenCAD.Axis.Scad.Utility;
+using NetGenCAD.Core.Measurements;
 using NetGenCAD.UI.Converters;
 using NetGenCAD.UI.ViewModels;
 using System;
@@ -120,7 +121,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
         var actionColumn = new DataGridTemplateColumn
         {
             Header = "",  // Column header - empty for icon only
-            MaxWidth = 40,  // Limit max width to prevent excessive stretching
+            Width = new DataGridLength(40),
             CellTemplate = buttonTemplate,
             CanUserSort = false,  // Disable sorting if not needed
             CanUserResize = false,  // Disable resizing if not needed
@@ -222,8 +223,9 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
 
     private async void ClearInputsAsync(object? sender, RoutedEventArgs e)
     {
+        AxesListMetric.SelectedItem = null;
+        AxesListImperial.SelectedItem = null;
         await ViewModel.ClearInputs();
-        ResetMirrorControls();
     }
 
     private async void ViewAxisOutputButton_Click(object? sender, RoutedEventArgs e) => await ViewModel.ShowAxisPreviewAsync();
@@ -252,16 +254,18 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
         }
     }
 
-    private async void SaveMirroredAxisButton_Click(object? sender, RoutedEventArgs e)
+    private async void Alpha_TextChanged(object? sender, TextChangedEventArgs e)
     {
-        if (await ViewModel.SaveMirroredAxisAsync())
-            ResetMirrorControls();
+        if (sender is TextBox textBox && DataContext is CreateAxesViewModel viewModel)
+        {
+            viewModel.AlphaText = textBox.Text ?? string.Empty;
+            await viewModel.RefreshPreviewColorAsync();
+        }
     }
 
-    private void ResetMirrorControls()
+    private async void SaveMirroredAxisButton_Click(object? sender, RoutedEventArgs e)
     {
-        this.FindControl<RadioButton>("OriginalAxisCorner")!.IsChecked = true;
-        this.FindControl<CheckBox>("MirrorZCheckBox")!.IsChecked = false;
+        await ViewModel.SaveMirroredAxisAsync();
     }
 
     private async void MirrorZ_Click(object? sender, RoutedEventArgs e)
@@ -334,7 +338,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
         var actionColumn = new DataGridTemplateColumn
         {
             Header = "",  // Column header - empty for icon only
-            MaxWidth = 40,  // Limit max width to prevent excessive stretching
+            Width = new DataGridLength(40),
             CellTemplate = buttonTemplate,
             CanUserSort = false,  // Disable sorting if not needed
             CanUserResize = false,  // Disable resizing if not needed
@@ -353,8 +357,6 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     [RequiresUnreferencedCode("Calls Avalonia.Data.Binding.Binding(String)")]
     private void DataGrid_AutoGeneratingColumnImperial(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
-        NumericDataGridTextColumn.Apply(e, e.PropertyName == nameof(GeneratedModule.Volume));
-
         // List of columns to exclude from display - Hide Metric columns for Imperial view
         var excludedColumns = new[] { "AxesOscadMethod", "AxisColorAlpha", "ColorFromHex" };
 
@@ -386,6 +388,30 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
             return;
         }
 
+        NumericDataGridTextColumn.Apply(e, force: true);
+
+        if (e.PropertyName == nameof(GeneratedModule.AxisColor) && e.Column is DataGridTextColumn colorColumn)
+        {
+            e.Column = new ColorDataGridTextColumn
+            {
+                Binding = colorColumn.Binding,
+                ClipboardContentBinding = colorColumn.ClipboardContentBinding,
+                SortMemberPath = colorColumn.SortMemberPath,
+                IsReadOnly = true
+            };
+        }
+
+        if (e.PropertyName == nameof(GeneratedModule.Volume) && e.Column is DataGridTextColumn volumeColumn)
+        {
+            e.Column = new VolumeDataGridTextColumn
+            {
+                Binding = volumeColumn.Binding,
+                ClipboardContentBinding = volumeColumn.ClipboardContentBinding,
+                SortMemberPath = volumeColumn.SortMemberPath,
+                IsReadOnly = true
+            };
+        }
+
         // Customize headers with unicode symbols
         e.Column.Header = e.PropertyName switch
         {
@@ -400,16 +426,52 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
             nameof(Axis.Scad.Models.GeneratedModule.MaxY) => "Yₘₐₓ",
             nameof(Axis.Scad.Models.GeneratedModule.MinZ) => "Zₘᵢₙ",
             nameof(Axis.Scad.Models.GeneratedModule.MaxZ) => "Zₘₐₓ",
-            nameof(Axis.Scad.Models.GeneratedModule.Volume) => "Vol",
+            nameof(Axis.Scad.Models.GeneratedModule.Volume) => "Volume",
             nameof(Axis.Scad.Models.GeneratedModule.AxisColor) => "Color",
             nameof(Axis.Scad.Models.GeneratedModule.AxisColorAlpha) => "Alpha",
             nameof(Axis.Scad.Models.GeneratedModule.AxisId) => "ID",
             _ => e.PropertyName
         };
 
-        // Auto-size all columns
-        e.Column.Width = DataGridLength.Auto;
+        e.Column.Width = new DataGridLength(e.PropertyName switch
+        {
+            nameof(GeneratedModule.Unit) => 70,
+            nameof(GeneratedModule.Theme) => 90,
+            nameof(GeneratedModule.Volume) => 115,
+            nameof(GeneratedModule.AxisId) => 60,
+            nameof(GeneratedModule.AxisColor) => 145,
+            _ => 75
+        });
+
         e.Column.CanUserResize = false;
+    }
+
+    private sealed class ColorDataGridTextColumn : NumericDataGridTextColumn
+    {
+        protected override Control GenerateElement(DataGridCell cell, object dataItem)
+        {
+            var element = base.GenerateElement(cell, dataItem);
+            if (element is TextBlock textBlock)
+                textBlock.TextWrapping = TextWrapping.NoWrap;
+            return element;
+        }
+    }
+
+    private sealed class VolumeDataGridTextColumn : NumericDataGridTextColumn
+    {
+        protected override Control GenerateElement(DataGridCell cell, object dataItem)
+        {
+            var element = base.GenerateElement(cell, dataItem);
+            if (dataItem is GeneratedModule axis)
+            {
+                var volume = axis.RangeX * axis.RangeY * axis.RangeZ;
+                var scaledVolume = axis.Unit == "mm"
+                    ? VolumeConverter.ConvertMm3ToM3(volume)
+                    : VolumeConverter.ConvertIn3ToFt3(volume);
+                ToolTip.SetTip(element, $"Volume Scale: {scaledVolume:G} {(axis.Unit == "mm" ? "m³" : "ft³")}");
+            }
+            return element;
+        }
     }
 
     [RequiresUnreferencedCode("Calls NetGenCAD.UI.Views.CreateAxesView.DataGrid_AutoGeneratingColumnImperial(Object, DataGridAutoGeneratingColumnEventArgs)")]
@@ -420,13 +482,20 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
         DataGrid_AutoGeneratingColumnImperial(sender, e);
     }
 
+    private void HighlightAxisRow(DataGrid dataGrid, GeneratedModule selected)
+    {
+        var otherGrid = dataGrid == AxesListMetric ? AxesListImperial : AxesListMetric;
+        otherGrid.SelectedItem = null;
+        dataGrid.ScrollIntoView(selected, null);
+    }
+
     private async void DataGridImperial_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (sender is DataGrid dataGrid && dataGrid.SelectedItem is GeneratedModule selected)
         {
+            HighlightAxisRow(dataGrid, selected);
             ViewModel.SelectAxis(selected, selected.Unit!);
             await ViewModel.ShowAxisPreviewAsync();
-            dataGrid.ScrollIntoView(selected, null);
         }
     }
 
@@ -434,9 +503,9 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     {
         if (sender is DataGrid dataGrid && dataGrid.SelectedItem is GeneratedModule selected)
         {
+            HighlightAxisRow(dataGrid, selected);
             ViewModel.SelectAxis(selected, selected.Unit!);
             await ViewModel.ShowAxisPreviewAsync();
-            dataGrid.ScrollIntoView(selected, null);
         }
     }
 

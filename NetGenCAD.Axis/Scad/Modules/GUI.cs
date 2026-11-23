@@ -1,5 +1,6 @@
 ﻿using NetGenCAD.Core.Measurements;
 using NetGenCAD.Core.Utility;
+using System.Text;
 using System.Text.RegularExpressions;
 using static NetGenCAD.Axis.SCAD.Modules.Axis;
 using static NetGenCAD.Axis.SCAD.Utility.AxisConfig;
@@ -41,11 +42,42 @@ namespace NetGenCAD.Axis.SCAD.Modules
                 $"alpha = {_colorAlpha}) {{\n" +
                 $"  {_moduleNameLower}(colorVal = colorVal, alpha = alpha);\n" +
                 $"}}\n\n";
-            await Output.AppendToSCAD(content: _importStatement, filePath: _scadFilePath, cancellationToken: cancellationToken);
+            if (File.Exists(_scadFilePath))
+            {
+                string axesContent;
+                Encoding encoding;
+                using (var reader = new StreamReader(_scadFilePath, detectEncodingFromByteOrderMarks: true))
+                {
+                    axesContent = await reader.ReadToEndAsync(cancellationToken);
+                    encoding = reader.CurrentEncoding;
+                }
+
+                axesContent = RepairAxisEntryBoundaries(axesContent);
+                var moduleName = $"Get_{_customAxis.ModuleName}";
+                var entryPattern = @"(?m)^// 3D Axis Module - [^\r\n]*\r?\n" +
+                    @"// Calling Method: [^\r\n]*\r?\n" +
+                    @"// Settings: [^\r\n]*\r?\n" +
+                    @"include[ \t]+<[^>\r\n]+>;[ \t]*\r?\n" +
+                    @"module[ \t]+" + Regex.Escape(moduleName) + @"[ \t]*\([^\r\n]*\)[ \t]*\{\r?\n" +
+                    @"[^{}]*^\}[ \t]*(?:\r?\n|$)(?:[ \t]*\r?\n)?";
+
+                axesContent = Regex.Replace(axesContent, entryPattern, string.Empty).TrimEnd('\r', '\n');
+                if (axesContent.Length > 0)
+                    axesContent += "\n\n";
+                await File.WriteAllTextAsync(_scadFilePath, axesContent + _importStatement, encoding, cancellationToken);
+            }
+            else
+            {
+                await Output.AppendToSCAD(content: _importStatement, filePath: _scadFilePath, cancellationToken: cancellationToken);
+            }
+
             // AxesModule is the content of the generated module, while the import statement is what gets added to axes.scad for reference. The import statement includes the module definition and comments for clarity.
             _customAxis.AxesModule = _importStatement;
             return _customAxis;
         }
+
+        public static string RepairAxisEntryBoundaries(string content) =>
+            Regex.Replace(content, @"(?<=\}|\*/)(?=// 3D Axis Module - )", "\n");
 
         /// <summary>Removes generated entries for a calling method and their axis file.</summary>
         /// <param name="outputDirectory">Directory containing axes.scad and the generated axis files.</param>

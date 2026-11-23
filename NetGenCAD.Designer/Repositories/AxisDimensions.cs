@@ -155,6 +155,55 @@ namespace NetGenCAD.Designer.Repositories
             }
         }
 
+        public static async Task<int> UpsertAxisDefinitionAsync(this AxisDimensions entity, SqliteConnection connection)
+        {
+            const string selectSql = @"
+                SELECT Id FROM AxisDimensions
+                WHERE Theme = @Theme
+                AND Unit = @Unit
+                AND MinX = @MinX
+                AND MaxX = @MaxX
+                AND MinY = @MinY
+                AND MaxY = @MaxY
+                AND MinZ = @MinZ
+                AND MaxZ = @MaxZ
+                AND IncludeMethod = @IncludeMethod
+                AND (OSCADMethod = @OSCADMethod OR (OSCADMethod IS NULL AND @OSCADMethod IS NULL))
+                ORDER BY CreatedAt DESC, Id DESC";
+
+            using var transaction = connection.BeginTransaction();
+            var existingIds = (await connection.QueryAsync<int>(selectSql, entity, transaction)).AsList();
+            if (existingIds.Count == 0)
+            {
+                await entity.InsertAsync(connection, transaction);
+            }
+            else
+            {
+                const string updateColorSql = @"
+                    UPDATE AxisDimensions
+                    SET AxisColor = @AxisColor,
+                        ColorFromHex = @ColorFromHex,
+                        AxisColorAlpha = @AxisColorAlpha,
+                        AxesOSCADMethod = @AxesOSCADMethod
+                    WHERE Id = @Id";
+                foreach (var existingId in existingIds)
+                {
+                    await connection.ExecuteAsync(updateColorSql, new
+                    {
+                        entity.AxisColor,
+                        entity.ColorFromHex,
+                        entity.AxisColorAlpha,
+                        entity.AxesOSCADMethod,
+                        Id = existingId
+                    }, transaction);
+                }
+                entity.Id = existingIds[0];
+            }
+
+            await transaction.CommitAsync();
+            return entity.Id;
+        }
+
         // Update
         public static async Task UpdateAsync(this AxisDimensions entity, SqliteConnection connection, SqliteTransaction? transaction = null)
         {

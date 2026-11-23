@@ -8,10 +8,12 @@ namespace NetGenCAD.Designer.Functions
 {
     public static class MirroredAxisFunctions
     {
-        public static async Task<string> SaveAsync(SqliteConnection connection, string callingMethod, bool mirrorX, bool mirrorY, bool mirrorZ = false)
+        public static async Task<string> SaveAsync(SqliteConnection connection, string callingMethod, bool mirrorX, bool mirrorY, bool mirrorZ = false, string? previewColor = null, bool colorFromHex = false, double? previewAlpha = null)
         {
             if (!mirrorX && !mirrorY && !mirrorZ)
                 throw new InvalidOperationException("Select a mirrored orientation before saving.");
+            if (previewAlpha.HasValue && (!double.IsFinite(previewAlpha.Value) || previewAlpha.Value < 0 || previewAlpha.Value > 1))
+                throw new ArgumentOutOfRangeException(nameof(previewAlpha), "Alpha must be between 0 and 1.");
 
             var method = Regex.Match(callingMethod.Trim(), @"^([A-Za-z_][A-Za-z0-9_]*)\(\);$");
             if (!method.Success)
@@ -32,6 +34,8 @@ namespace NetGenCAD.Designer.Functions
                 encoding = reader.CurrentEncoding;
             }
 
+            var originalIndex = index;
+            index = NetGenCAD.Axis.SCAD.Modules.GUI.RepairAxisEntryBoundaries(index);
             var pattern = @"(?m)^// 3D Axis Module - [^\r\n]*\r?\n// Calling Method: [^\r\n]*\r?\n" +
                 @"(?<settings>// Settings: [^\r\n]*?MinX=(?<minX>.*?), MaxX=(?<maxX>.*?), MinY=(?<minY>.*?), MaxY=(?<maxY>.*?), MinZ=(?<minZ>.*?), MaxZ=(?<maxZ>[^\r\n]*))\r?\n" +
                 @"include[ \t]+<(?<file>[^>\r\n]+)>;[ \t]*\r?\n" +
@@ -102,10 +106,27 @@ namespace NetGenCAD.Designer.Functions
             if (ySign < 0) transform += "mirror([0, 1, 0]) ";
             if (zSign < 0) transform += "mirror([0, 0, 1]) ";
             body = $"{newBaseName}(colorVal = colorVal, alpha = alpha);";
+            var color = string.IsNullOrEmpty(previewColor) ? source.AxisColor : previewColor;
+            var isHex = string.IsNullOrEmpty(previewColor) ? source.ColorFromHex == 1 : colorFromHex;
+            if (string.IsNullOrEmpty(color) || (isHex
+                ? !Regex.IsMatch(color, @"\A#(?:[A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})\z")
+                : !Enum.TryParse<NetGenCAD.Core.Measurements.Colors.OpenScadColor>(color, true, out var namedColor) ||
+                  !string.Equals(color, namedColor.ToString(), StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidDataException("The axis color is invalid.");
+            var parameters = entry.Groups["parameters"].Value;
+            var colorParameter = new Regex("\\bcolorVal\\s*=\\s*\"[^\"]*\"");
+            if (colorParameter.Matches(parameters).Count != 1)
+                throw new InvalidDataException("The selected axis has an invalid color parameter.");
+            parameters = colorParameter.Replace(parameters, _ => $"colorVal = \"{color}\"");
+            var alpha = NetGenCAD.Axis.SCAD.Utility.AxisConfig.ValidateAxisAlpha(previewAlpha ?? source.AxisColorAlpha);
+            var alphaParameter = new Regex(@"\balpha\s*=\s*[^,\s]+\s*$");
+            if (alphaParameter.Matches(parameters).Count != 1)
+                throw new InvalidDataException("The selected axis has an invalid alpha parameter.");
+            parameters = alphaParameter.Replace(parameters, _ => $"alpha = {alpha.ToString("R", CultureInfo.InvariantCulture)}");
             var newCall = newMethod + "();";
             var newEntry = $"\n// 3D Axis Module - {newMethod.Replace('_', ' ')}\n// Calling Method: {newCall}\n" +
                 $"{entry.Groups["settings"].Value}\ninclude <{newBaseName}.scad>;\n" +
-                $"module {newMethod}({entry.Groups["parameters"].Value}) {{\n  {transform}{body}\n}}\n\n";
+                $"module {newMethod}({parameters}) {{\n  {transform}{body}\n}}\n\n";
 
             var newPath = Path.Combine(directory, newBaseName + ".scad");
             if (string.Equals(Path.GetFullPath(sourceFile), Path.GetFullPath(newPath), StringComparison.OrdinalIgnoreCase))
@@ -141,9 +162,9 @@ namespace NetGenCAD.Designer.Functions
                     IncludeMethod = source.IncludeMethod,
                     OSCADMethod = $"{source.IncludeMethod} {newCall}",
                     AxesOSCADMethod = newEntry[1..],
-                    AxisColor = source.AxisColor,
-                    ColorFromHex = source.ColorFromHex,
-                    AxisColorAlpha = source.AxisColorAlpha,
+                    AxisColor = color,
+                    ColorFromHex = isHex ? 1 : 0,
+                    AxisColorAlpha = alpha,
                     CreatedAt = DateTime.UtcNow
                 };
                 if (targetId.HasValue)
@@ -168,7 +189,7 @@ namespace NetGenCAD.Designer.Functions
                 if (replacedIndex)
                 {
                     await using (var writer = new StreamWriter(temporaryPath, false, encoding))
-                        await writer.WriteAsync(index);
+                        await writer.WriteAsync(originalIndex);
                     File.Move(temporaryPath, indexPath, overwrite: true);
                 }
                 if (wroteFile)

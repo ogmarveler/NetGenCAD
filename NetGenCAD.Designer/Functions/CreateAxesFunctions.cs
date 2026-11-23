@@ -33,7 +33,11 @@ namespace NetGenCAD.Designer.Functions
         {
             var parser = new ScadParser();
             var filePath = Path.Combine("Scad", "Axes", "axes.scad");
-            var allAxes = parser.AxesModulesList(filePath);
+            var parsedAxes = parser.AxesModulesList(filePath);
+            // OpenSCAD uses the last definition when the same module is declared more than once.
+            var allAxes = new ObservableCollection<GeneratedModule>(parsedAxes.Reverse()
+                .DistinctBy(axis => axis.CallingMethod, StringComparer.Ordinal)
+                .Reverse());
 
             var metricAxes = new ObservableCollection<GeneratedModule>(
                allAxes.Where(x => x.CallingMethod != null && x.CallingMethod.Contains("_MM_")));
@@ -561,7 +565,7 @@ namespace NetGenCAD.Designer.Functions
             };
 
             axis.OSCADMethod = $"{axis.IncludeMethod} {selectedAxis.CallingMethod}";
-            return await axis.UpsertAsync(dbConnection);
+            return await axis.UpsertAxisDefinitionAsync(dbConnection);
         }
 
         public static async Task<IEnumerable<AxisDimensions>> GetAllAxesAsync(SqliteConnection dbConnection)
