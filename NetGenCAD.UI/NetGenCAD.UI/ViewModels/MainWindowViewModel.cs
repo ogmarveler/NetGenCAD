@@ -34,6 +34,7 @@ namespace NetGenCAD.UI.ViewModels
 
         public object? MainViewContent { get => _mainViewContent; set => this.RaiseAndSetIfChanged(ref _mainViewContent, value); }
         public static void ToggleTheme() => Application.Current?.RequestedThemeVariant = Application.Current.ActualThemeVariant == ThemeVariant.Light ? ThemeVariant.Dark : ThemeVariant.Light;
+        public string Version => "0.1.0";  // NetGenCAD version
 
         // SPA - Swap out views
         public void LoadCreateAxesView() => MainViewContent = App.Services!.GetRequiredService<CreateAxesView>();

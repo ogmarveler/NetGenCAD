@@ -7,7 +7,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:views="using:NetGenCAD.UI.Views"
     xmlns:vm="using:NetGenCAD.UI.ViewModels"
-    Title="NetGenCAD"
+    Title="{Binding Version, StringFormat='NetGenCAD {0}'}"
     d:DesignHeight="720"
     d:DesignWidth="1280"
     x:CompileBindings="True"

@@ -58,9 +58,22 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 #### Layout of Custom Axes Builder
 The Custom Axes Builder has 2 main visual sections: Custom Axis and Generated Axes. The outputs of newly created axes will show up in the tables next to the Custom Axis section.
 
-Create or select an axis and choose **View Output** to open its preview in the default SCAD application. **Preview Color** overrides the axis color only in the preview; **Clear Inputs** restores the axis default. The preview origin choices reflect the axis within its X and Y bounds; they do not change the saved axis or the OpenSCAD camera. Changes to the preview update its file, which may require reloading in the SCAD application. Mirroring also reverses the axis labels.
+**Create an axis**
 
-Choose a mirrored origin and select **Save Mirror** to create a separate axis with its own calling method and file. After saving, the inputs and temporary mirror controls reset, the axes list refreshes, and the preview file is rewritten to call the saved axis without additional top-level transforms. The preview opens if it was not already open. **Mirror Z** independently flips the axis within its Z bounds and can be combined with any corner. It reflects the geometry, not the OpenSCAD camera, and reverses the labels. The saved axis appears in the generated axes list and can be used or deleted independently of the original. Its calling method encodes the millimeter translation and reflected axes, for example `_Orig_300_x_0_x_0_Mirror_X_0_0`. Negative signs are encoded as `N` and decimal points as `D`. Saving the same variant again updates it instead of creating a duplicate.
+1. Enter the minimum and maximum X, Y, and Z coordinates, and select the measurement unit and theme.
+2. Optionally choose an OpenSCAD named color from **Preview Color**, or check **Hex** and enter a color as `#RGB` or `#RRGGBB`. If no color is chosen, the theme determines the default: black for Light and white for Dark.
+3. Set **Alpha** to an opacity from 0 to 1. The default is 1 (opaque); lower values are more transparent. Alpha is rounded to three decimal places and has a minimum effective value of 0.01, including when 0 is entered.
+4. Select **Create Axis**. The chosen color and alpha become defaults for the created axis, which appears in the generated axes list and opens in a preview.
+
+**Preview and mirror an axis**
+
+Create an axis or select one from the generated axes list, then use **View Output** to open its preview in the default SCAD application. Changing **Preview Color**, **Hex**, or **Alpha** updates the preview without changing the existing axis. **Clear Inputs** resets the inputs and color selection. Preview changes rewrite the preview file, which may require reloading it in the SCAD application.
+
+Use the origin choices to preview reflections within the axis bounds: **Bot Right** is the original orientation, **Top Right** mirrors X, **Top Left** mirrors X and Y, and **Bot Left** mirrors Y. The Z mirror checkbox independently flips the axis within its Z bounds and can be combined with any corner. These options reflect the geometry and labels, not the OpenSCAD camera; they do not change the original axis.
+
+To keep a mirrored orientation, choose at least one reflection and select **Save Mirror**. This creates a separate axis with its own calling method and file, using the current preview color and alpha as its defaults. If no preview color is selected, the source axis color is used. The generated axes list refreshes and the preview calls the saved axis; the new axis can be used or deleted independently of the original. To create another orientation, select the original axis again. Saving the same compatible variant again updates it instead of creating a duplicate.
+
+The mirrored calling method encodes the millimeter translation and reflected axes, for example `_Orig_300_x_0_x_0_Mirror_X_0_0`. Negative signs are encoded as `N` and decimal points as `D`.
 ###### 
 ![Axis Creation](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/axisCreation.png)
 ###### 

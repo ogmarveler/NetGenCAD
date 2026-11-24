@@ -42,6 +42,8 @@
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
 	  <IsPublishable>True</IsPublishable>
 	  <DebugType>none</DebugType>
+		<DebugSymbols>false</DebugSymbols>
+		<Version>0.1.0</Version>
 	</PropertyGroup>
 
 	<PropertyGroup Label="Avalonia">
