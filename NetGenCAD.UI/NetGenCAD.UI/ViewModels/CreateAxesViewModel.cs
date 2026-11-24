@@ -480,7 +480,7 @@ namespace NetGenCAD.UI.ViewModels
                 // Set the viewport to align axis to bottom right, from point of origin
                 var sb = new StringBuilder();
                 sb.AppendLine($"$vpr=[60,0,270]; // Origin axis based from this port of view");
-                sb.AppendLine($"$vpt = [100, 100, 100]; // Center point");
+                sb.AppendLine($"$vpt = [100, 200, 100]; // Center point");
                 sb.AppendLine($"$vpd = 800; // Camera distance");
                 sb.AppendLine();
                 sb.AppendLine($"use <axes.scad>;");

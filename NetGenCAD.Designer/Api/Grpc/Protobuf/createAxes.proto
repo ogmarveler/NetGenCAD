@@ -43,16 +43,10 @@ message GeneratedModule {
   double min_z = 11;
   double max_z = 12;
   string volume = 13;
-  int32 axis_id = 14;          // unique identifier for this axis configuration
-}
-
-// Model: AxisValidationResult from CreateAxesFunctions
-message AxisValidationResult {
-  bool is_valid = 1;
-  bool x_axis_valid = 2;
-  bool y_axis_valid = 3;
-  bool z_axis_valid = 4;
-  map<string, string> error_messages = 5;  // keyed by property name like "minX", "maxX_range"
+  int32 axis_id = 14;
+  optional string color_hex = 15; // Stored hex color, when present
+  optional string oscad_color = 16; // Stored named color, when present
+  optional double axis_color_alpha = 17; // Stored effective opacity
 }
 
 // Model: AxisConversionResult from CreateAxesFunctions
@@ -65,6 +59,20 @@ message AxisConversionResult {
   double max_z = 6;
   double volume = 7;
   double volume_scale = 8;
+}
+
+message ConvertUnitsRequest {
+  double min_x = 1;
+  double max_x = 2;
+  double min_y = 3;
+  double max_y = 4;
+  double min_z = 5;
+  double max_z = 6;
+  double volume = 7;
+  double volume_scale = 8;
+  int32 decimal_places = 9;
+  UnitSystem from_unit = 10;
+  UnitSystem to_unit = 11;
 }
 
 // Model: AxisSettings from AxisConfig.AxisSettings
@@ -106,30 +114,9 @@ message CustomAxis {
   string total_cubic_volume_unit = 6;
   double total_cubic_volume_scale = 7;
   string total_cubic_volume_scale_unit = 8;
-}
-
-// Request/Response helpers for common operations in CreateAxesFunctions
-message ValidateAxesRequest {
-  double min_x = 1;
-  double max_x = 2;
-  double min_y = 3;
-  double max_y = 4;
-  double min_z = 5;
-  double max_z = 6;
-}
-
-message ConvertUnitsRequest {
-  double min_x = 1;
-  double max_x = 2;
-  double min_y = 3;
-  double max_y = 4;
-  double min_z = 5;
-  double max_z = 6;
-  double volume = 7;
-  double volume_scale = 8;
-  int32 decimal_places = 9;
-  UnitSystem from_unit = 10;
-  UnitSystem to_unit = 11;
+  optional string color_hex = 9; // Set when the resulting color is hex
+  optional string oscad_color = 10; // Set when the resulting color is a named OpenSCAD color
+  double axis_color_alpha = 11; // Effective opacity after validation and rounding
 }
 
 message CreateCustomAxisRequest {
@@ -142,7 +129,9 @@ message CreateCustomAxisRequest {
   UnitSystem selected_unit = 7;
   BackgroundType selected_background = 8;
   optional int32 decimal_places = 9;
-  // optional bool unit_has_changed = 10;
+  optional string color_hex = 10; // #RGB or #RRGGBB; takes precedence over oscad_color
+  optional string oscad_color = 11; // Named OpenSCAD color; defaults to the background's axis color
+  optional double axis_color_alpha = 12; // 0 to 1; defaults to 1, with 0 adjusted to 0.01 for visibility
 }
 
 // ---------------------------------------------------------------------------
@@ -168,21 +157,6 @@ service AxesService {
   rpc ConvertToMetric (ConvertUnitsRequest) returns (AxisConversionResult) {
     option (google.api.http) = {
       post: "/v1/axes/convert/metric"
-      body: "*"
-    };
-  }
-
-  // Validation
-  rpc ValidateAxisRanges (ValidateAxesRequest) returns (AxisValidationResult) {
-    option (google.api.http) = {
-      post: "/v1/axes/validate/ranges"
-      body: "*"
-    };
-  }
-
-  rpc ValidateAllAxes (ValidateAxesRequest) returns (ValidateAllAxesResponse) {
-    option (google.api.http) = {
-      post: "/v1/axes/validate"
       body: "*"
     };
   }
@@ -226,11 +200,6 @@ message GetAxesListResponse {
   repeated GeneratedModule imperial_axes = 3;
 }
 
-message ValidateAllAxesResponse {
-  bool all_valid = 1;
-  map<string, StringList> axis_errors = 2;  // X, Y, Z -> list of errors
-}
-
 message StringList {
   repeated string values = 1;
 }
@@ -242,13 +211,4 @@ message DeleteAxisRequest {
 
 message StringResponse {
   string message = 1;
-}
-
-message AxisProgress {
-  string stage = 1;          // e.g. "Validating", "Generating", "Writing files"
-  int32 percent_complete = 2;
-  string message = 3;
-  CustomAxis result = 4;     // populated on final message
-  bool is_complete = 5;
-  string error = 6;
 }

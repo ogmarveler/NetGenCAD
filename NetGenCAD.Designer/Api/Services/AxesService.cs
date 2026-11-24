@@ -68,36 +68,27 @@ namespace NetGenCAD.Designer.Api.Services
             return Task.FromResult(ToProto(result));
         }
 
-        public override Task<Api.Grpc.Protobuf.AxisValidationResult> ValidateAxisRanges(ValidateAxesRequest request, ServerCallContext context)
-        {
-            var result = CreateAxesFunctions.ValidateAxisRanges(
-                request.MinX, request.MaxX,
-                request.MinY, request.MaxY,
-                request.MinZ, request.MaxZ);
-
-            return Task.FromResult(ToProto(result));
-        }
-
-        public override Task<ValidateAllAxesResponse> ValidateAllAxes(ValidateAxesRequest request, ServerCallContext context)
-        {
-            var (allValid, axisErrors) = CreateAxesFunctions.ValidateAllAxes(
-                request.MinX, request.MaxX,
-                request.MinY, request.MaxY,
-                request.MinZ, request.MaxZ);
-
-            var response = new ValidateAllAxesResponse { AllValid = allValid };
-            foreach (var kvp in axisErrors)
-            {
-                var list = new StringList();
-                list.Values.AddRange(kvp.Value);
-                response.AxisErrors[kvp.Key] = list;    
-            }
-
-            return Task.FromResult(response);
-        }
-
         public override async Task<Api.Grpc.Protobuf.CustomAxis> CreateUpdateAxis(CreateCustomAxisRequest request, ServerCallContext context)
         {
+            if (!double.IsFinite(request.MinX) || !double.IsFinite(request.MaxX) ||
+                !double.IsFinite(request.MinY) || !double.IsFinite(request.MaxY) ||
+                !double.IsFinite(request.MinZ) || !double.IsFinite(request.MaxZ))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Axis bounds must be finite numbers."));
+
+            var validation = CreateAxesFunctions.ValidateAxisRanges(
+                request.MinX, request.MaxX, request.MinY, request.MaxY, request.MinZ, request.MaxZ);
+            if (!validation.IsValid)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, string.Join("; ", validation.ErrorMessages.Values)));
+
+            if (request.HasOscadColor && !Axis.SCAD.Utility.AxisConfig.ValidateAxisColor(request.OscadColor, false, Colors.OpenScadColor.Black).IsOverride)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid OpenSCAD color."));
+
+            if (request.HasColorHex && !Axis.SCAD.Utility.AxisConfig.ValidateAxisColor(request.ColorHex, true, Colors.OpenScadColor.Black).IsOverride)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hex color code."));
+
+            if (request.HasAxisColorAlpha && (!double.IsFinite(request.AxisColorAlpha) || request.AxisColorAlpha < 0 || request.AxisColorAlpha > 1))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Axis color alpha must be between 0 and 1."));
+
             Axis.SCAD.Utility.AxisConfig.CustomAxis? created = null;
             var (_minX, _maxX, _minY, _maxY, _minZ, _maxZ) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
@@ -118,7 +109,10 @@ namespace NetGenCAD.Designer.Api.Services
                     (_minX, _maxX, _minY, _maxY, _minZ, _maxZ) = (minX, maxX, minY, maxY, minZ, maxZ);
                     await Task.CompletedTask;
                 },
-                dbConnection: _db); 
+                dbConnection: _db,
+                axisColor: request.HasColorHex ? request.ColorHex : request.HasOscadColor ? request.OscadColor : null,
+                colorFromHex: request.HasColorHex,
+                axisColorAlpha: request.HasAxisColorAlpha ? request.AxisColorAlpha : 1);
 
             if (created == null)
                 throw new RpcException(new Status(StatusCode.Internal, "Axis creation failed"));
@@ -142,7 +136,7 @@ namespace NetGenCAD.Designer.Api.Services
             var (rangeX, rangeY, rangeZ, volume) = VolumeCalculation.GetVolume(
                 src.MinX, src.MaxX, src.MinY, src.MaxY, src.MinZ, src.MaxZ, src.Unit);
 
-            return new Api.Grpc.Protobuf.GeneratedModule
+            var response = new Api.Grpc.Protobuf.GeneratedModule
             {
                 AxisId = src.Id,
                 CallingMethod = string.IsNullOrEmpty(src.IncludeMethod)
@@ -159,8 +153,19 @@ namespace NetGenCAD.Designer.Api.Services
                 MaxY = src.MaxY,
                 MinZ = src.MinZ,
                 MaxZ = src.MaxZ,
-                Volume = volume
+                Volume = volume,
+                AxisColorAlpha = src.AxisColorAlpha
             };
+
+            if (!string.IsNullOrEmpty(src.AxisColor))
+            {
+                if (src.ColorFromHex == 1)
+                    response.ColorHex = src.AxisColor;
+                else
+                    response.OscadColor = src.AxisColor;
+            }
+
+            return response;
         }
 
         private static Api.Grpc.Protobuf.AxisConversionResult ToProto(CreateAxesFunctions.AxisConversionResult src) => new()
@@ -175,26 +180,28 @@ namespace NetGenCAD.Designer.Api.Services
             VolumeScale = src.VolumeScale
         };
 
-        private static Api.Grpc.Protobuf.AxisValidationResult ToProto(CreateAxesFunctions.AxisValidationResult src) => new()
+        private static Api.Grpc.Protobuf.CustomAxis ToProto(Axis.SCAD.Utility.AxisConfig.CustomAxis src, int? axisId)
         {
-            IsValid = src.IsValid,
-            XAxisValid = src.XAxisValid,
-            YAxisValid = src.YAxisValid,
-            ZAxisValid = src.ZAxisValid
-            // ErrorMessages map can be populated if needed
-        };
+            var response = new Api.Grpc.Protobuf.CustomAxis
+            {
+                //AxisModule = src.AxisModule ?? string.Empty,
+                AxisId = axisId ?? -1,
+                CallingMethod = src.CallingMethod ?? string.Empty,
+                ModuleName = src.ModuleName ?? string.Empty,
+                //MainFileInstruction = src.MainFileInstruction ?? string.Empty,
+                TotalCubicVolume = src.TotalCubicVolume,
+                TotalCubicVolumeScale = src.TotalCubicVolumeScale,
+                TotalCubicVolumeUnit = src.Settings.UnitSystem == Selector.UnitSystem.Imperial ? "in³" : "cm³",
+                TotalCubicVolumeScaleUnit = src.Settings.UnitSystem == Selector.UnitSystem.Imperial ? "ft³" : "m³",
+                AxisColorAlpha = src.Settings.AxisColorAlpha
+            };
 
-        private static Api.Grpc.Protobuf.CustomAxis ToProto(Axis.SCAD.Utility.AxisConfig.CustomAxis src, int? axisId) => new()
-        {
-            //AxisModule = src.AxisModule ?? string.Empty,
-            AxisId = axisId ?? -1,
-            CallingMethod = src.CallingMethod ?? string.Empty,
-            ModuleName = src.ModuleName ?? string.Empty,
-            //MainFileInstruction = src.MainFileInstruction ?? string.Empty,
-            TotalCubicVolume = src.TotalCubicVolume,
-            TotalCubicVolumeScale = src.TotalCubicVolumeScale,
-            TotalCubicVolumeUnit = src.Settings.UnitSystem == Selector.UnitSystem.Imperial ? "in³" : "cm³",
-            TotalCubicVolumeScaleUnit = src.Settings.UnitSystem == Selector.UnitSystem.Imperial ? "ft³" : "m³"
-        };
+            if (src.Settings.ColorFromHex)
+                response.ColorHex = src.Settings.AxisColor;
+            else
+                response.OscadColor = src.Settings.AxisColor;
+
+            return response;
+        }
     }
 }
