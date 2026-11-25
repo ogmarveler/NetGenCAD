@@ -11,6 +11,7 @@
 		<SignAssembly>True</SignAssembly>
 		<Platforms>x64;ARM64</Platforms>
 		<IncludeHttpRuleProtos>true</IncludeHttpRuleProtos>
+		<JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
@@ -46,7 +47,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<AvaloniaResource Include="Assets\**" />
+		<AvaloniaResource Include="Assets\**" Exclude="Assets\**\*.axaml" />
 	</ItemGroup>
 
 	<ItemGroup>

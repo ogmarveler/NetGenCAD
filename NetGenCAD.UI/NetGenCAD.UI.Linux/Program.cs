@@ -2,7 +2,9 @@
 using Avalonia.Markup.Xaml;
 using NetGenCAD.Core.Interfaces;
 using NetGenCAD.Core.Models;
+using NetGenCAD.Designer.Api.Services;
 using NetGenCAD.UI;
+using NetGenCAD.UI.Services;
 using NetGenCAD.UI.ViewModels;
 using NetGenCAD.UI.Views;
 using Microsoft.Data.Sqlite;
@@ -89,6 +91,10 @@ namespace NetGenCAD
                 services.AddSingleton<MainView>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<IScrewSizeService, ScrewSizeService>();
+                services.AddSingleton<AxesServiceImpl>();
+                services.AddSingleton<ObjectScadServiceImpl>();
+                services.AddSingleton<ShapeScadServiceImpl>();
+                services.AddSingleton<ApiChangeNotifications>();
                 services.AddSingleton<App>(); // Avalonia app
             },
             withResolver: sp =>

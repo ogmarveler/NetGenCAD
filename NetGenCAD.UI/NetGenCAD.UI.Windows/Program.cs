@@ -73,6 +73,8 @@ namespace NetGenCAD
                 services.AddSingleton<CreateAxesViewModel>();
                 services.AddSingleton<CreateAxesView>();
                 services.AddSingleton<AxisView>();
+                services.AddSingleton<ApiGuideView>();
+                services.AddSingleton<ApiGuideViewModel>();
                 services.AddSingleton<AxisViewModel>();
                 services.AddSingleton<DesignerView>();
                 services.AddSingleton<DesignerViewModel>();
@@ -100,16 +102,6 @@ namespace NetGenCAD
                 // Optional ReactiveUI customizations
             })
             .RegisterReactiveUIViewsFromEntryAssembly(); // MVVM framework
-
-        // Add Grpc mapping for AxesServiceImpl
-        public static void AddGrpcMapping(IServiceCollection services)
-        {
-            services.AddGrpc(options =>
-            {
-                options.EnableDetailedErrors = true; // Enable detailed errors for debugging
-            });
-            services.AddSingleton<AxesServiceImpl>(); // Register AxesServiceImpl as singleton
-        }
 
         private static string GetRuntimeIdentifier()
         {

@@ -21,6 +21,8 @@
 		<!-- Add to all projects/libraries in use, to ensure AOT compatibility -->
 		<IsAotCompatible>true</IsAotCompatible>
 		<Platforms>x64</Platforms>
+		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+		<JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
 	</PropertyGroup>
 
 	<PropertyGroup>
@@ -92,6 +94,7 @@
 	<ItemGroup>
 	  <TrimmerRootAssembly Include="NetGenCAD.UI" />
 	  <TrimmerRootAssembly Include="ReactiveUI" />
+	  <TrimmerRootAssembly Include="Microsoft.AspNetCore.Grpc.JsonTranscoding" />
 	</ItemGroup>
 
 </Project>

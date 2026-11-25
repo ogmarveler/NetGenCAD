@@ -40,7 +40,9 @@ namespace NetGenCAD.Designer.Api.Services
 
         // HTTP 1.1 --------------------------------------------- /v1/object/solid/createUpdate -------------------------------------------------//
         // HTTP 2 --------------------------------------------- /objectScad.ObjectScadService/CreateUpdateSolid ---------------------------------//
-        public override async Task<CreateUpdateSolidResponse> CreateUpdateSolid(CreateUpdateSolidRequest request, ServerCallContext context)
+        public override Task<CreateUpdateSolidResponse> CreateUpdateSolid(CreateUpdateSolidRequest request, ServerCallContext context) => CreateUpdateSolidAsync(request);
+
+        public async Task<CreateUpdateSolidResponse> CreateUpdateSolidAsync(CreateUpdateSolidRequest request)
         {
 
             NetGenCAD.Designer.Repositories.SolidDimensions? created = null;
@@ -314,7 +316,9 @@ namespace NetGenCAD.Designer.Api.Services
 
         // HTTP 1.1 --------------------------------------------- /v1/object/solid/deleteItem -------------------------------------------------//
         // HTTP 2 --------------------------------------------- /objectScad.ObjectScadService/DeleteItem ---------------------------------//
-        public override async Task<StringResponse> DeleteItem(DeleteItemRequest request, ServerCallContext context)
+        public override Task<StringResponse> DeleteItem(DeleteItemRequest request, ServerCallContext context) => DeleteItemAsync(request);
+
+        public async Task<StringResponse> DeleteItemAsync(DeleteItemRequest request)
         {
             object item = request.ItemType switch
             {
@@ -339,7 +343,9 @@ namespace NetGenCAD.Designer.Api.Services
 
         // HTTP 1.1 --------------------------------------------- /v1/object/copy -------------------------------------------------//
         // HTTP 2 --------------------------------------------- /objectScad.ObjectScadService/CopyObject ---------------------------------//
-        public override async Task<CopyObjectResponse> CopyObject(CopyObjectRequest request, ServerCallContext context)
+        public override Task<CopyObjectResponse> CopyObject(CopyObjectRequest request, ServerCallContext context) => CopyObjectAsync(request);
+
+        public async Task<CopyObjectResponse> CopyObjectAsync(CopyObjectRequest request)
         {
             if (request.HasSourceObjectId && request.SourceObjectId <= 0)
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Source object ID must be positive."));

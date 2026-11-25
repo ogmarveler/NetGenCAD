@@ -17,15 +17,21 @@
     mc:Ignorable="d">
 
     <Design.DataContext>
-        <!--
-            This only sets the DataContext for the previewer in an IDE,
-            to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs)
-        -->
         <vm:MainWindowViewModel />
     </Design.DataContext>
 
     <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-        <Menu DockPanel.Dock="Top">
+        <DockPanel DockPanel.Dock="Top">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Spacing="5" Margin="8,0">
+            <ComboBox ItemsSource="{Binding ApiAddress}" SelectedIndex="0" VerticalAlignment="Center" BorderThickness="0" Background="Transparent" HorizontalAlignment="Stretch" Padding="10,5"/>
+            <Button Background="Transparent" Command="{Binding CheckApiCommand}" ToolTip.Tip="{Binding ApiStatus}" AutomationProperties.Name="{Binding ApiStatus}" Padding="4">
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                    <Ellipse Width="12" Height="12" Fill="{Binding ApiStatusBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ApiStatusLabel}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+        <Menu>
             <!--  File and Folder Explorer  -->
             <MenuItem Header="_Open">
                 <MenuItem Command="{Binding OpenFolderCommand}" Header="_SCAD Folder">
@@ -69,6 +75,7 @@
 					<TextBlock Text="Switch between Dark and Light background themes. Default is System." />
 				</ToolTip.Tip>
             </MenuItem>
+			<!--  Guides  -->
             <MenuItem Header="_Guides">
                 <MenuItem Command="{Binding MainViewCommand}" Header="_Getting Started">
                     <MenuItem.Icon>
@@ -90,10 +97,16 @@
                         <PathIcon Data="{StaticResource book_question_mark_regular}" />
                     </MenuItem.Icon>
                 </MenuItem>
+				<MenuItem Command="{Binding ApiGuideCommand}" Header="_Local API">
+					<MenuItem.Icon>
+						<PathIcon Data="{StaticResource book_question_mark_regular}" />
+					</MenuItem.Icon>
+				</MenuItem>
 				<ToolTip.Tip>
 					<TextBlock Text="Tutorials on how to use each module within NetGenCAD" />
 				</ToolTip.Tip>
             </MenuItem>
+			<!-- Refresh  -->
 			<MenuItem Command="{Binding RefreshAllCommand}" Header="_Refresh">
 				<MenuItem.Icon>
 					<PathIcon Data="{StaticResource arrow_sync_circle_regular}" />
@@ -102,13 +115,11 @@
 					<TextBlock Text="Updates the UI with any data that has been created from API usage" />
 				</ToolTip.Tip>
 			</MenuItem>
+		</Menu>
+		</DockPanel>
 
-        </Menu>
-
-		
-
-        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-            <ContentControl
+		<ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+			<ContentControl
                 Margin="10"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"

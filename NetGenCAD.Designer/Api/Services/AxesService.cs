@@ -29,7 +29,9 @@ namespace NetGenCAD.Designer.Api.Services
             ObjectScadFunctions.GetDimensionsPartsAsync(_db, string.Empty).Wait(); // Make sure tables exist in the database before any calls are applied, patience can be a virtue
         }
 
-        public override Task<GetAxesListResponse> GetAxesList(Empty request, ServerCallContext context)
+        public override Task<GetAxesListResponse> GetAxesList(Empty request, ServerCallContext context) => GetAxesListAsync();
+
+        public Task<GetAxesListResponse> GetAxesListAsync()
         {
             // var (all, metric, imperial) = CreateAxesFunctions.GetAxesList(); // without axisId, from .scad files
 
@@ -44,7 +46,9 @@ namespace NetGenCAD.Designer.Api.Services
             return Task.FromResult(response);
         }
 
-        public override Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToImperial(ConvertUnitsRequest request, ServerCallContext context)
+        public override Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToImperial(ConvertUnitsRequest request, ServerCallContext context) => ConvertToImperialAsync(request);
+
+        public Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToImperialAsync(ConvertUnitsRequest request)
         {
             var result = CreateAxesFunctions.ConvertInputToImperial(
                 request.MinX, request.MaxX,
@@ -56,7 +60,9 @@ namespace NetGenCAD.Designer.Api.Services
             return Task.FromResult(ToProto(result));
         }
 
-        public override Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToMetric(ConvertUnitsRequest request, ServerCallContext context)
+        public override Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToMetric(ConvertUnitsRequest request, ServerCallContext context) => ConvertToMetricAsync(request);
+
+        public Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToMetricAsync(ConvertUnitsRequest request)
         {
             var result = CreateAxesFunctions.ConvertInputToMetric(
                 request.MinX, request.MaxX,
@@ -68,7 +74,9 @@ namespace NetGenCAD.Designer.Api.Services
             return Task.FromResult(ToProto(result));
         }
 
-        public override async Task<Api.Grpc.Protobuf.CustomAxis> CreateUpdateAxis(CreateCustomAxisRequest request, ServerCallContext context)
+        public override Task<Api.Grpc.Protobuf.CustomAxis> CreateUpdateAxis(CreateCustomAxisRequest request, ServerCallContext context) => CreateUpdateAxisAsync(request);
+
+        public async Task<Api.Grpc.Protobuf.CustomAxis> CreateUpdateAxisAsync(CreateCustomAxisRequest request)
         {
             if (!double.IsFinite(request.MinX) || !double.IsFinite(request.MaxX) ||
                 !double.IsFinite(request.MinY) || !double.IsFinite(request.MaxY) ||
@@ -120,7 +128,9 @@ namespace NetGenCAD.Designer.Api.Services
             return ToProto(created, axisId);
         }
 
-        public override async Task<StringResponse> DeleteAxis(DeleteAxisRequest request, ServerCallContext context)
+        public override Task<StringResponse> DeleteAxis(DeleteAxisRequest request, ServerCallContext context) => DeleteAxisAsync(request);
+
+        public async Task<StringResponse> DeleteAxisAsync(DeleteAxisRequest request)
         {
             var (selectedAxisId, callMethodFromAxisId) = await CreateAxesFunctions.GetAxisByIdAsync(request.AxisId, request.AxisCallingMethod, _db);
             await CreateAxesFunctions.DeleteAxisAsync(selectedAxisId, callMethodFromAxisId, _db);
