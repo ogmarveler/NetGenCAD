@@ -1,14 +1,20 @@
-# Local API Guide
+# ![Logo](Assets/Images/logo.png) NetGenCAD Local API Documentation
+###### 
+#### Description
+Welcome to the NetGenCAD API Documentation! The API is used for creating and managing custom axes, solids, and objects used in OpenSCAD, a solid 3D CAD modeler. The API can be used for existing CAD migrations from other applications. It also can allow multiple team members in an intranet to work on the same objects, or share axes, solids, or existing objects.
 
-The API is available while NetGenCAD is running at `http://localhost:5000`. The top-bar list also shows the Windows named pipe or Linux Unix socket. The indicator checks the localhost HTTP server only, regardless of which address is selected; it does not check the pipe, socket, every API operation, or the database. Green means the server responded, and red means it is starting, stopped, or unreachable. Select the indicator to check again; it also checks automatically every five seconds. Hover over it for details.
+#### How It Differs From the UI
+The API provides programmatic use of the NetGenCAD application The Axes and Object designer modules are available through the API, with the Shape Designer still being UI only as of this iteration. Whereas UI functions as both a UX and UI, the API allows for use of the UI as a data visualization tool. API requests will update in real-time, and a user can make manual adjustments through the UI or API.
 
+#### Getting Started
+The API is available in both REST and gRPC formats. The server automatically starts when NetGenCAD is running at `http://localhost:5000`. The top-bar list also shows the Windows named pipe or Linux Unix socket. The indicator checks the localhost HTTP server only, regardless of which address is selected; it does not check the pipe, socket, every API operation, or the database. Green means the server responded, and red means it is starting, stopped, or unreachable. Select the indicator to check again; it also checks automatically every five seconds. Hover over it for details.
 Send JSON request bodies with `Content-Type: application/json`. Protobuf JSON field names can be written in camelCase or snake_case; enum names such as `METRIC` and `CUBE` or their numeric values are accepted. Responses use protobuf JSON, including enum names and string values for 64-bit integers. Errors return an HTTP status and a JSON object with `code`, `message`, and `details`.
-
-## Axis endpoints
+###### 
+## Axis Endpoints
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/v1/axes` | List metric and imperial axes. |
+| GET | ```/v1/axes``` | Gets a list metric and imperial axes. |
 | GET | `/v1/axes/convertUnits` | Convert between metric and imperial values. |
 | POST | `/v1/axes/createUpdate` | Create or update an axis. |
 | DELETE | `/v1/axes/deleteAxis` | Delete an axis by `axisId` or `axisCallingMethod`. |
