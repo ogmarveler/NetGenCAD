@@ -228,9 +228,10 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                         <Border
-                            Width="210"
+                            Width="225"
                             Height="32"
                             Padding="5"
+							Margin="15,0,0,0"
                             VerticalAlignment="Center"
                             BorderThickness="1"
                             CornerRadius="3"
@@ -263,7 +264,7 @@
                         Grid.Row="0"
                         Grid.Column="3"
                         Width="120"
-                        Margin="3,0,0,0"
+                        Margin="27,0,0,0"
                         Classes="inputGroup"
                         IsVisible="{Binding AxisStored}">
                         <Button
@@ -284,7 +285,7 @@
                         Grid.Row="0"
                         Grid.Column="4"
                         Width="75"
-                        Margin="3,0,0,0"
+                        Margin="11,0,0,0"
                         HorizontalAlignment="Left"
                         Classes="inputGroup"
                         IsVisible="{Binding AxisStored}">
@@ -303,6 +304,7 @@
                         Grid.Row="0"
                         Grid.Column="5"
                         Width="75"
+						Margin="24,0,0,0"
                         Classes="inputGroup"
                         IsVisible="{Binding AxisStored}">
                         <TextBox
@@ -320,6 +322,7 @@
                         Grid.Row="0"
                         Grid.Column="6"
                         Width="75"
+						Margin="24,0,0,0"
                         Classes="inputGroup"
                         IsVisible="{Binding AxisStored}">
                         <TextBox
@@ -506,6 +509,7 @@
                             x:Name="UnitComboBox"
                             HorizontalAlignment="Stretch"
                             ItemsSource="{Binding UnitSystemValues}"
+							FontWeight="SemiBold"
                             PlaceholderText="Select Unit"
                             SelectedItem="{Binding SelectedUnitValue, Mode=TwoWay}">
                             <ComboBox.Foreground>

@@ -447,6 +447,21 @@ namespace NetGenCAD.UI.ViewModels
             }
 
             _selectedAxis = updatedAxis;
+
+            if (_selectedAxis?.CallingMethod?.Contains("Mirror") == true)
+            {
+                var shapeAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+                var mirrorIndex = shapeAxisDisplay.IndexOf("Mirror", StringComparison.Ordinal);
+                var trimmedDisplay = mirrorIndex >= 0
+                    ? shapeAxisDisplay[..(mirrorIndex + "Mirror".Length)]
+                    : shapeAxisDisplay;
+
+                ShapeAxisDisplay = trimmedDisplay.Replace("in ", "").Replace("mm ", "");
+            }
+            else
+            {
+                ShapeAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+            }
         }
 
         // Method to create axis
@@ -471,7 +486,21 @@ namespace NetGenCAD.UI.ViewModels
                 RemoveAxis = false;
                 AxesSelectEnabled = false;
 
-                ShapeAxisDisplay = shapeAxisDisplay;
+                if (_selectedAxis?.CallingMethod?.Contains("Mirror") == true)
+                {
+                    shapeAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+                    var mirrorIndex = shapeAxisDisplay.IndexOf("Mirror", StringComparison.Ordinal);
+                    var trimmedDisplay = mirrorIndex >= 0
+                        ? shapeAxisDisplay[..(mirrorIndex + "Mirror".Length)]
+                        : shapeAxisDisplay;
+
+                    ShapeAxisDisplay = trimmedDisplay.Replace("in ", "").Replace("mm ", "");
+                }
+                else
+                {
+                    ShapeAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+                }
+
                 ShapeAxisUnitDisplay = shapeAxisUnitDisplay;
 
                 AxisXPositionMM = axisXPositionMM;
@@ -536,6 +565,21 @@ namespace NetGenCAD.UI.ViewModels
                 _objectFilePath,
                 DbConnection!,
                 onAxisTranslateComplete);
+
+            if (_selectedAxis?.CallingMethod?.Contains("Mirror") == true)
+            {
+                var shapeAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+                var mirrorIndex = shapeAxisDisplay.IndexOf("Mirror", StringComparison.Ordinal);
+                var trimmedDisplay = mirrorIndex >= 0
+                    ? shapeAxisDisplay[..(mirrorIndex + "Mirror".Length)]
+                    : shapeAxisDisplay;
+
+                ShapeAxisDisplay = trimmedDisplay.Replace("in ", "").Replace("mm ", "");
+            }
+            else
+            {
+                ShapeAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+            }
         }
 
         public async Task CreatePolyhedron()

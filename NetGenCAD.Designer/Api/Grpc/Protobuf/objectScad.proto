@@ -204,7 +204,8 @@ message CreateUpdateSolidResponse {
 message ModuleObject {
   int32 object_module_id = 1;
   string object_module_name = 2;
-  SolidDimensions created_solid = 3;
+  int32 module_layer = 3;
+  SolidDimensions created_solid = 4;
 }
 
 message CreateUpdateObjectRequest {

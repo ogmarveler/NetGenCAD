@@ -44,9 +44,6 @@ namespace NetGenCAD.Designer.Api.Services
 
         public async Task<CreateUpdateSolidResponse> CreateUpdateSolidAsync(CreateUpdateSolidRequest request)
         {
-
-            NetGenCAD.Designer.Repositories.SolidDimensions? created = null;
-
             // Convert the selected solid type from the gRPC request to the corresponding CoreSolidType enum value
             if (request.SelectedSolidType == 0) { throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid solid type.")); }
             var selectedSolidType = GrpcUtilities.ToCoreSolidType(request.SelectedSolidType);
@@ -166,6 +163,17 @@ namespace NetGenCAD.Designer.Api.Services
             if (selectedSolidType == Selector.CoreSolidType.Text && !request.Dimensions.HasTextInput)
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Text input cannot be empty for Text solid type."));
 
+            // Polyhedron validation - validate if name is provided
+            if (selectedSolidType == Selector.CoreSolidType.Polyhedron && !request.Dimensions.HasShapeName)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Shape name cannot be empty for Polyhedron solid type."));
+
+            Repositories.ShapeDimensions? savedShape = null;
+            if (request.Dimensions.HasShapeName && selectedSolidType == Selector.CoreSolidType.Polyhedron)
+            {
+                var _savedShape = await new NetGenCAD.Designer.Repositories.ShapeDimensions().GetByNameAsync(_db, StringFunctions.NameSanitize(request.Dimensions.ShapeName));
+                savedShape = _savedShape.FirstOrDefault();
+            }
+
             // Text options use the same defaults and display values as the UI.
             var caseSensitive = CultureInfo.CurrentCulture.TextInfo;
             var isText = selectedSolidType == Selector.CoreSolidType.Text;
@@ -225,7 +233,7 @@ namespace NetGenCAD.Designer.Api.Services
                 isSphereSelected: selectedSolidType == Selector.CoreSolidType.Sphere,
                 isPolyhedronSelected: selectedSolidType == Selector.CoreSolidType.Polyhedron,
                 isTextSelected: selectedSolidType == Selector.CoreSolidType.Text,
-                selectedPolyhedron: null,
+                selectedPolyhedron: request.Dimensions.HasShapeName && selectedSolidType == Selector.CoreSolidType.Polyhedron ? savedShape : null,
                 selectedUnit: selectedUnit,
                 decimalPlaces: decimalPlaces,
                 axisId: selectedAxisId,
@@ -234,7 +242,6 @@ namespace NetGenCAD.Designer.Api.Services
                 dbConnection: _db,
                 generateOscadCallback: solid =>
                 {
-                    created = solid;
                     return ObjectScadFunctions.GenerateOSCADAsync(
                         oDim: solid,
                         isCubeSelected: selectedSolidType == Selector.CoreSolidType.Cube,
@@ -281,24 +288,22 @@ namespace NetGenCAD.Designer.Api.Services
                 objectFilePath: _objectFilePath ?? string.Empty,
                 isPreRendered: isPrerendered);
 
-            if (solidId == 0 || created == null)
-                throw new RpcException(new Status(StatusCode.Internal, "Object creation failed; no solid was saved."));
+            if (solidId <= 0)
+                throw new RpcException(new Status(StatusCode.Internal, "Object creation failed."));
 
             // Get Module name and include method to include in response
             var savedSolid = await new NetGenCAD.Designer.Repositories.SolidDimensions().GetByIdWithModuleAsync(_db, solidId);
-            var _savedSolid = savedSolid.FirstOrDefault();
-
-            if (savedSolid == null)
-                throw new RpcException(new Status(
+            var _savedSolid = savedSolid.FirstOrDefault()
+                ?? throw new RpcException(new Status(
                     StatusCode.Internal, "The created solid could not be reloaded."));
 
-            var protoSolid = GrpcUtilities.ToProtoSolidDimensions(_savedSolid!, selectedUnit);
+            var protoSolid = GrpcUtilities.ToProtoSolidDimensions(_savedSolid, selectedUnit);
             protoSolid.SurfaceFileFormat = autoSmoothFile;
             protoSolid.SurfaceConvexity = surfaceConvexity;
 
             return new CreateUpdateSolidResponse
             {
-                ObjectId = _savedSolid!.ObjectDimensionsId,
+                ObjectId = _savedSolid.ObjectDimensionsId,
                 ObjectName = _savedSolid.Name,
                 OscadFile = Path.Combine(Path.GetDirectoryName(_objectFilePath)!, _savedSolid.ModuleFile!.Replace("include <", "").Replace(">;", "")),
                 SelectedUnit = request.SelectedUnit,
@@ -309,6 +314,7 @@ namespace NetGenCAD.Designer.Api.Services
                 {
                     ObjectModuleId = _savedSolid.ModuleDimensionsId ?? 0,
                     ObjectModuleName = _savedSolid.ModuleName ?? string.Empty,
+                    ModuleLayer = _savedSolid.Layer,
                     CreatedSolid = protoSolid
                 }
             };

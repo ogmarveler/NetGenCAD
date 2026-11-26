@@ -509,6 +509,7 @@
                             x:Name="UnitComboBox"
                             HorizontalAlignment="Stretch"
                             ItemsSource="{Binding UnitSystemValues}"
+							FontWeight="SemiBold"
                             PlaceholderText="Select Unit"
                             SelectedItem="{Binding SelectedUnitValue, Mode=TwoWay}">
                             <ComboBox.Foreground>

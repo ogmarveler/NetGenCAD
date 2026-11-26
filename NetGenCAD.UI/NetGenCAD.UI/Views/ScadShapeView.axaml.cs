@@ -208,7 +208,7 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
         NumericDataGridTextColumn.Apply(e);
 
         // List of columns to exclude from display - Hide Imperial columns for Metric view
-        var excludedColumns = new[] { "Id", "Name", "CreatedAt", "OSCADMethod", "PointX_IN", "PointY_IN", "PointZ_IN", "Face", "FaceId" };
+        var excludedColumns = new[] { "Id", "Name", "CreatedAt", "OSCADMethod", "PointX_IN", "PointY_IN", "PointZ_IN", "Face", "FaceId", "ShapeDimensionsId" };
 
         if (excludedColumns.Contains(e.PropertyName))
         {
@@ -273,7 +273,7 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
         NumericDataGridTextColumn.Apply(e);
 
         // List of columns to exclude from display - Hide Metric columns for Imperial view
-        var excludedColumns = new[] { "Id", "Name", "CreatedAt", "OSCADMethod", "PointX_MM", "PointY_MM", "PointZ_MM", "Face", "FaceId" };
+        var excludedColumns = new[] { "Id", "Name", "CreatedAt", "OSCADMethod", "PointX_MM", "PointY_MM", "PointZ_MM", "Face", "FaceId", "ShapeDimensionsId" };
 
         if (excludedColumns.Contains(e.PropertyName))
         {
