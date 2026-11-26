@@ -14,6 +14,7 @@ using System.Threading;
 using System.Windows.Input;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using ApiAvailabilityState = NetGenCAD.Core.Utility.EnumHelper.ViewModelEnums.ApiAvailability;
 
 namespace NetGenCAD.UI.ViewModels
 {
@@ -26,8 +27,9 @@ namespace NetGenCAD.UI.ViewModels
         private CancellationTokenSource? _apiMonitoring;
         private string? _apiHealthToken;
         private bool _apiCheckInProgress;
-        private bool _isApiOnline;
+        private ApiAvailabilityState _apiAvailability = ApiAvailabilityState.Offline;
         private string _apiStatus = "Local API starting";
+        private string _selectedApiAddress = LocalApiAddress;
 
         [RequiresUnreferencedCode("MainWindowViewModel may use code that is not referenced directly and could be trimmed by the linker.")]
         [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
@@ -57,10 +59,21 @@ namespace NetGenCAD.UI.ViewModels
         public const string NamedPipeApiAddress = "NetGenCAD.Local";
         public static string UnixSocketApiAddress => Path.Combine(Path.GetTempPath(), "netgencad.socket");
         public IReadOnlyList<string> ApiAddress { get; } = Array.AsReadOnly(new[] { LocalApiAddress, OperatingSystem.IsWindows() ? @"\\.\pipe\" + NamedPipeApiAddress : UnixSocketApiAddress });
-        public bool IsApiOnline => _isApiOnline;
-        public IBrush ApiStatusBrush => _isApiOnline ? Brushes.ForestGreen : Brushes.Firebrick;
+        public string SelectedApiAddress
+        {
+            get => _selectedApiAddress;
+            set => this.RaiseAndSetIfChanged(ref _selectedApiAddress, value);
+        }
+        public ApiAvailabilityState ApiAvailability => _apiAvailability;
+        public bool IsApiOnline => _apiAvailability != ApiAvailabilityState.Offline;
+        public IBrush ApiStatusBrush => _apiAvailability switch
+        {
+            ApiAvailabilityState.Local => Brushes.DarkOrange,
+            ApiAvailabilityState.Online => Brushes.ForestGreen,
+            _ => Brushes.Firebrick
+        };
         public string ApiStatus => _apiStatus;
-        public string ApiStatusLabel => _apiStatus == "Local API starting" ? "Starting" : _isApiOnline ? "Online" : "Offline";
+        public string ApiStatusLabel => _apiAvailability.ToString();
 
         public void StartApiMonitoring(string healthToken)
         {
@@ -80,7 +93,7 @@ namespace NetGenCAD.UI.ViewModels
             SetApiUnavailable("Local API stopped");
         }
 
-        public void SetApiUnavailable(string message) => UpdateApiStatus(false, message);
+        public void SetApiUnavailable(string message) => UpdateApiStatus(ApiAvailabilityState.Offline, message);
 
         private async Task CheckApiAsync()
         {
@@ -94,19 +107,19 @@ namespace NetGenCAD.UI.ViewModels
                 using var response = await ApiClient.GetAsync($"{LocalApiAddress}/health", cancellationToken);
                 var body = await response.Content.ReadAsStringAsync(cancellationToken);
                 if (!cancellationToken.IsCancellationRequested)
-                    UpdateApiStatus(response.IsSuccessStatusCode && body == _apiHealthToken,
-                        response.IsSuccessStatusCode && body == _apiHealthToken ? "Local API online" : "Local API health check returned an unexpected response");
+                    UpdateApiStatus(response.IsSuccessStatusCode && body == _apiHealthToken ? ApiAvailabilityState.Local : ApiAvailabilityState.Offline,
+                        response.IsSuccessStatusCode && body == _apiHealthToken ? "Local API available" : "Local API health check returned an unexpected response");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
             }
             catch (OperationCanceledException)
             {
-                UpdateApiStatus(false, "Local API health check timed out");
+                UpdateApiStatus(ApiAvailabilityState.Offline, "Local API health check timed out");
             }
             catch (HttpRequestException exception)
             {
-                UpdateApiStatus(false, $"Local API unreachable: {exception.Message}");
+                UpdateApiStatus(ApiAvailabilityState.Offline, $"Local API unreachable: {exception.Message}");
             }
             finally
             {
@@ -114,12 +127,13 @@ namespace NetGenCAD.UI.ViewModels
             }
         }
 
-        private void UpdateApiStatus(bool online, string status)
+        private void UpdateApiStatus(ApiAvailabilityState availability, string status)
         {
-            if (_isApiOnline != online || _apiStatus != status)
+            if (_apiAvailability != availability || _apiStatus != status)
                 Debug.WriteLine(status);
-            this.RaiseAndSetIfChanged(ref _isApiOnline, online, nameof(IsApiOnline));
+            this.RaiseAndSetIfChanged(ref _apiAvailability, availability, nameof(ApiAvailability));
             this.RaiseAndSetIfChanged(ref _apiStatus, status, nameof(ApiStatus));
+            this.RaisePropertyChanged(nameof(IsApiOnline));
             this.RaisePropertyChanged(nameof(ApiStatusBrush));
             this.RaisePropertyChanged(nameof(ApiStatusLabel));
         }

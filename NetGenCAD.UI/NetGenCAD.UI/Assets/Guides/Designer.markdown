@@ -2,7 +2,8 @@
 # ![Logo](Assets/Images/logo.png) NetGenCAD Object Designer Guide
 ###### 
 #### Description
-Welcome to the NetGenCAD Designer Guide! This tutorial covers the basics of defining and generating custom objects used in OpenSCAD, a solid 3D CAD modeler. You'll need to **create a custom axis first using the Custom Axis Guide** before creating objects with this guide.
+* Welcome to the NetGenCAD Designer Guide! This tutorial covers the basics of defining and generating custom objects used in OpenSCAD, a solid 3D CAD modeler. 
+* You'll need to **create a custom axis first using the Custom Axis Guide** before creating objects with this guide.
 ###### 
 #### Types of Solids Available
 * **Cube** - default aligned on 0,0,0 axes. Can be offset with Adjust X, Y, Z values.
@@ -32,12 +33,25 @@ Welcome to the NetGenCAD Designer Guide! This tutorial covers the basics of defi
 
 ###### 
 #### Layout of Custom Object Designer
-There are 5 main sections: applying a custom axis, creating a new object or retrieving an existing one, setting inputs for new solids, the list of Solids in the object, and Modules that contain the Solids. Once a solid is added to the object, it will appear in the Solids table, along with its parameters. Solids can be viewed within Modules, which define how they interact with each other. To view the object in OpenSCAD, simply click the **View Output** button, which will open the corresponding SCAD file. To export the object as an STL file, select the **Export?** option. When making changes, be sure to click the **Update All Modules** button and/or **View Output** to refresh the object.
+* There are 5 main sections: applying a custom axis, creating a new object or retrieving an existing one, setting inputs for new solids, the list of Solids in the object, and Modules that contain the Solids. 
+* Once a solid is added to the object, it will appear in the Solids table, along with its parameters. Solids can be viewed within Modules, which define how they interact with each other. 
+* To view the object in OpenSCAD, simply click the **View Output** button, which will open the corresponding SCAD file. To export the object as an STL file, select the **Export?** option. 
+* When making changes, be sure to click the **Update All Modules** button and/or **View Output** to refresh the object.
 
 ###### 
+#### Rendering/Previewing the Object in OpenSCAD
+###### 
+* The object, along with any solids, is stored in a **Scad/Solids** folder that is included with the application. The main solid modules are in **object.scad**. 
+* **Rendering the axis is optional, based on your use case.** However, this can SIGNIFICANTLY INCREASE render time as it is primarily used for preview and development. 
+* Click the **Remove Axis** within the object.scad file to comment out the axis. If exporting to STL, this will be done automatically. 
+* If building a ruler or some form of 1D or 2D measurement, then this is would be an example of why you would include the axis in rendering before final output.
+###### 
+###### 
 ![DesignerObject](Assets/Images/bullionBarsCreateDark.png)
-
-#### Apply a Custom Axis
+###### 
+###### 
+## Apply a Custom Axis
+###### 
 | Steps                                                                         | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 1. Open the **Create** menu and select **Create New Object**                  |                                         |               |
@@ -46,9 +60,10 @@ There are 5 main sections: applying a custom axis, creating a new object or retr
 | 4. Optional: Enter numeric **Adjust X**, moving start point on **X Axis**     |     Units displayed in mm or inches     |       0       |
 | 5. Optional: Enter numeric **Adjust Y**, moving start point on **Y Axis**     |     Units displayed in mm or inches     |       0       | 
 | 6. Optional: Enter numeric **Adjust Z**, moving start point on **Z Axis**     |     Units displayed in mm or inches     |       0       |
-
 ###### 
-#### Creating A New Object
+###### 
+## Creating A New Object
+###### 
 | Steps                                                                         | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 7. Enter an **Object Name**, used as the main identifier for solids, etc.     |           <Set Object Name>             |  <required>   |
@@ -56,9 +71,10 @@ There are 5 main sections: applying a custom axis, creating a new object or retr
 | 9. Select a **Solid Type** to be added or subtracted from the object          |    Cube, Rounded Cube, Cylinder, etc.   |  <required>   |
 | 10. Enter a name for the solid in the **Solid Description** textbox           |        <Set Object Description>         |  <required>   |
 | 11. Select an **Apply To** type, which determines solid's relation to object  |    Union or Difference or Intersection  |     Union     |
-
 ###### 
-#### Setting Inputs for New Solid: Cube and Rounded Cube
+###### 
+## Setting Inputs for New Solid: Cube and Rounded Cube
+###### 
 | Steps                                                                         | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 12. Optional: Select from presets to apply width, height, or cylinder radius  |     Rack Width or Rack Height           |               |
@@ -76,9 +92,10 @@ There are 5 main sections: applying a custom axis, creating a new object or retr
 | 24. Optional: Select **Color**, set the color for the solid                   |       OpenSCAD Colors                   |     Silver    |
 | 25. Optional: Enter numeric **Alpha**, set the color opacity for the solid    |       0 - 1                             |       1       |
 | 26. Optional: Enter numeric **Layer**, set which module to apply the solid to |                                         |       0       |
-
 ###### 
-#### Setting Inputs for New Solid: Cylinder and Rounded Cylinder
+###### 
+## Setting Inputs for New Solid: Cylinder and Rounded Cylinder
+###### 
 | Steps                                                                         | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 12. Optional: Select from presets to apply cylinder radius or cylinder height |     Screw Size or Screw Type            |               |
@@ -96,9 +113,10 @@ There are 5 main sections: applying a custom axis, creating a new object or retr
 | 24. Optional: Select **Color**, set the color for the solid                   |       OpenSCAD Colors                   |     Silver    |
 | 25. Optional: Enter numeric **Alpha**, set the color opacity for the solid    |       0 - 1                             |       1       |
 | 26. Optional: Enter numeric **Layer**, set which module to apply the solid to |                                         |       0       |
-
 ###### 
-#### Setting Inputs for New Solid: Polyhedron
+###### 
+## Setting Inputs for New Solid: Polyhedron
+###### 
 | Steps                                                                         | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 12. **Available Shapes**: displays saved polyhedrons available for import     |                                         |  <required>   |
@@ -113,9 +131,10 @@ There are 5 main sections: applying a custom axis, creating a new object or retr
 | 21. Optional: Select **Color**, set the color for the solid                   |     OpenSCAD Colors                     |     Silver    |
 | 22. Optional: Enter numeric **Alpha**, set the color opacity for the solid    |       0 - 1                             |       1       |
 | 23. Optional: Enter numeric **Layer**, set which module to apply solid to     |                                         |       0       |
-
 ###### 
-#### Setting Inputs for New Solid: Sphere
+###### 
+## Setting Inputs for New Solid: Sphere
+###### 
 | Steps                                                                         | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 12. Optional: Select from presets to apply sphere radius                      |     Screw Size or Screw Type            |               |
@@ -130,9 +149,10 @@ There are 5 main sections: applying a custom axis, creating a new object or retr
 | 21. Optional: Select **Color**, set the color for the solid                   |       OpenSCAD Colors                   |     Silver    |
 | 22. Optional: Enter numeric **Alpha**, set the color opacity for the solid    |       0 - 1                             |       1       |
 | 23. Optional: Enter numeric **Layer**, set which module to apply the solid to |                                         |       0       |
-
 ###### 
-#### Setting Inputs for New Solid: Surface
+###### 
+## Setting Inputs for New Solid: Surface
+###### 
 | Steps                                                                         | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 12. Optional: **Invert**, when importing an image or dat file                 |     Yes or No                           |               |
@@ -153,9 +173,10 @@ There are 5 main sections: applying a custom axis, creating a new object or retr
 | 27. Optional: Select **Color**, set the color for the solid                   |     OpenSCAD Colors                     |     Silver    |
 | 28. Optional: Enter numeric **Alpha**, set the color opacity for the solid    |       0 - 1                             |       1       |
 | 29. Optional: Enter numeric **Layer**, sets module to apply the solid to      |                                         |       0       |
-
 ###### 
-#### Setting Inputs for New Solid: Text
+###### 
+## Setting Inputs for New Solid: Text
+###### 
 | Steps                                                                         | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 12. Text Box: enter the text to be displayed in OpenSCAD                      |                                         |  <required>   |
@@ -174,9 +195,10 @@ There are 5 main sections: applying a custom axis, creating a new object or retr
 | 25. Optional: Select **Color**, set the color for the solid                   |     OpenSCAD Colors                     |     Silver    |
 | 26. Optional: Enter numeric **Alpha**, set the color opacity for the solid    |       0 - 1                             |       1       |
 | 27. Optional: Enter numeric **Layer**, sets module to apply the solid to      |                                         |       0       |
-
 ###### 
-#### Object Action Buttons
+###### 
+## Object Action Buttons
+###### 
 | Steps                                                                         | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 1. **Create Solid** - save the inputs with select solid type to object        | Required settings inputs for solid      |               |
@@ -186,40 +208,48 @@ There are 5 main sections: applying a custom axis, creating a new object or retr
 | 5. **View Output** - preview the object in OpenSCAD                           |                                         |               |
 | 6. **Remove/Apply Axis** - remove the axis before exporting (or reapply it)   |                                         |               |
 | 7. **All Modules** - update/add saved solids to object's specific modules     |                                         |               |
-
 ###### 
-#### Optional Object Actions
+###### 
+## Optional Object Actions
+###### 
 | Actions                                                                       | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 1. **Copy ?** - copy the current object's solids and import into view         | Yes (Copy Object) or No (Keep Current)  |       No      |
 | 2. **Render ?** - choose whether to pre-render the object before viewing      | Yes (Render) or No (Preview Only)       |       No      |
 | 3. **Export ?** - export a rendered version of the object to output file      | STL                                     |       No      |
-
 ###### 
-#### Optional Object Output
+###### 
+## Optional Object Output
+###### 
 | Actions                                                                       | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 17. **Mirror X**, will mirror the imported image along the X axis             |     Integers                            |       0       |
 | 18. **Mirror Y**, will mirror the imported image along the Y axis             |     Integers                            |       0       |
 | 19. **Mirror Z**, will mirror the imported image along the Z axis             |     Integers                            |       0       |
-
 ###### 
-#### Solids and Modules Tables Actions
+###### 
+## Solids and Modules Tables Actions
+###### 
 | Actions                                                                       | Requirements / Options                  | Default Value |
 | ----------------------------------------------------------------------------- |:---------------------------------------:|:-------------:|
 | 1. **Trash Bin Icon** - remove the selected row from the object               |       Solids or Modules Table           |               |
 | 2. **Clipboard Icon** - opens a modal showing the solids used in the module   | Modules Table                           |               |
 | 3. **Sorting** - click on one or more column headers to sort (shift + click)  |       Solids or Modules Table           |               |
-
 ###### 
-#### Rendering/Previewing the Object in OpenSCAD
-The object, along with any solids, is stored in a **Scad/Solids** folder that is included with the application. The main solid modules are in **object.scad**. **Rendering the axis is optional, based on your use case.** However, this can SIGNIFICANTLY INCREASE render time as it is primarily used for preview and development. Click the **Remove Axis** within the object.scad file to comment out the axis. If exporting to STL, this will be done automatically. If building a ruler or some form of 1D or 2D measurement, then this is would be an example of why you would include the axis in rendering before final output.
-
 ###### 
-#### Generated SCAD Files
+## Generated SCAD Files
+###### 
 | Files                                   | Usage In Your SCAD File / Description                  | Optional parameters | Render |
 | --------------------------------------- |:------------------------------------------------------:|:-------------------:|:------:|
 | Scad/Axes/custom_axis_name.scad         | Syntax: use <Axes/axes.scad>; Get_Custom_Axis_Name();  | colorVal, alpha     |	No    |
 | Scad/Solids/moduleType_name_object.scad | Syntax: include <object_name_type.scad>;               |                     |	Yes   |
-| Scad/Solids/object.scad                 | Description: main object file for 3D model             |                     |	No    |
-| Scad/Solids/object.stl                  | Description: exported STL file for 3D model            |                     |  Yes   |
+| Scad/Solids/object.scad                 | Main object file for 3D model             |                     |	No    |
+| Scad/Solids/object.stl                  | Exported STL file for 3D model            |                     |  Yes   |
+###### 
+###### 
+## Other Files
+###### 
+| Files                                   | Usage In SCAD Files / Description                      | Optional parameters | Render |
+| --------------------------------------- |:------------------------------------------------------:|:-------------------:|:------:|
+| Scad/Images/image_used_in_surface.png            | Stores the imported image or bitmap used for a Surface |     |	No    |
+| Scad/Images/image_used_in_surface_**frmt**.png   | Stores the **formatted** image or bitmap used for a Surface |   When format box checked   |	No    |

@@ -63,5 +63,15 @@ namespace NetGenCAD.Core.Utility
                 return collection;
             }
         }
+
+        public static class ViewModelEnums
+        {
+            public enum ApiAvailability
+            {
+                Offline,
+                Local,
+                Online
+            }
+        }
     }
 }

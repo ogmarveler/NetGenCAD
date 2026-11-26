@@ -21,16 +21,53 @@
     </Design.DataContext>
 
     <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+		
         <DockPanel DockPanel.Dock="Top">
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Spacing="5" Margin="8,0">
-            <ComboBox ItemsSource="{Binding ApiAddress}" SelectedIndex="0" VerticalAlignment="Center" BorderThickness="0" Background="Transparent" HorizontalAlignment="Stretch" Padding="10,5"/>
-            <Button Background="Transparent" Command="{Binding CheckApiCommand}" ToolTip.Tip="{Binding ApiStatus}" AutomationProperties.Name="{Binding ApiStatus}" Padding="4">
-                <StackPanel Orientation="Horizontal" Spacing="5">
-                    <Ellipse Width="12" Height="12" Fill="{Binding ApiStatusBrush}" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding ApiStatusLabel}" VerticalAlignment="Center" />
-                </StackPanel>
-            </Button>
-        </StackPanel>
+			
+			<!--  Change Theme  -->
+			<Button Width="35"
+                    MinWidth="0"
+                    Padding="5"
+                    HorizontalContentAlignment="Center"
+                    Background="Transparent"
+                    Command="{Binding ToggleCommand}">
+				<PathIcon Data="{StaticResource dark_theme_regular}" />
+				<ToolTip.Tip>
+					<TextBlock Text="Switch between Dark and Light background themes. Default is System." />
+				</ToolTip.Tip>
+			</Button>
+			<!-- Refresh  -->
+			<Button Width="35"
+                    MinWidth="0"
+                    Padding="5"
+                    HorizontalContentAlignment="Center"
+                    Background="Transparent"
+                    Command="{Binding RefreshAllCommand}">
+                <PathIcon Data="{StaticResource arrow_sync_circle_regular}" />
+                <ToolTip.Tip>
+                    <TextBlock Text="Syncs the UI with any data that has been created from API usage" />
+				</ToolTip.Tip>
+			</Button>
+			<Button MinWidth="80" HorizontalContentAlignment="Center" Background="Transparent" Command="{Binding CheckApiCommand}" ToolTip.Tip="{Binding ApiStatus}" AutomationProperties.Name="{Binding ApiStatus}" Padding="5">
+				<Button.Flyout>
+					<Flyout Placement="Bottom">
+						<StackPanel Spacing="10">
+								<ComboBox ItemsSource="{Binding ApiAddress}" SelectedItem="{Binding SelectedApiAddress, Mode=TwoWay}" HorizontalAlignment="Stretch" MinWidth="240">
+									<ToolTip.Tip>
+										<TextBlock Text="Addresses for local API requests. Selecting an address does not change the listener." />
+									</ToolTip.Tip>
+								</ComboBox>
+							<TextBlock Text="Network access and API mode controls are not available yet." TextWrapping="Wrap" MaxWidth="260" />
+						</StackPanel>
+					</Flyout>
+				</Button.Flyout>
+				<StackPanel Orientation="Horizontal" Spacing="5">
+					<Ellipse Width="12" Height="12" Fill="{Binding ApiStatusBrush}" VerticalAlignment="Center" />
+					<TextBlock Text="{Binding ApiStatusLabel}" VerticalAlignment="Center" />
+				</StackPanel>
+			</Button>
+		</StackPanel>
         <Menu>
             <!--  File and Folder Explorer  -->
             <MenuItem Header="_Open">
@@ -64,17 +101,7 @@
 					<TextBlock Text="Create custom axes, objects, and/or custom shapes." />
 				</ToolTip.Tip>
             </MenuItem>
-            <!--  Change Theme  -->
-            <MenuItem Header="_Appearance">
-                <MenuItem Command="{Binding ToggleCommand}" Header="_Switch Theme">
-                    <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource dark_theme_regular}" />
-                    </MenuItem.Icon>
-                </MenuItem>
-				<ToolTip.Tip>
-					<TextBlock Text="Switch between Dark and Light background themes. Default is System." />
-				</ToolTip.Tip>
-            </MenuItem>
+           
 			<!--  Guides  -->
             <MenuItem Header="_Guides">
                 <MenuItem Command="{Binding MainViewCommand}" Header="_Getting Started">
@@ -106,15 +133,7 @@
 					<TextBlock Text="Tutorials on how to use each module within NetGenCAD" />
 				</ToolTip.Tip>
             </MenuItem>
-			<!-- Refresh  -->
-			<MenuItem Command="{Binding RefreshAllCommand}" Header="_Refresh">
-				<MenuItem.Icon>
-					<PathIcon Data="{StaticResource arrow_sync_circle_regular}" />
-				</MenuItem.Icon>
-				<ToolTip.Tip>
-					<TextBlock Text="Updates the UI with any data that has been created from API usage" />
-				</ToolTip.Tip>
-			</MenuItem>
+			
 		</Menu>
 		</DockPanel>
 

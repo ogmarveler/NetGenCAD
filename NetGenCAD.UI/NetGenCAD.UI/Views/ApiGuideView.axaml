@@ -20,21 +20,12 @@
 			    x:Name="MarkdownView"
 			    Margin="20"
 			    HorizontalAlignment="Stretch"
-			    TextBlock.Foreground="{DynamicResource CardForeground}"
-			    TextBlock.TextAlignment="Justify"
-			    TextBlock.TextWrapping="Wrap" >
-				
-				<!--<Style Selector=".Markdown_Avalonia_MarkdownViewer Border.CodeBlock">
-					<Setter Property="Background" Value="{DynamicResource CodeBackground}" />
-					<Setter Property="Padding" Value="12" />
-					<Setter Property="CornerRadius" Value="6" />
-				</Style>
-
-				<Style Selector=".Markdown_Avalonia_MarkdownViewer TextBlock.CodeBlock">
-					<Setter Property="Foreground" Value="{DynamicResource CodeForeground}" />
-					<Setter Property="FontFamily" Value="Consolas, monospace" />
-				</Style> -->
-
+				TextBlock.Foreground="{DynamicResource CardForeground}"
+				TextBlock.TextAlignment="Justify"
+				TextBlock.TextWrapping="Wrap">
+				<md:MarkdownScrollViewer.Styles>
+					<StyleInclude Source="/Styles/MarkdownCodeStyles.axaml" />
+				</md:MarkdownScrollViewer.Styles>
 			</md:MarkdownScrollViewer>
 	    </StackPanel>
 

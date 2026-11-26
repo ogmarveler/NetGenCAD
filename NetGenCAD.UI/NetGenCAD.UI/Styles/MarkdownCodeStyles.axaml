@@ -1,0 +1,16 @@
+<Styles xmlns="https://github.com/avaloniaui"
+		xmlns:ctxt="clr-namespace:ColorTextBlock.Avalonia;assembly=ColorTextBlock.Avalonia">
+	<Style Selector=".Markdown_Avalonia_MarkdownViewer ctxt|CCode">
+		<Setter Property="Background" Value="{DynamicResource CodeBackground}" />
+		<Setter Property="Foreground" Value="{DynamicResource CodeForeground}" />
+	</Style>
+	<Style Selector=".Markdown_Avalonia_MarkdownViewer Border.CodeBlock">
+		<Setter Property="Background" Value="{DynamicResource CodeBackground}" />
+	</Style>
+	<Style Selector=".Markdown_Avalonia_MarkdownViewer TextBlock.CodeBlock">
+		<Setter Property="Foreground" Value="{DynamicResource CodeForeground}" />
+	</Style>
+	<Style Selector=".Markdown_Avalonia_MarkdownViewer Grid.Table > Border">
+		<Setter Property="Padding" Value="8,4" />
+	</Style>
+</Styles>

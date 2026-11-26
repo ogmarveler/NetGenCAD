@@ -42,6 +42,8 @@
         <ResourceDictionary x:Key="Light">
             <SolidColorBrush x:Key="CardBackground" Color="White" />
             <SolidColorBrush x:Key="CardForeground" Color="Black" />
+            <SolidColorBrush x:Key="CodeBackground" Color="#E8EDF2" />
+            <SolidColorBrush x:Key="CodeForeground" Color="#1A2938" />
             <SolidColorBrush x:Key="WindowBackground" Color="#F5F5F5" />
             <SolidColorBrush x:Key="LabelBackground" Color="#DADDE2" />
             <SolidColorBrush x:Key="PurpleBackground" Color="#423443" />
@@ -65,6 +67,8 @@
         <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="CardBackground" Color="#212121" />
             <SolidColorBrush x:Key="CardForeground" Color="White" />
+            <SolidColorBrush x:Key="CodeBackground" Color="#343C44" />
+            <SolidColorBrush x:Key="CodeForeground" Color="#E8F0F7" />
             <SolidColorBrush x:Key="WindowBackground" Color="#121212" />
             <SolidColorBrush x:Key="LabelBackground" Color="#545F66" />
             <SolidColorBrush x:Key="PurpleBackground" Color="#ffedff" />

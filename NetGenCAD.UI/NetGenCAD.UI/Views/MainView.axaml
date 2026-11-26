@@ -26,6 +26,10 @@
             HorizontalAlignment="Stretch"
             TextBlock.Foreground="{DynamicResource CardForeground}"
             TextBlock.TextAlignment="Justify"
-            TextBlock.TextWrapping="Wrap" />
+            TextBlock.TextWrapping="Wrap">
+            <md:MarkdownScrollViewer.Styles>
+                <StyleInclude Source="/Styles/MarkdownCodeStyles.axaml" />
+            </md:MarkdownScrollViewer.Styles>
+        </md:MarkdownScrollViewer>
     </StackPanel>
 </UserControl>
