@@ -10,7 +10,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NetGenCAD.Axis.Scad.Models;
 using NetGenCAD.Designer.Api.Grpc.Protobuf;
-using NetGenCAD.Designer.Api.Grpc.Services;
 using NetGenCAD.Designer.Api.Services;
 using NetGenCAD.Designer.Repositories;
 using NetGenCAD.UI.Services;

@@ -422,12 +422,12 @@ namespace NetGenCAD.Designer.Repositories
         }
 
         // Update ModuleDimensionsId for multiple SolidDimensions
-        public static async Task UpdateModuleDimensionsIdAsync(this SqliteConnection connection, IEnumerable<int> solidIds, int? moduleDimensionsId)
+        public static async Task UpdateModuleDimensionsIdAsync(this SqliteConnection connection, IEnumerable<int> solidIds, int? moduleDimensionsId, SqliteTransaction? transaction = null)
         {
             string sql = "UPDATE SolidDimensions SET ModuleDimensionsId = @ModuleDimensionsId WHERE Id = @Id";
             foreach (var solidId in solidIds)
             {
-                await connection.ExecuteAsync(sql, new { ModuleDimensionsId = moduleDimensionsId, Id = solidId });
+                await connection.ExecuteAsync(sql, new { ModuleDimensionsId = moduleDimensionsId, Id = solidId }, transaction);
             }
         }
 

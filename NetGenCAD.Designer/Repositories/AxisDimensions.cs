@@ -5,6 +5,7 @@ using Dapper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace NetGenCAD.Designer.Repositories
@@ -28,6 +29,7 @@ namespace NetGenCAD.Designer.Repositories
         public int ColorFromHex { get; set; } = 0; // New property to indicate if the color is from hex
         public double AxisColorAlpha { get; set; } = 1; // From 0 to 1, representing transparency (0 = fully transparent, 1 = fully opaque)
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
 
         public Dictionary<string, object> ToDbDictionary() => new()
         {
@@ -236,23 +238,38 @@ namespace NetGenCAD.Designer.Repositories
                 "SELECT * FROM AxisDimensions WHERE Theme = @Theme ORDER BY CreatedAt DESC",
                 new { Theme = theme });
 
+        public static string GetCallingMethod(this AxisDimensions axis)
+        {
+            var match = Regex.Match(axis.OSCADMethod ?? string.Empty, @"(?:^|\s)(Get_[^\s();/\\]+\(\);)\s*$");
+            if (!match.Success || match.Groups[1].Value[4..^3].IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                throw new InvalidDataException($"Axis {axis.Id} has an invalid calling method.");
+            return match.Groups[1].Value;
+        }
+
+        public static async Task<string> GetAxisDefinitionAsync(this AxisDimensions axis, string axesDirectory)
+        {
+            var moduleName = axis.GetCallingMethod()[4..^3].ToLowerInvariant();
+            var declaration = @"(?m)^\s*module\s+" + Regex.Escape(moduleName) + @"\s*\(";
+            var storedDefinition = axis.IncludeMethod ?? string.Empty;
+            if (Regex.IsMatch(storedDefinition, declaration))
+                return storedDefinition;
+
+            return await File.ReadAllTextAsync(Path.Combine(axesDirectory, moduleName + ".scad"));
+        }
+
         // Get the most recently saved axis by its calling method
         public static async Task<int?> GetIdByCallingMethodAsync(this AxisDimensions _, SqliteConnection connection, string callingMethod) =>
-            await connection.QuerySingleOrDefaultAsync<int?>(
-                @"SELECT Id
-                    FROM AxisDimensions
-                    WHERE TRIM(REPLACE(OSCADMethod,IncludeMethod,'')) = @CallingMethod
-                  ORDER BY CreatedAt DESC
-                  LIMIT 1",
-                new { CallingMethod = callingMethod.Trim() });
+            (await new AxisDimensions().GetAllByCallingMethodAsync(connection, callingMethod))?.Id;
 
         // Get the most recently saved axis by its calling method
         public static async Task<AxisDimensions?> GetAllByCallingMethodAsync(this AxisDimensions _, SqliteConnection connection, string callingMethod) =>
             await connection.QuerySingleOrDefaultAsync<AxisDimensions>(
                 @"SELECT *
                     FROM AxisDimensions
-                    WHERE TRIM(REPLACE(OSCADMethod,IncludeMethod,'')) = @CallingMethod
-                  ORDER BY CreatedAt DESC
+                    WHERE TRIM(OSCADMethod) = @CallingMethod
+                       OR (substr(rtrim(OSCADMethod), -length(@CallingMethod)) = @CallingMethod
+                           AND substr(rtrim(OSCADMethod), -length(@CallingMethod) - 1, 1) IN (' ', char(10), char(13), char(9)))
+                  ORDER BY CreatedAt DESC, Id DESC
                   LIMIT 1",
                 new { CallingMethod = callingMethod.Trim() });
     }

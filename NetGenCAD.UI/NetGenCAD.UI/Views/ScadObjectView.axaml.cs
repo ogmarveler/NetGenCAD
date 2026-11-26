@@ -654,8 +654,8 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
         {
             "SolidType" => 2,
             "Layer" => 3,
-            "Description" => 4,
-            "OperationType" => 5,
+            "OperationType" => 4,
+            "Description" => 5,
             "ModuleColor" => 6,
             "XOffset_MM" or "XOffset_IN" => 7,
             "YOffset_MM" or "YOffset_IN" => 8,

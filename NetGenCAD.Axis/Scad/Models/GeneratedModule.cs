@@ -20,5 +20,6 @@
         public string? AxisColor { get; set; } = string.Empty;
         public double AxisColorAlpha { get; set; } = 1;
         public bool? ColorFromHex { get; set; } = false;
+        public string? IncludeMethod { get; set; } = string.Empty;
     }
 }

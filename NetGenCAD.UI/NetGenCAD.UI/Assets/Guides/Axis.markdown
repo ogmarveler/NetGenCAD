@@ -64,9 +64,9 @@ Axes are stored in a **Scad/Axes** folder that is included with the application.
 ###### 
 * **Axes Module Name Format:** Get_ + { Theme } + { X Range } + { Y Range } + { Z Range } + { Unit Scale } + Origin + { Min X } + { Min Y } + { Min Z } (N = negative, i.e., N1 is -1)
 * **Mirrored Calling Method Suffix:** {Axis Module Name Format} + Mirror_ + {X|0} + {Y|0} + {Z|0} 
-	* X, Y, or Z indicates that axis is mirrored on this specific axis; 0 means it is not. 
-	* For example, Get_Light_10x10x10_MM_Orig_0x0x0_**Mirror_X_0_0()**; mirrors X only. 
-	* Calling methods accept optional (colorVal, alpha) parameters, e.g. Get_Light_10x10x10_MM_Orig_0x0x0_Mirror_X_0_0(colorVal = "Red", alpha = 0.5);.
+	* X, Y, or Z indicates that axis is mirrored on this specific axis; 0 means it is not. The origin remains the source axis minimum in the selected units; `D` represents a decimal point.
+	* For example, Get_Light_10x10x10_MM_Orig_0_x_0_x_0_**Mirror_X_0_0()**; mirrors X only. Existing saved mirrors keep their previous names.
+	* Calling methods accept optional (colorVal, alpha) parameters, e.g. Get_Light_10x10x10_MM_Orig_0_x_0_x_0_Mirror_X_0_0(colorVal = "Red", alpha = 0.5);.
 
 ###### 
 #### Generated SCAD Files

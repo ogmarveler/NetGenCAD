@@ -111,11 +111,11 @@ namespace NetGenCAD.Designer.Repositories
         }
 
         // Upsert (INSERT OR REPLACE) and return the Id - Only updates if Name, SolidType, and ModuleType match
-        public static async Task<int> UpsertAsync(this ModuleDimensions entity, SqliteConnection connection)
+        public static async Task<int> UpsertAsync(this ModuleDimensions entity, SqliteConnection connection, SqliteTransaction? transaction = null)
         {
-            // First, try to find an existing record with matching Name, SolidType, and ModuleType
-            const string selectSql = "SELECT Id FROM ModuleDimensions WHERE Name = @Name AND SolidType = @SolidType AND ModuleType = @ModuleType LIMIT 1";
-            var existingId = await connection.QuerySingleOrDefaultAsync<int?>(selectSql, new { entity.Name, entity.SolidType, entity.ModuleType });
+            // Match within the owning object so rebuilding a copy cannot update the source.
+            const string selectSql = "SELECT Id FROM ModuleDimensions WHERE ObjectName = @ObjectName AND Name = @Name AND SolidType = @SolidType AND ModuleType = @ModuleType LIMIT 1";
+            var existingId = await connection.QuerySingleOrDefaultAsync<int?>(selectSql, new { entity.ObjectName, entity.Name, entity.SolidType, entity.ModuleType }, transaction);
 
             if (existingId.HasValue)
             {
@@ -123,7 +123,7 @@ namespace NetGenCAD.Designer.Repositories
                 entity.Id = existingId.Value;
                 IEnumerable<string> setClause = Properties.Where(p => p.Name != "Id").Select(p => $"{p.Name} = @{p.Name}");
                 string updateSql = $"UPDATE ModuleDimensions SET {string.Join(", ", setClause)} WHERE Id = @Id";
-                await connection.ExecuteAsync(updateSql, entity);
+                await connection.ExecuteAsync(updateSql, entity, transaction);
                 return existingId.Value;
             }
             else
@@ -132,18 +132,18 @@ namespace NetGenCAD.Designer.Repositories
                 IEnumerable<string> columns = Properties.Where(p => p.Name != "Id").Select(p => p.Name);
                 IEnumerable<string> parameters = columns.Select(c => $"@{c}");
                 string insertSql = $"INSERT INTO ModuleDimensions ({string.Join(", ", columns)}) VALUES ({string.Join(", ", parameters)}); SELECT last_insert_rowid();";
-                var id = await connection.ExecuteScalarAsync<int>(insertSql, entity);
+                var id = await connection.ExecuteScalarAsync<int>(insertSql, entity, transaction);
                 entity.Id = id;
                 return id;
             }
         }
 
         // Update
-        public static async Task UpdateAsync(this ModuleDimensions entity, SqliteConnection connection)
+        public static async Task UpdateAsync(this ModuleDimensions entity, SqliteConnection connection, SqliteTransaction? transaction = null)
         {
             IEnumerable<string> setClause = Properties.Where(p => p.Name != "Id").Select(p => $"{p.Name} = @{p.Name}");
             string sql = $"UPDATE ModuleDimensions SET {string.Join(", ", setClause)} WHERE Id = @Id";
-            await connection.ExecuteAsync(sql, entity);
+            await connection.ExecuteAsync(sql, entity, transaction);
         }
 
         public static async Task UpdateIncludeMethodByNameDescriptionSolidTypeAsync(this ModuleDimensions entity, SqliteConnection connection)

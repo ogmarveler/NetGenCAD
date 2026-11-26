@@ -69,7 +69,7 @@ namespace NetGenCAD.Designer.Functions
                 CreatedAt = DateTime.UtcNow,
             };
 
-            axisDimensions.OSCADMethod = $"{axisDimensions.IncludeMethod} {selectedAxis.CallingMethod}";
+            axisDimensions.OSCADMethod = $"use <../Axes/axes.scad>; {selectedAxis.CallingMethod}";
 
             int? axisId = await axisDimensions.UpsertAsync(dbConnection);
 
@@ -84,12 +84,12 @@ namespace NetGenCAD.Designer.Functions
                 }
 
                 // Build the wrapped axis call
-                var wrappedAxisCall = $"translate ([{axisXPositionMM}, {axisYPositionMM}, {axisZPositionMM}]) {axisDimensions?.OSCADMethod.Replace(axisDimensions.IncludeMethod, "")}";
+                var wrappedAxisCall = $"translate ([{axisXPositionMM}, {axisYPositionMM}, {axisZPositionMM}]) {axisDimensions?.OSCADMethod.Replace("use <../Axes/axes.scad>;", "")}";
 
                 // Build SCAD content
                 var sb = new StringBuilder();
                 sb.AppendLine("// Custom axis");
-                sb.AppendLine(axisDimensions?.IncludeMethod);
+                sb.AppendLine("use <../Axes/axes.scad>;");
                 sb.AppendLine(wrappedAxisCall);
                 sb.AppendLine();
 
@@ -161,7 +161,7 @@ namespace NetGenCAD.Designer.Functions
                     MaxZ = selectedAxis!.MaxZ,
                     CreatedAt = DateTime.UtcNow,
                 };
-                updatedAxisDimensions.OSCADMethod = $"{updatedAxisDimensions.IncludeMethod} {selectedAxis.CallingMethod}";
+                updatedAxisDimensions.OSCADMethod = $"use <../Axes/axes.scad>; {selectedAxis.CallingMethod}";
                 var axisId = await updatedAxisDimensions.UpsertAsync(dbConnection);
 
                 // Convert offsets if imperial
@@ -182,8 +182,8 @@ namespace NetGenCAD.Designer.Functions
 
                 // Build the wrapped axis call
                 var wrappedAxisCall = removeAxis
-                    ? $"// translate ([{newAxisXPositionMM}, {newAxisYPositionMM}, {newAxisZPositionMM}]) {updatedAxisDimensions?.OSCADMethod.Replace(updatedAxisDimensions.IncludeMethod, "")}"
-                    : $"translate ([{newAxisXPositionMM}, {newAxisYPositionMM}, {newAxisZPositionMM}]) {updatedAxisDimensions?.OSCADMethod.Replace(updatedAxisDimensions.IncludeMethod, "")}";
+                    ? $"// translate ([{newAxisXPositionMM}, {newAxisYPositionMM}, {newAxisZPositionMM}]) {updatedAxisDimensions?.OSCADMethod.Replace("use <../Axes/axes.scad>;", "")}"
+                    : $"translate ([{newAxisXPositionMM}, {newAxisYPositionMM}, {newAxisZPositionMM}]) {updatedAxisDimensions?.OSCADMethod.Replace("use <../Axes/axes.scad>;", "")}";
 
                 // Update the file
                 UpdateFIle.ChangeContentBlockFile(
@@ -1312,7 +1312,8 @@ namespace NetGenCAD.Designer.Functions
             IEnumerable<SolidDimensions> solidDimensions,
             IEnumerable<ModuleDimensions> moduleDimensions,
             SqliteConnection dbConnection,
-            bool isPreRendered)
+            bool isPreRendered,
+            SqliteTransaction? transaction = null)
         {
             var objects = solidDimensions
                 .Where(o => o.OperationType == "Union")
@@ -1343,18 +1344,18 @@ namespace NetGenCAD.Designer.Functions
                     ModuleType = "Union",
                     ObjectName = objectName,
                     SolidType = "Object",
-                    OSCADMethod = ToUnionModule(addMethods, objectName, string.Empty, solidType, isPreRendered).ToLower(),
+                    OSCADMethod = ToUnionModule(addMethods, objectName, string.Empty, solidType, RebuildRenderSetting(moduleDimensions, objectName, "Union", layer, isPreRendered, transaction)).ToLower(),
                     CreatedAt = DateTime.UtcNow,
                     Layer = layer,
                 };
 
                 // Build call method and store in Db
                 unionModule.Name = ExtractModuleCallMethod(unionModule.OSCADMethod).ToLower();
-                var moduleId = await unionModule.UpsertAsync(dbConnection);
+                var moduleId = await SaveRebuiltModuleAsync(unionModule, moduleDimensions, dbConnection, transaction);
 
                 // Update all solid objects for this layer with the new ModuleDimensionsId
                 var solidIds = layerObjects.Select(o => o.Id);
-                await dbConnection.UpdateModuleDimensionsIdAsync(solidIds, moduleId);
+                await dbConnection.UpdateModuleDimensionsIdAsync(solidIds, moduleId, transaction);
             }
         }
 
@@ -1373,10 +1374,11 @@ namespace NetGenCAD.Designer.Functions
             IEnumerable<SolidDimensions> solidDimensions,
             IEnumerable<ModuleDimensions> moduleDimensions,
             SqliteConnection dbConnection,
-            bool isPreRendered)
+            bool isPreRendered,
+            SqliteTransaction? transaction = null)
         {
             // First create union modules
-            await CreateUnionModuleAsync(objectName, solidDimensions, moduleDimensions, dbConnection, isPreRendered);
+            await CreateUnionModuleAsync(objectName, solidDimensions, moduleDimensions, dbConnection, isPreRendered, transaction);
 
             var objects = solidDimensions
                 .Where(o => o.OperationType == "Difference")
@@ -1417,18 +1419,18 @@ namespace NetGenCAD.Designer.Functions
                         ModuleType = "Difference",
                         ObjectName = objectName,
                         SolidType = "Object",
-                        OSCADMethod = ToDifferenceModule(baseCallMethod, subtractMethods, objectName, string.Empty, solidType, isPreRendered).ToLower(),
+                        OSCADMethod = ToDifferenceModule(baseCallMethod, subtractMethods, objectName, string.Empty, solidType, RebuildRenderSetting(moduleDimensions, objectName, "Difference", layer, isPreRendered, transaction)).ToLower(),
                         CreatedAt = DateTime.UtcNow,
                         Layer = layer,
                     };
 
                     // Get calling method for differenceModule
                     differenceModule.Name = ExtractModuleCallMethod(differenceModule.OSCADMethod).ToLower();
-                    var moduleId = await differenceModule.UpsertAsync(dbConnection);
+                    var moduleId = await SaveRebuiltModuleAsync(differenceModule, moduleDimensions, dbConnection, transaction);
 
                     // Update all solid objects for this layer with the new ModuleDimensionsId
                     var solidIds = layerObjects.Select(o => o.Id);
-                    await dbConnection.UpdateModuleDimensionsIdAsync(solidIds, moduleId);
+                    await dbConnection.UpdateModuleDimensionsIdAsync(solidIds, moduleId, transaction);
                 }
             }
         }
@@ -1448,7 +1450,8 @@ namespace NetGenCAD.Designer.Functions
             IEnumerable<SolidDimensions> solidDimensions,
             IEnumerable<ModuleDimensions> moduleDimensions,
             SqliteConnection dbConnection,
-            bool isPreRendered)
+            bool isPreRendered,
+            SqliteTransaction? transaction = null)
         {
             // Get all objects marked as "Intersection"
             var objects = solidDimensions.Where(o => o.OperationType == "Intersection").ToList();
@@ -1481,20 +1484,44 @@ namespace NetGenCAD.Designer.Functions
                         ModuleType = "Intersection",
                         ObjectName = objectName,
                         SolidType = "Object",
-                        OSCADMethod = ToIntersectionModule(baseCallMethod, intersectMethods, objectName, string.Empty, solidType, isPreRendered).ToLower(),
+                        OSCADMethod = ToIntersectionModule(baseCallMethod, intersectMethods, objectName, string.Empty, solidType, RebuildRenderSetting(moduleDimensions, objectName, "Intersection", layer, isPreRendered, transaction)).ToLower(),
                         CreatedAt = DateTime.UtcNow,
                         Layer = layer,
                     };
 
                     // Get calling method for intersectionModule
                     intersectionModule.Name = ExtractModuleCallMethod(intersectionModule.OSCADMethod).ToLower();
-                    var moduleId = await intersectionModule.UpsertAsync(dbConnection);
+                    var moduleId = await SaveRebuiltModuleAsync(intersectionModule, moduleDimensions, dbConnection, transaction);
 
                     // Update all solid objects for this layer with the new ModuleDimensionsId
                     var solidIds = layerObjects.Select(o => o.Id);
-                    await dbConnection.UpdateModuleDimensionsIdAsync(solidIds, moduleId);
+                    await dbConnection.UpdateModuleDimensionsIdAsync(solidIds, moduleId, transaction);
                 }
             }
+        }
+
+        private static bool RebuildRenderSetting(IEnumerable<ModuleDimensions> modules, string objectName, string type, int layer, bool fallback, SqliteTransaction? transaction)
+        {
+            if (transaction == null)
+                return fallback;
+            var existing = modules.SingleOrDefault(module => module.ObjectName == objectName && module.SolidType == "Object" && module.ModuleType == type && module.Layer == layer);
+            return existing == null ? fallback : System.Text.RegularExpressions.Regex.IsMatch(existing.OSCADMethod, @"\{\s*render\s*\(", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        private static async Task<int> SaveRebuiltModuleAsync(ModuleDimensions generated, IEnumerable<ModuleDimensions> modules, SqliteConnection connection, SqliteTransaction? transaction)
+        {
+            if (transaction == null)
+                return await generated.UpsertAsync(connection);
+
+            var existing = modules.SingleOrDefault(module => module.ObjectName == generated.ObjectName &&
+                module.SolidType == generated.SolidType && module.ModuleType == generated.ModuleType && module.Layer == generated.Layer);
+            if (existing == null)
+                return await generated.UpsertAsync(connection, transaction);
+
+            existing.Name = generated.Name;
+            existing.OSCADMethod = generated.OSCADMethod;
+            await existing.UpdateAsync(connection, transaction);
+            return existing.Id;
         }
 
         /// <summary>
@@ -2039,6 +2066,14 @@ namespace NetGenCAD.Designer.Functions
         {
             await GetDimensionsPartsAsync(dbConnection, string.Empty);
             var copyName = await ObjectCopy.CopyAsync(dbConnection, sourceObjectName);
+            return await GetDimensionsPartsAsync(dbConnection, copyName);
+        }
+
+        /// <summary>Copies an object's database records under the requested name.</summary>
+        public static async Task<(ObservableCollection<SolidDimensions>, ObservableCollection<ModuleDimensions>)> CopyObjectWithCallbackAsync(string sourceObjectName, string targetObjectName, SqliteConnection dbConnection)
+        {
+            await GetDimensionsPartsAsync(dbConnection, string.Empty);
+            var copyName = await ObjectCopy.CopyAsync(dbConnection, sourceObjectName, targetObjectName);
             return await GetDimensionsPartsAsync(dbConnection, copyName);
         }
 

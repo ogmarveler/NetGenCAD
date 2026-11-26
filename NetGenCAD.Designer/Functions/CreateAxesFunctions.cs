@@ -467,6 +467,7 @@ namespace NetGenCAD.Designer.Functions
             public double MaxZ { get; set; }
             public double Volume { get; set; }
             public double VolumeScale { get; set; }
+            public UnitSystem Unit { get; set; }
         }
 
         /// <summary>
@@ -499,7 +500,8 @@ namespace NetGenCAD.Designer.Functions
                 MinZ = Math.Round(MillimeterToInches(minZ), decimalPlaces),
                 MaxZ = Math.Round(MillimeterToInches(maxZ), decimalPlaces),
                 Volume = Math.Round(VolumeConverter.ConvertCm3ToIn3(volume), decimalPlaces),
-                VolumeScale = Math.Round(VolumeConverter.ConvertM3ToFt3(volumeScale), decimalPlaces)
+                VolumeScale = Math.Round(VolumeConverter.ConvertM3ToFt3(volumeScale), decimalPlaces),
+                Unit = UnitSystem.Imperial
             };
         }
 
@@ -533,7 +535,8 @@ namespace NetGenCAD.Designer.Functions
                 MinZ = Math.Round(InchesToMillimeter(minZ), decimalPlaces),
                 MaxZ = Math.Round(InchesToMillimeter(maxZ), decimalPlaces),
                 Volume = Math.Round(VolumeConverter.ConvertIn3ToCm3(volume), decimalPlaces),
-                VolumeScale = Math.Round(VolumeConverter.ConvertFt3ToM3(volumeScale), decimalPlaces)
+                VolumeScale = Math.Round(VolumeConverter.ConvertFt3ToM3(volumeScale), decimalPlaces),
+                Unit = UnitSystem.Metric
             };
         }
 
@@ -561,6 +564,7 @@ namespace NetGenCAD.Designer.Functions
                 AxisColorAlpha = selectedAxis.Settings.AxisColorAlpha,
                 AxesOSCADMethod = selectedAxis.AxesModule ?? string.Empty,
                 OSCADMethod = selectedAxis.CallingMethod ?? string.Empty,
+                IncludeMethod = selectedAxis.AxisModule ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -612,7 +616,7 @@ namespace NetGenCAD.Designer.Functions
                     new AxisDimensionsEntity(), dbConnection, selectedAxisId)
                     ?? throw new RpcException(new Status(StatusCode.NotFound, $"axis_id: {selectedAxisId} was not found."));
 
-                callMethodFromAxisId = result.OSCADMethod.Replace(result.IncludeMethod, "").Trim();
+                callMethodFromAxisId = result.GetCallingMethod();
             }
             // Lookup the axis_id if an axis calling method is provided in the request but doesn't have a valid axis_id; use the axis_id provided if it is valid
             if (!string.IsNullOrWhiteSpace(axisCallingMethod) && (selectedAxisId < 1))

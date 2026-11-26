@@ -17,6 +17,7 @@ namespace NetGenCAD.Designer.Api.Grpc.Protobuf;
 [JsonSerializable(typeof(CustomAxis))]
 [JsonSerializable(typeof(CreateCustomAxisRequest))]
 [JsonSerializable(typeof(AxisDimensions))]
+[JsonSerializable(typeof(GetAxesListRequest))]
 [JsonSerializable(typeof(GetAxesListResponse))]
 [JsonSerializable(typeof(StringList))]
 [JsonSerializable(typeof(DeleteAxisRequest))]

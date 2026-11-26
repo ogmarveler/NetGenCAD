@@ -5,7 +5,6 @@ package createAxes;
 option csharp_namespace = "NetGenCAD.Designer.Api.Grpc.Protobuf";
 
 import "google/api/annotations.proto";
-import "google/protobuf/empty.proto";
 
 // Enums from NetGenCAD.Core.Measurements.Selector and related
 enum UnitSystem {
@@ -47,6 +46,9 @@ message GeneratedModule {
   optional string color_hex = 15; // Stored hex color, when present
   optional string oscad_color = 16; // Stored named color, when present
   optional double axis_color_alpha = 17; // Stored effective opacity
+  optional string axis_oscad = 18;  // The actual axis oscad method
+  optional string axes_oscad = 19;  // The actual axes oscad method
+  optional string axis_filename = 20; // The filename of the axis scad file
 }
 
 // Model: AxisConversionResult from CreateAxesFunctions
@@ -59,6 +61,7 @@ message AxisConversionResult {
   double max_z = 6;
   double volume = 7;
   double volume_scale = 8;
+  UnitSystem unit = 9;
 }
 
 message ConvertUnitsRequest {
@@ -72,7 +75,6 @@ message ConvertUnitsRequest {
   double volume_scale = 8;
   int32 decimal_places = 9;
   UnitSystem from_unit = 10;
-  UnitSystem to_unit = 11;
 }
 
 // Model: AxisSettings from AxisConfig.AxisSettings
@@ -117,6 +119,9 @@ message CustomAxis {
   optional string color_hex = 9; // Set when the resulting color is hex
   optional string oscad_color = 10; // Set when the resulting color is a named OpenSCAD color
   double axis_color_alpha = 11; // Effective opacity after validation and rounding
+  string axis_oscad = 12;  // The actual axis oscad method
+  string axes_oscad = 13;  // The actual axes oscad method
+  string axis_filename = 14; // The filename of the axis scad file
 }
 
 message CreateCustomAxisRequest {
@@ -139,24 +144,17 @@ message CreateCustomAxisRequest {
 // ---------------------------------------------------------------------------
 
 service AxesService {
-  // Retrieves and filters axes from axes.scad
-  rpc GetAxesList (google.protobuf.Empty) returns (GetAxesListResponse) {
+  // Lists axes or retrieves the full definition for a single axis.
+  rpc GetAxesList (GetAxesListRequest) returns (GetAxesListResponse) {
     option (google.api.http) = {
       get: "/v1/axes"
     };
   }
 
   // Unit conversions
-  rpc ConvertToImperial (ConvertUnitsRequest) returns (AxisConversionResult) {
+  rpc ConvertUnits (ConvertUnitsRequest) returns (AxisConversionResult) {
     option (google.api.http) = {
-      post: "/v1/axes/convert/imperial"
-      body: "*"
-    };
-  }
-
-  rpc ConvertToMetric (ConvertUnitsRequest) returns (AxisConversionResult) {
-    option (google.api.http) = {
-      post: "/v1/axes/convert/metric"
+      get: "/v1/axes/convertUnits"
       body: "*"
     };
   }
@@ -192,6 +190,10 @@ message AxisDimensions {
   string oscad_method = 10;
   string include_method = 11;
   int64 created_at_unix = 12;
+}
+
+message GetAxesListRequest {
+  optional int32 axis_id = 1;
 }
 
 message GetAxesListResponse {

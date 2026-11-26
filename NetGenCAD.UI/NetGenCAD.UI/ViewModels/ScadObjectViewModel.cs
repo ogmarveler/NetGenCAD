@@ -491,8 +491,8 @@ namespace NetGenCAD.UI.ViewModels
 
             // Build the original axis call for replacement
             var originalAxisCallLocal = _originalRemoveAxis
-                ? $"// translate ([{_AxisXPositionMM}, {_AxisYPositionMM}, {_AxisZPositionMM}]) {_axisDimensions?.OSCADMethod.Replace(_axisDimensions.IncludeMethod, "")}"
-                : $"translate ([{_AxisXPositionMM}, {_AxisYPositionMM}, {_AxisZPositionMM}]) {_axisDimensions?.OSCADMethod.Replace(_axisDimensions.IncludeMethod, "")}";
+                ? $"// translate ([{_AxisXPositionMM}, {_AxisYPositionMM}, {_AxisZPositionMM}]) {_axisDimensions?.OSCADMethod.Replace("use <../Axes/axes.scad>;", "")}"
+                : $"translate ([{_AxisXPositionMM}, {_AxisYPositionMM}, {_AxisZPositionMM}]) {_axisDimensions?.OSCADMethod.Replace("use <../Axes/axes.scad>;", "")}";
 
             // Define the callback that updates the ViewModel properties
             UpdateAxisTranslateCallbackAsync onAxisTranslateComplete = async (
@@ -529,7 +529,20 @@ namespace NetGenCAD.UI.ViewModels
                 onAxisTranslateComplete);
 
             // Make sure display updates
-            ObjectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+             if (_selectedAxis?.CallingMethod?.Contains("Mirror") == true)
+             {
+                var objectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+                var mirrorIndex = objectAxisDisplay.IndexOf("Mirror", StringComparison.Ordinal);
+                var trimmedDisplay = mirrorIndex >= 0
+                    ? objectAxisDisplay[..(mirrorIndex + "Mirror".Length)]
+                    : objectAxisDisplay;
+
+                ObjectAxisDisplay = trimmedDisplay.Replace("in ", "").Replace("mm ", "");
+             }
+             else
+             {
+                ObjectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+             }
             ObjectAxisUnitDisplay = _selectedAxis?.Unit == "in" ? $"{UnitSystem.Imperial.ToString()} (in)" : $"{UnitSystem.Metric.ToString()} (mm)";
         }
 
@@ -1455,7 +1468,7 @@ namespace NetGenCAD.UI.ViewModels
                     UpdateAxisTranslate();
                 else if (_selectedAxis is not null)
                 {
-                    var axisId = AxisDimensionsExtensions.GetIdByCallingMethodAsync(new AxisDimensionsEntity(), DbConnection, _selectedAxis.CallingMethod).Result;
+                    var axisId = AxisDimensionsExtensions.GetIdByCallingMethodAsync(new AxisDimensionsEntity(), DbConnection!, _selectedAxis.CallingMethod!).Result;
                     if (_axisId is null || _axisId == 0)
                     {
                         _ = CreateAxis();
@@ -1464,7 +1477,22 @@ namespace NetGenCAD.UI.ViewModels
                     {
                         // Update the display
                         _axisId = axisId;
-                        ObjectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+
+                        if (_selectedAxis?.CallingMethod?.Contains("Mirror") == true)
+                        {
+                            var objectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+                            var mirrorIndex = objectAxisDisplay.IndexOf("Mirror", StringComparison.Ordinal);
+                            var trimmedDisplay = mirrorIndex >= 0
+                                ? objectAxisDisplay[..(mirrorIndex + "Mirror".Length)]
+                                : objectAxisDisplay;
+
+                            ObjectAxisDisplay = trimmedDisplay.Replace("in ", "").Replace("mm ", "");
+                        }
+                        else
+                        {
+                            ObjectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
+                        }
+
                         ObjectAxisUnitDisplay = _selectedAxis?.Unit == "in" ? $"{UnitSystem.Imperial.ToString()} (in)" : $"{UnitSystem.Metric.ToString()} (mm)";
                         AxisStored = true;
                         AxesSelectEnabled = false; // Disable the ComboBox after axis is created

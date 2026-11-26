@@ -1,13 +1,26 @@
 using Dapper;
 using Microsoft.Data.Sqlite;
+using NetGenCAD.Designer.Functions;
 using NetGenCAD.Designer.Repositories;
-using System.Text.RegularExpressions;
 
 namespace NetGenCAD.Designer.Utility
 {
     public static class ObjectCopy
     {
-        public static async Task<string> CopyAsync(SqliteConnection connection, string sourceName)
+        public sealed class ObjectNameAlreadyExistsException(string name)
+            : InvalidOperationException($"Object '{name}' already exists.");
+
+        public static Task<string> CopyAsync(SqliteConnection connection, string sourceName) =>
+            CopyCoreAsync(connection, sourceName, null);
+
+        public static Task<string> CopyAsync(SqliteConnection connection, string sourceName, string targetName)
+        {
+            if (string.IsNullOrWhiteSpace(targetName))
+                throw new ArgumentException("A target object name is required.", nameof(targetName));
+            return CopyCoreAsync(connection, sourceName, targetName);
+        }
+
+        private static async Task<string> CopyCoreAsync(SqliteConnection connection, string sourceName, string? targetName)
         {
             using var transaction = connection.BeginTransaction();
             var source = await connection.QuerySingleOrDefaultAsync<ObjectDimensions>(
@@ -20,24 +33,14 @@ namespace NetGenCAD.Designer.Utility
             if (solids.Count == 0 && modules.Count == 0)
                 throw new InvalidOperationException($"Object '{sourceName}' has no solids or modules to copy.");
 
-            var copyName = sourceName + "_copy";
+            var copyName = targetName ?? sourceName + "_copy";
             for (var index = 2; await connection.ExecuteScalarAsync<long>(
                 "SELECT COUNT(*) FROM ObjectDimensions WHERE ObjectName = @copyName", new { copyName }, transaction) != 0; index++)
-                copyName = $"{sourceName}_copy_{index}";
-            var suffix = copyName[sourceName.Length..];
-
-            var identifiers = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var code in solids.Select(s => s.OSCADMethod).Concat(modules.Select(m => m.OSCADMethod)))
             {
-                var match = Regex.Match(code ?? string.Empty, @"\bmodule\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(");
-                if (match.Success)
-                    identifiers[match.Groups[1].Value] = match.Groups[1].Value + suffix;
+                if (targetName != null)
+                    throw new ObjectNameAlreadyExistsException(targetName);
+                copyName = $"{sourceName}_copy_{index}";
             }
-
-            string RenameCode(string code) => Regex.Replace(code ?? string.Empty,
-                "\"(?:\\\\.|[^\"\\\\])*\"|//[^\\r\\n]*|/\\*[\\s\\S]*?\\*/|[A-Za-z_][A-Za-z0-9_]*",
-                match => identifiers.TryGetValue(match.Value, out var replacement) ? replacement : match.Value);
-
             var newId = await CloneRowAsync(connection, transaction, "ObjectDimensions", source.Id,
                 new Dictionary<string, object?> { ["ObjectName"] = copyName, ["CreatedAt"] = DateTime.UtcNow });
             var moduleIds = new Dictionary<int, int>();
@@ -48,8 +51,6 @@ namespace NetGenCAD.Designer.Utility
                     {
                         ["ObjectName"] = copyName,
                         ["ObjectDimensionsId"] = newId,
-                        ["Name"] = RenameCode(module.Name),
-                        ["OSCADMethod"] = RenameCode(module.OSCADMethod),
                         ["IncludeMethod"] = string.Empty,
                         ["CreatedAt"] = DateTime.UtcNow
                     });
@@ -65,10 +66,30 @@ namespace NetGenCAD.Designer.Utility
                         ["Name"] = copyName,
                         ["ObjectDimensionsId"] = newId,
                         ["ModuleDimensionsId"] = solid.ModuleDimensionsId is int id ? moduleIds[id] : null,
-                        ["OSCADMethod"] = RenameCode(solid.OSCADMethod),
                         ["CreatedAt"] = DateTime.UtcNow
                     });
             }
+
+            var copiedSolids = (await connection.QueryAsync<SolidDimensions>(
+                "SELECT * FROM SolidDimensions WHERE ObjectDimensionsId = @newId ORDER BY Id", new { newId }, transaction)).ToList();
+            var copiedModules = (await connection.QueryAsync<ModuleDimensions>(
+                "SELECT * FROM ModuleDimensions WHERE ObjectDimensionsId = @newId ORDER BY Id", new { newId }, transaction)).ToList();
+            foreach (var solid in copiedSolids.Where(s => s.OperationType is "Difference" or "Intersection"))
+            {
+                if (!copiedSolids.Any(s => s.OperationType == "Union" && s.Layer == solid.Layer))
+                    throw new InvalidOperationException($"Cannot rebuild layer {solid.Layer} without a union solid.");
+            }
+            foreach (var module in copiedModules.Where(m => m.SolidType == "Object"))
+            {
+                if (!copiedSolids.Any(s => s.OperationType == module.ModuleType && s.Layer == module.Layer))
+                    throw new InvalidOperationException($"Cannot rebuild object module {module.Id} without matching solids.");
+            }
+
+            await ObjectScadFunctions.CreateUnionModuleAsync(copyName, copiedSolids, copiedModules, connection, false, transaction);
+            copiedModules = (await connection.QueryAsync<ModuleDimensions>(
+                "SELECT * FROM ModuleDimensions WHERE ObjectDimensionsId = @newId ORDER BY Id", new { newId }, transaction)).ToList();
+            await ObjectScadFunctions.CreateDifferenceModuleAsync(copyName, copiedSolids, copiedModules, connection, false, transaction);
+            await ObjectScadFunctions.CreateIntersectionModuleAsync(copyName, copiedSolids, copiedModules, connection, false, transaction);
             transaction.Commit();
             return copyName;
         }

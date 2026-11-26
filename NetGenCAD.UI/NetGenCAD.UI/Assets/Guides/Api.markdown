@@ -9,18 +9,19 @@ Send JSON request bodies with `Content-Type: application/json`. Protobuf JSON fi
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/v1/axes` | List metric and imperial axes. |
-| POST | `/v1/axes/convert/imperial` | Convert metric values to imperial. |
-| POST | `/v1/axes/convert/metric` | Convert imperial values to metric. |
+| GET | `/v1/axes/convertUnits` | Convert between metric and imperial values. |
 | POST | `/v1/axes/createUpdate` | Create or update an axis. |
 | DELETE | `/v1/axes/deleteAxis` | Delete an axis by `axisId` or `axisCallingMethod`. |
+
+`GET /v1/axes` returns metric and imperial lists without the verbose `axisOscad` and `axesOscad` fields. Use `GET /v1/axes?axisId=1` (or `axis_id=1`) to return only that axis, including its OpenSCAD definitions. An unknown ID returns HTTP 404; an invalid ID returns HTTP 400.
 
 Example conversion request:
 
 ```json
-{"maxX":25.4,"decimalPlaces":2}
+{"maxX":25.4,"decimalPlaces":2,"fromUnit":"METRIC"}
 ```
 
-POST this to `/v1/axes/convert/imperial` to convert 25.4 mm to 1 inch. Conversion also accepts `minX`, `minY`, `maxY`, `minZ`, `maxZ`, `volume`, and `volumeScale`. The route determines the conversion direction.
+Send this JSON body with GET to `/v1/axes/convertUnits` to convert 25.4 mm to 1 inch. Set `fromUnit` to `IMPERIAL` for the reverse conversion. Some HTTP clients do not support bodies on GET requests. Conversion also accepts `minX`, `minY`, `maxY`, `minZ`, `maxZ`, `volume`, and `volumeScale`.
 
 Example axis creation request for `/v1/axes/createUpdate`:
 
@@ -64,7 +65,7 @@ Example solid creation request for `/v1/object/solid/createUpdate` (replace `axi
 
 Cube dimensions must be positive. Other solid types include `ROUND_CUBE`, `CYLINDER`, `ROUND_CYLINDER`, `SPHERE`, `POLYHEDRON`, `SURFACE`, and `TEXT`; their required dimensions differ. Optional request fields include `layer`, `alpha`, `decimalPlaces`, `colorHex`, `oscadColor`, and the nested dimension and transform fields. The response includes `objectId`, `objectName`, and `objectModule.createdSolid`.
 
-To delete a solid or module, send a DELETE body such as `{"itemType":"SOLID","itemId":1}` to `/v1/object/solid/deleteItem`. To copy an object, POST `{"sourceObjectId":1}` or `{"sourceObjectName":"Example"}` to `/v1/object/copy`. If both source fields are present, the ID takes precedence. The service currently chooses the copy name; `targetObjectName` is not applied.
+To delete a solid or module, send a DELETE body such as `{"itemType":"SOLID","itemId":1}` to `/v1/object/solid/deleteItem`. To copy an object, POST `{"sourceObjectId":1,"targetObjectName":"New example"}` or `{"sourceObjectName":"Example","targetObjectName":"New example"}` to `/v1/object/copy`. If both source fields are present, the ID takes precedence. The target name must not already exist. If `targetObjectName` is omitted or empty, the service chooses a copy name automatically. The copy retains the original solid SCAD and rebuilds its object modules under the target name. Each layer containing difference or intersection solids requires a union solid; object modules must have matching solids for rebuilding.
 
 The full request and response fields are defined in `createAxes.proto` and `objectScad.proto` in the source repository. Shape routes use a separate transcoder and may not work in an AOT build.
 

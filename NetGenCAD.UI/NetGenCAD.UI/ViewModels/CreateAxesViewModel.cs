@@ -4,6 +4,7 @@ using NetGenCAD.Axis.Scad.Models;
 using NetGenCAD.Axis.SCAD.Utility;
 using NetGenCAD.Core.Measurements;
 using NetGenCAD.Designer.Functions;
+using NetGenCAD.Designer.Repositories;
 using NetGenCAD.Designer.Utility;
 using ReactiveUI;
 using System;
@@ -229,13 +230,17 @@ namespace NetGenCAD.UI.ViewModels
                 Volume = selected.Volume,
                 AxisColor = selected.AxisColor,
                 AxisColorAlpha = selected.AxisColorAlpha,
-                ColorFromHex = selected.ColorFromHex
+                ColorFromHex = selected.ColorFromHex,
+                AxesOscadMethod = selected.AxesOscadMethod,
+                IncludeMethod = selected.IncludeMethod
             };
 
             AlphaText = selected.AxisColorAlpha.ToString(CultureInfo.CurrentCulture);
             UnitAbbrev = selected.Unit;
             SetSelectedOrientation(selected.CallingMethod);
             PreviewAxisCallingMethod = selected.CallingMethod ?? string.Empty;
+            IsPreviewColorFromHex = (bool)selected!.ColorFromHex;
+            PreviewColorHex = (bool)selected!.ColorFromHex ? selected!.AxisColor : string.Empty;
             SelectedUnitValue = unit == "mm" ? UnitSystem.Metric : UnitSystem.Imperial;
             MinXValue = selected.MinX;
             MaxXValue = selected.MaxX;
@@ -615,6 +620,7 @@ namespace NetGenCAD.UI.ViewModels
                         Unit = selectedAxis.Unit,
                         CallingMethod = CallingMethod,
                         AxesOscadMethod = selectedAxis.AxesOSCADMethod,
+                        IncludeMethod = selectedAxis.IncludeMethod,
                         AxisColor = selectedAxis.AxisColor,
                         AxisColorAlpha = selectedAxis.AxisColorAlpha,
                         ColorFromHex = selectedAxis.ColorFromHex == 1 || (selectedAxis.AxisColor?.Contains('#') ?? false)
@@ -736,6 +742,7 @@ namespace NetGenCAD.UI.ViewModels
                     axis.AxisColorAlpha = storedAxis.AxisColorAlpha;
                     axis.ColorFromHex = storedAxis.ColorFromHex == 1 || color.Contains('#');
                     axis.AxesOscadMethod = storedAxis.AxesOSCADMethod;
+                    axis.IncludeMethod = await storedAxis.GetAxisDefinitionAsync(Path.Combine("Scad", "Axes"));
                 }
             }
 

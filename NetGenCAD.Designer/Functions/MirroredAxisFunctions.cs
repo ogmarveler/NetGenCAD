@@ -95,7 +95,16 @@ namespace NetGenCAD.Designer.Functions
             }
             if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z))
                 throw new InvalidDataException("The mirrored axis translation is not finite.");
-            var newMethod = sourceName[..originIndex] + $"_Orig_{EncodeCoordinate(x)}_x_{EncodeCoordinate(y)}_x_{EncodeCoordinate(z)}_Mirror_{(xSign < 0 ? "X" : "0")}_{(ySign < 0 ? "Y" : "0")}_{(zSign < 0 ? "Z" : "0")}";
+            // Bounds in axes.scad are millimeters; axis names use the selected unit.
+            double Origin(string bound)
+            {
+                var value = ParseBound(bound);
+                return source.Unit == "in" ? Math.Round(NetGenCAD.Core.Measurements.Conversion.MillimeterToInches(value), 0) : value;
+            }
+            var originX = Origin(entry.Groups["minX"].Value);
+            var originY = Origin(entry.Groups["minY"].Value);
+            var originZ = Origin(entry.Groups["minZ"].Value);
+            var newMethod = sourceName[..originIndex] + $"_Orig_{EncodeCoordinate(originX)}x{EncodeCoordinate(originY)}x{EncodeCoordinate(originZ)}_Mirror_{(xSign < 0 ? "X" : "0")}_{(ySign < 0 ? "Y" : "0")}_{(zSign < 0 ? "Z" : "0")}";
             var newBaseName = newMethod[4..].ToLowerInvariant();
             var declaration = @"(?m)^(?<prefix>[ \t]*module[ \t]+)" + Regex.Escape(baseName) + @"(?=[ \t]*\()";
             if (Regex.Matches(sourceContent, declaration).Count != 1)
@@ -159,8 +168,8 @@ namespace NetGenCAD.Designer.Functions
                     MaxY = source.MaxY,
                     MinZ = source.MinZ,
                     MaxZ = source.MaxZ,
-                    IncludeMethod = source.IncludeMethod,
-                    OSCADMethod = $"{source.IncludeMethod} {newCall}",
+                    IncludeMethod = newContent,
+                    OSCADMethod = $"{newContent} {newCall}",
                     AxesOSCADMethod = newEntry[1..],
                     AxisColor = color,
                     ColorFromHex = isHex ? 1 : 0,

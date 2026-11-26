@@ -5,9 +5,8 @@ using Grpc.Core;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using NetGenCAD.Designer.Api.Grpc.Protobuf;
-using NetGenCAD.Designer.Api.Services;
 
-namespace NetGenCAD.Designer.Api.Grpc.Services;
+namespace NetGenCAD.Designer.Api.Services;
 
 public sealed class ProtobufJsonMiddleware(RequestDelegate next, ILogger<ProtobufJsonMiddleware> logger)
 {
@@ -20,9 +19,9 @@ public sealed class ProtobufJsonMiddleware(RequestDelegate next, ILogger<Protobu
         var isGet = HttpMethods.IsGet(method);
         var isPost = HttpMethods.IsPost(method);
         var isDelete = HttpMethods.IsDelete(method);
-        if (!(isGet && path == "/v1/axes") &&
-            !(isPost && path is "/v1/axes/convert/imperial" or "/v1/axes/convert/metric" or "/v1/axes/createupdate" or "/v1/object/solid/createupdate" or "/v1/object/createupdate" or "/v1/object/copy") &&
-            !(isDelete && path is "/v1/axes/deleteaxis" or "/v1/object/solid/deleteitem"))
+        if (!(isGet && (path == "/v1/axes" || path == "/v1/axes/convertunits")) &&
+            !(isPost && (path == "/v1/axes/createupdate" || path == "/v1/object/solid/createupdate" || path == "/v1/object/createupdate" || path == "/v1/object/copy")) &&
+            !(isDelete && (path == "/v1/axes/deleteaxis" || path == "/v1/object/solid/deleteitem")))
         {
             await next(context);
             return;
@@ -32,9 +31,8 @@ public sealed class ProtobufJsonMiddleware(RequestDelegate next, ILogger<Protobu
         {
             IMessage response = path switch
             {
-                "/v1/axes" => await axes.GetAxesListAsync(),
-                "/v1/axes/convert/imperial" => await axes.ConvertToImperialAsync(await ReadAsync<ConvertUnitsRequest>(context)),
-                "/v1/axes/convert/metric" => await axes.ConvertToMetricAsync(await ReadAsync<ConvertUnitsRequest>(context)),
+                "/v1/axes" => await axes.GetAxesListAsync(ReadAxisId(context)),
+                "/v1/axes/convertunits" => await axes.ConvertUnitsAsync(await ReadAsync<ConvertUnitsRequest>(context)),
                 "/v1/axes/createupdate" => await axes.CreateUpdateAxisAsync(await ReadAsync<CreateCustomAxisRequest>(context)),
                 "/v1/axes/deleteaxis" => await axes.DeleteAxisAsync(await ReadAsync<DeleteAxisRequest>(context)),
                 "/v1/object/solid/createupdate" => await objects.CreateUpdateSolidAsync(await ReadAsync<CreateUpdateSolidRequest>(context)),
@@ -74,6 +72,18 @@ public sealed class ProtobufJsonMiddleware(RequestDelegate next, ILogger<Protobu
                 throw;
             await WriteErrorAsync(context, StatusCode.Internal, "Internal server error.");
         }
+    }
+
+    private static int? ReadAxisId(HttpContext context)
+    {
+        var values = context.Request.Query.Where(pair =>
+            string.Equals(pair.Key, "axisId", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(pair.Key, "axis_id", StringComparison.OrdinalIgnoreCase)).SelectMany(pair => pair.Value).ToArray();
+        if (values.Length == 0)
+            return null;
+        if (values.Length != 1 || !int.TryParse(values[0], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var axisId) || axisId <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "axis_id must be a single positive integer."));
+        return axisId;
     }
 
     private static async Task<T> ReadAsync<T>(HttpContext context) where T : IMessage<T>, new()

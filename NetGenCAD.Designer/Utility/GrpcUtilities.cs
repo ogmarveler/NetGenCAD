@@ -113,6 +113,9 @@ namespace NetGenCAD.Designer.Utility
             Repositories.SolidDimensions value, Core.Measurements.Selector.UnitSystem selectedUnit = Core.Measurements.Selector.UnitSystem.Metric) => new()
             {
                 Id = value.Id,
+                AxisDimensionsId = value.AxisDimensionsId ?? 0,
+                ObjectModuleId = value.ModuleDimensionsId ?? 0,
+                ObjectModuleName = value.ModuleName ?? string.Empty,
                 SolidCallMethod = WrapInModule.ExtractModuleCallMethod(value.OSCADMethod).ToLower(),
                 Description = value.Description ?? string.Empty,
                 ShapeName = value.ShapeName ?? string.Empty,
@@ -141,7 +144,7 @@ namespace NetGenCAD.Designer.Utility
                 SurfaceScaleX = value.ScaleX,
                 SurfaceScaleY = value.ScaleY,
                 SurfaceScaleZ = value.ScaleZ,
-                SurfaceFilePath = value.SurfaceFilePath.Replace("\\", "/"),
+                SurfaceFilePath = value.SurfaceFilePath,
                 SurfaceCenter = value.SurfaceCenter == 1 ? true : false,
                 SurfaceInvert = value.SurfaceInvert == 1 ? true : false,
                 TextInput = value.TextContent ?? string.Empty,

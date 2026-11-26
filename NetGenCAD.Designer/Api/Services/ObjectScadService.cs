@@ -300,7 +300,7 @@ namespace NetGenCAD.Designer.Api.Services
             {
                 ObjectId = _savedSolid!.ObjectDimensionsId,
                 ObjectName = _savedSolid.Name,
-                OscadFile = Path.Combine(Path.GetDirectoryName(_objectFilePath)!, _savedSolid.ModuleFile!.Replace("include <", "").Replace(">;", "")).Replace("\\", "/"),
+                OscadFile = Path.Combine(Path.GetDirectoryName(_objectFilePath)!, _savedSolid.ModuleFile!.Replace("include <", "").Replace(">;", "")),
                 SelectedUnit = request.SelectedUnit,
                 AxisId = (int)_savedSolid.AxisDimensionsId!,
                 AxisUsedCallingMethod = callMethodFromAxisId,
@@ -347,6 +347,8 @@ namespace NetGenCAD.Designer.Api.Services
 
         public async Task<CopyObjectResponse> CopyObjectAsync(CopyObjectRequest request)
         {
+           
+
             if (request.HasSourceObjectId && request.SourceObjectId <= 0)
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Source object ID must be positive."));
             if (!request.HasSourceObjectId && string.IsNullOrWhiteSpace(request.SourceObjectName))
@@ -357,8 +359,24 @@ namespace NetGenCAD.Designer.Api.Services
                 : await new ObjectDimensions().GetByNameAsync(_db, request.SourceObjectName.Trim());
             if (source == null)
                 throw new RpcException(new Status(StatusCode.NotFound, "Source object was not found."));
+            if (request.TargetObjectName.Length > 0 && string.IsNullOrWhiteSpace(request.TargetObjectName))
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Target object name cannot be blank."));
 
-            var (solids, modules) = await ObjectScadFunctions.CopyObjectWithCallbackAsync(source.ObjectName, _db);
+            // Make sure it stores lowercase and also spaces replaced with "_"
+            var targetObjectName = StringFunctions.NameSanitize(request.TargetObjectName);
+
+            System.Collections.ObjectModel.ObservableCollection<NetGenCAD.Designer.Repositories.SolidDimensions> solids;
+            System.Collections.ObjectModel.ObservableCollection<NetGenCAD.Designer.Repositories.ModuleDimensions> modules;
+            try
+            {
+                (solids, modules) = targetObjectName.Length == 0
+                    ? await ObjectScadFunctions.CopyObjectWithCallbackAsync(source.ObjectName, _db)
+                    : await ObjectScadFunctions.CopyObjectWithCallbackAsync(source.ObjectName, targetObjectName, _db);
+            }
+            catch (ObjectCopy.ObjectNameAlreadyExistsException exception)
+            {
+                throw new RpcException(new Status(StatusCode.AlreadyExists, exception.Message));
+            }
             var copyName = solids.FirstOrDefault()?.Name ?? modules.FirstOrDefault()?.ObjectName;
             if (copyName == null)
                 throw new RpcException(new Status(StatusCode.Internal, "Copy produced no object data."));

@@ -1,5 +1,4 @@
-﻿using Google.Protobuf.WellKnownTypes;
-using Grpc.Core;
+﻿using Grpc.Core;
 using Microsoft.Data.Sqlite;
 
 using NetGenCAD.Core.Interfaces;
@@ -8,7 +7,7 @@ using NetGenCAD.Designer.Api.Grpc.Protobuf;
 using NetGenCAD.Designer.Functions;
 using NetGenCAD.Designer.Repositories;
 using NetGenCAD.Designer.Utility;
-using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 
 
 namespace NetGenCAD.Designer.Api.Services
@@ -21,32 +20,77 @@ namespace NetGenCAD.Designer.Api.Services
     {
 
         private readonly SqliteConnection _db;
+        private readonly IScadPathProvider _pathProvider;
+        private readonly string? _axesPath;
+        private readonly object _dbLock = new object(); // Lock for thread-safe database access
 
         // Constructor serves as DB initializer, and table dependency ensures tables exist before any calls are applied
-        public AxesServiceImpl(SqliteConnection db)
+        public AxesServiceImpl(SqliteConnection db, IScadPathProvider pathProvider)
         {
             _db = db;
+            _pathProvider = pathProvider;
+            _axesPath = Path.Combine(pathProvider.ScadPath, "Axes");  // Use compatible Windows or Unix format as standard response
             ObjectScadFunctions.GetDimensionsPartsAsync(_db, string.Empty).Wait(); // Make sure tables exist in the database before any calls are applied, patience can be a virtue
         }
 
-        public override Task<GetAxesListResponse> GetAxesList(Empty request, ServerCallContext context) => GetAxesListAsync();
+        public override Task<AxisConversionResult> ConvertUnits(ConvertUnitsRequest request, ServerCallContext context) => ConvertUnitsAsync(request);
 
-        public Task<GetAxesListResponse> GetAxesListAsync()
+        public Task<AxisConversionResult> ConvertUnitsAsync(ConvertUnitsRequest request)
         {
-            // var (all, metric, imperial) = CreateAxesFunctions.GetAxesList(); // without axisId, from .scad files
+            if (request.FromUnit == UnitSystem.Unspecified)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "from_unit is not specified with IMPERIAL or METRIC"));
 
-            // From DB
-            var allAxes = CreateAxesFunctions.GetAllAxesAsync(_db).Result;
+            else if (request.FromUnit == UnitSystem.Imperial)  // From Imperial to Metric
+                return ConvertToMetricAsync(request);
 
-            var response = new GetAxesListResponse();
-           // response.AllAxes.AddRange(all.Select(ToProto));
-            response.MetricAxes.AddRange(allAxes.Where(a => a.Unit == "mm").OrderBy(a => a.Id).Select(ToProto));
-            response.ImperialAxes.AddRange(allAxes.Where(a => a.Unit == "in").OrderBy(a => a.Id).Select(ToProto));
+            else if (request.FromUnit == UnitSystem.Metric)  // From Metric to Imperial
+                return ConvertToImperialAsync(request);
 
-            return Task.FromResult(response);
+            else  // No conversion needed, return the same values
+                return Task.FromResult(new AxisConversionResult
+                {
+                    MinX = request.MinX,
+                    MaxX = request.MaxX,
+                    MinY = request.MinY,
+                    MaxY = request.MaxY,
+                    MinZ = request.MinZ,
+                    MaxZ = request.MaxZ,
+                    Volume = request.Volume,
+                    VolumeScale = request.VolumeScale,
+                    Unit = request.FromUnit
+                });
         }
 
-        public override Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToImperial(ConvertUnitsRequest request, ServerCallContext context) => ConvertToImperialAsync(request);
+        public async Task<GetAxesListResponse> GetAxesListAsync(int? axisId = null)
+        {
+            if (axisId.HasValue && axisId.Value <= 0)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "axis_id must be positive."));
+
+            var response = new GetAxesListResponse();
+            if (axisId.HasValue)
+            {
+                var axis = await new Repositories.AxisDimensions().GetByIdAsync(_db, axisId.Value)
+                    ?? throw new RpcException(new Status(StatusCode.NotFound, $"axis_id: {axisId.Value} was not found."));
+                var item = await ToProtoAsync(axis, includeOscad: true);
+                if (axis.Unit == "mm") response.MetricAxes.Add(item);
+                else if (axis.Unit == "in") response.ImperialAxes.Add(item);
+                else throw new InvalidDataException($"Axis {axis.Id} has an unsupported unit '{axis.Unit}'.");
+            }
+            else
+            {
+                var allAxes = await CreateAxesFunctions.GetAllAxesAsync(_db);
+                foreach (var axis in allAxes.OrderBy(a => a.Id))
+                {
+                    if (axis.Unit == "mm") response.MetricAxes.Add(await ToProtoAsync(axis, includeOscad: false));
+                    else if (axis.Unit == "in") response.ImperialAxes.Add(await ToProtoAsync(axis, includeOscad: false));
+                    else throw new InvalidDataException($"Axis {axis.Id} has an unsupported unit '{axis.Unit}'.");
+                }
+            }
+            return response;
+        }
+
+        public override Task<GetAxesListResponse> GetAxesList(GetAxesListRequest request, ServerCallContext context) =>
+            GetAxesListAsync(request.HasAxisId ? request.AxisId : null);
 
         public Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToImperialAsync(ConvertUnitsRequest request)
         {
@@ -59,8 +103,6 @@ namespace NetGenCAD.Designer.Api.Services
 
             return Task.FromResult(ToProto(result));
         }
-
-        public override Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToMetric(ConvertUnitsRequest request, ServerCallContext context) => ConvertToMetricAsync(request);
 
         public Task<Api.Grpc.Protobuf.AxisConversionResult> ConvertToMetricAsync(ConvertUnitsRequest request)
         {
@@ -125,7 +167,7 @@ namespace NetGenCAD.Designer.Api.Services
             if (created == null)
                 throw new RpcException(new Status(StatusCode.Internal, "Axis creation failed"));
 
-            return ToProto(created, axisId);
+            return ToProto(created, axisId, _axesPath);
         }
 
         public override Task<StringResponse> DeleteAxis(DeleteAxisRequest request, ServerCallContext context) => DeleteAxisAsync(request);
@@ -141,17 +183,18 @@ namespace NetGenCAD.Designer.Api.Services
         // Mapping helpers (C# model <-> proto)
         // -------------------------------------------------------------------------
 
-        private static Api.Grpc.Protobuf.GeneratedModule ToProto(Repositories.AxisDimensions src)
+        private async Task<Api.Grpc.Protobuf.GeneratedModule> ToProtoAsync(Repositories.AxisDimensions src, bool includeOscad)
         {
             var (rangeX, rangeY, rangeZ, volume) = VolumeCalculation.GetVolume(
                 src.MinX, src.MaxX, src.MinY, src.MaxY, src.MinZ, src.MaxZ, src.Unit);
+            var callingMethod = src.GetCallingMethod();
+            var moduleName = callingMethod[4..^3].ToLowerInvariant();
+            var axisFilename = Path.Combine(_axesPath!, moduleName + ".scad");
 
             var response = new Api.Grpc.Protobuf.GeneratedModule
             {
                 AxisId = src.Id,
-                CallingMethod = string.IsNullOrEmpty(src.IncludeMethod)
-                    ? src.OSCADMethod.Trim()
-                    : src.OSCADMethod.Replace(src.IncludeMethod, string.Empty).Trim(),
+                CallingMethod = callingMethod,
                 Unit = src.Unit,
                 Theme = src.Theme,
                 RangeX = rangeX,
@@ -164,8 +207,25 @@ namespace NetGenCAD.Designer.Api.Services
                 MinZ = src.MinZ,
                 MaxZ = src.MaxZ,
                 Volume = volume,
-                AxisColorAlpha = src.AxisColorAlpha
+                AxisColorAlpha = src.AxisColorAlpha,
+                AxisFilename = axisFilename
             };
+
+            if (includeOscad)
+            {
+                response.AxisOscad = await src.GetAxisDefinitionAsync(_axesPath!);
+                if (!string.IsNullOrWhiteSpace(src.AxesOSCADMethod))
+                    response.AxesOscad = src.AxesOSCADMethod;
+                else
+                {
+                    var index = await File.ReadAllTextAsync(Path.Combine(_axesPath!, "axes.scad"));
+                    var wrapper = Regex.Escape(callingMethod[..^3]);
+                    var pattern = @"(?m)^// 3D Axis Module - [^\r\n]*\r?\n// Calling Method: [^\r\n]*\r?\n// Settings: [^\r\n]*\r?\ninclude[ \t]+<[^>\r\n]+>;[ \t]*\r?\nmodule[ \t]+" + wrapper + @"[ \t]*\([^\r\n]*\)[ \t]*\{\r?\n[^{}]*^\}[ \t]*(?:\r?\n|$)";
+                    var entry = Regex.Matches(index, pattern).Cast<Match>().LastOrDefault()
+                        ?? throw new InvalidDataException($"Axis {src.Id} was not found in axes.scad.");
+                    response.AxesOscad = entry.Value;
+                }
+            }
 
             if (!string.IsNullOrEmpty(src.AxisColor))
             {
@@ -187,10 +247,11 @@ namespace NetGenCAD.Designer.Api.Services
             MinZ = src.MinZ,
             MaxZ = src.MaxZ,
             Volume = src.Volume,
-            VolumeScale = src.VolumeScale
+            VolumeScale = src.VolumeScale,
+            Unit = src.Unit == Selector.UnitSystem.Imperial ? Api.Grpc.Protobuf.UnitSystem.Imperial : Api.Grpc.Protobuf.UnitSystem.Metric
         };
 
-        private static Api.Grpc.Protobuf.CustomAxis ToProto(Axis.SCAD.Utility.AxisConfig.CustomAxis src, int? axisId)
+        private static Api.Grpc.Protobuf.CustomAxis ToProto(Axis.SCAD.Utility.AxisConfig.CustomAxis src, int? axisId, string? axesPath)
         {
             var response = new Api.Grpc.Protobuf.CustomAxis
             {
@@ -198,12 +259,14 @@ namespace NetGenCAD.Designer.Api.Services
                 AxisId = axisId ?? -1,
                 CallingMethod = src.CallingMethod ?? string.Empty,
                 ModuleName = src.ModuleName ?? string.Empty,
-                //MainFileInstruction = src.MainFileInstruction ?? string.Empty,
                 TotalCubicVolume = src.TotalCubicVolume,
                 TotalCubicVolumeScale = src.TotalCubicVolumeScale,
                 TotalCubicVolumeUnit = src.Settings.UnitSystem == Selector.UnitSystem.Imperial ? "in³" : "cm³",
                 TotalCubicVolumeScaleUnit = src.Settings.UnitSystem == Selector.UnitSystem.Imperial ? "ft³" : "m³",
-                AxisColorAlpha = src.Settings.AxisColorAlpha
+                AxisColorAlpha = src.Settings.AxisColorAlpha,
+                AxesOscad = src.AxesModule ?? string.Empty,
+                AxisOscad = src.AxisModule,
+                AxisFilename = Path.Combine(axesPath!, $"{src.ModuleName?.ToLower().Trim()}.scad")
             };
 
             if (src.Settings.ColorFromHex)

@@ -144,7 +144,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
         sb.AppendLine($"{module?.AxesOscadMethod}");
         sb.AppendLine($"{new string('-', 40)} Axis OSCAD {new string('-', 40)}");
         sb.AppendLine();
-        sb.AppendLine(ViewModel.AxisModule);
+        sb.AppendLine(module?.IncludeMethod);
 
 
         // Set ViewModel properties for the modal
@@ -358,7 +358,7 @@ public partial class CreateAxesView : UserControl, INotifyPropertyChanged
     private void DataGrid_AutoGeneratingColumnImperial(object? sender, DataGridAutoGeneratingColumnEventArgs e)
     {
         // List of columns to exclude from display - Hide Metric columns for Imperial view
-        var excludedColumns = new[] { "AxesOscadMethod", "AxisColorAlpha", "ColorFromHex" };
+        var excludedColumns = new[] { "AxesOscadMethod", "AxisColorAlpha", "ColorFromHex", "IncludeMethod" };
 
         if (excludedColumns.Contains(e.PropertyName))
         {

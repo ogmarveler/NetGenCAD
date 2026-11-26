@@ -1821,7 +1821,7 @@
 								<DataGrid.Columns>
 									<controls:NumericDataGridTextColumn Header="L" Binding="{Binding Layer, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" />
 									<DataGridTextColumn Header="Module Name" Binding="{Binding Name, DataType={x:Type repo:ModuleDimensions}, Converter={StaticResource ModuleDisplayNameConverter}}" FontSize="12" />
-									<DataGridTextColumn Header="Module Type" Binding="{Binding ModuleType, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" FontWeight="SemiBold" />
+									<!--<DataGridTextColumn Header="Module Type" Binding="{Binding ModuleType, DataType={x:Type repo:ModuleDimensions}}" FontSize="12" FontWeight="SemiBold" />-->
 								</DataGrid.Columns>
 							</DataGrid>
                         </StackPanel>

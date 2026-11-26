@@ -73,7 +73,7 @@ Use the origin choices to preview reflections within the axis bounds: **Bot Righ
 
 To keep a mirrored orientation, choose at least one reflection and select **Save Mirror**. This creates a separate axis with its own calling method and file, using the current preview color and alpha as its defaults. If no preview color is selected, the source axis color is used. The generated axes list refreshes and the preview calls the saved axis; the new axis can be used or deleted independently of the original. To create another orientation, select the original axis again. Saving the same compatible variant again updates it instead of creating a duplicate.
 
-The mirrored calling method encodes the millimeter translation and reflected axes, for example `_Orig_300_x_0_x_0_Mirror_X_0_0`. Negative signs are encoded as `N` and decimal points as `D`.
+The mirrored calling method retains the source axis origin in its selected units and identifies the reflected axes, for example `_Orig_0_x_0_x_0_Mirror_X_0_0`. Negative signs are encoded as `N` and decimal points as `D`. The SCAD wrapper still applies the millimeter translation needed to reflect within the axis bounds. Existing saved mirrors keep their original names.
 ###### 
 ![Axis Creation](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/axisCreation.png)
 ###### 

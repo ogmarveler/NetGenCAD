@@ -26,7 +26,7 @@ namespace NetGenCAD.Axis.SCAD.Modules
 
             // Store in Axes reference file - Comments and Instructions
             var _moduleComment = $"// 3D Axis Module - {_customAxis.ModuleName.Replace("_", " ")}\n" +
-                $"// Calling Method: Get_{_customAxis.CallingMethod}\n" +
+                $"// Calling Method: {_customAxis.CallingMethod}\n" +
                 $"// Settings: UnitSystem={_customAxis.Settings.UnitSystem}, BackgroundType={_customAxis.Settings.BackgroundType}, MinX={_customAxis.Settings.MinX}, MaxX={_customAxis.Settings.MaxX}, MinY={_customAxis.Settings.MinY}, " +
                 $"MaxY={_customAxis.Settings.MaxY}, MinZ={_customAxis.Settings.MinZ}, MaxZ={_customAxis.Settings.MaxZ}";
 
