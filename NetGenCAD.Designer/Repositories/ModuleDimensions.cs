@@ -186,6 +186,10 @@ namespace NetGenCAD.Designer.Repositories
                 "SELECT * FROM ModuleDimensions WHERE ObjectName = @ObjectName ORDER BY ModuleType ASC, SolidType ASC",
                 new { ObjectName = objectName });
 
+        public static Task<IEnumerable<ModuleDimensions>> GetSummariesByObjectIdAsync(this ModuleDimensions _, SqliteConnection connection, int objectId) =>
+            connection.QueryAsync<ModuleDimensions>(@"SELECT Id, Name, ModuleType, SolidType, Layer
+                FROM ModuleDimensions WHERE ObjectDimensionsId = @ObjectId ORDER BY Id", new { ObjectId = objectId });
+
         // Get by Name and ModuleType
         public static async Task<IEnumerable<ModuleDimensions>> GetByNameAndModuleTypeAsync(this ModuleDimensions _, SqliteConnection connection, string name, string moduleType) =>
             await connection.QueryAsync<ModuleDimensions>(

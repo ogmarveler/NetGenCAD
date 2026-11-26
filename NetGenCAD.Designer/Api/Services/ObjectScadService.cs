@@ -347,6 +347,53 @@ namespace NetGenCAD.Designer.Api.Services
          * gRPC Service Methods - OBJECT creation, update, and deletion
          *************************/
 
+        // HTTP 1.1: GET /v1/object/get?object_id=...
+        // HTTP 2: /objectScad.ObjectScadService/GetObject
+        public override Task<GetObjectResponse> GetObject(GetObjectRequest request, ServerCallContext context) => GetObjectAsync(request);
+
+        public async Task<GetObjectResponse> GetObjectAsync(GetObjectRequest request)
+        {
+            if (request.ObjectId <= 0)
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Object ID must be positive."));
+
+            var obj = await new ObjectDimensions().GetSummaryByIdAsync(_db, request.ObjectId)
+                ?? throw new RpcException(new Status(StatusCode.NotFound, "Object was not found."));
+            var solids = await new NetGenCAD.Designer.Repositories.SolidDimensions().GetSummariesByObjectIdAsync(_db, obj.Id);
+            var modules = await new NetGenCAD.Designer.Repositories.ModuleDimensions().GetSummariesByObjectIdAsync(_db, obj.Id);
+
+            var response = new GetObjectResponse
+            {
+                ObjectDimensionsId = obj.Id,
+                ObjectName = obj.ObjectName,
+                ObjectDescription = obj.ObjectDescription ?? string.Empty
+            };
+            foreach (var solid in solids)
+            {
+                var summary = new ObjectSolidSummary
+                {
+                    Id = solid.Id,
+                    Name = solid.Name,
+                    Description = solid.Description ?? string.Empty,
+                    SolidType = solid.SolidType,
+                    OperationType = solid.OperationType,
+                    ShapeName = solid.ShapeName ?? string.Empty,
+                    Layer = solid.Layer
+                };
+                if (solid.ModuleDimensionsId.HasValue)
+                    summary.ModuleId = solid.ModuleDimensionsId.Value;
+                response.Solids.Add(summary);
+            }
+            response.Modules.AddRange(modules.Select(module => new ObjectModuleSummary
+            {
+                Id = module.Id,
+                Name = module.Name,
+                ModuleType = module.ModuleType,
+                SolidType = module.SolidType,
+                Layer = module.Layer
+            }));
+            return response;
+        }
+
         // HTTP 1.1 --------------------------------------------- /v1/object/copy -------------------------------------------------//
         // HTTP 2 --------------------------------------------- /objectScad.ObjectScadService/CopyObject ---------------------------------//
         public override Task<CopyObjectResponse> CopyObject(CopyObjectRequest request, ServerCallContext context) => CopyObjectAsync(request);

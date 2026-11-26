@@ -87,6 +87,10 @@ Varying axes of different sizes, measurement types, colors, and combinations of 
 
 Each object and its solids share one axis reference. Changing or clearing a solid's axis updates the object and its other solids; a new solid without an axis inherits the object's axis. When existing data is migrated, the newest solid's axis is used for its object (creation timestamp, then ID as a tiebreaker). Missing referenced axes must be corrected before migration.
 
+#### Object API lookup
+
+Use `GET /v1/object/get?object_id=123` or the gRPC `GetObject` method to look up an object by its positive `ObjectDimensions` ID. The response includes the object's ID, name and description, plus ID-ordered solid and module summaries with names, types, layers and solid-to-module IDs where available. Solid summaries also include the shape name when applicable. Dimensions and OpenSCAD bodies are omitted. An invalid ID returns an invalid-argument error; an unknown ID returns not found. The existing copy response remains unchanged.
+
 ###### 
 #### Generated SCAD Files
 

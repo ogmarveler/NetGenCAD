@@ -225,6 +225,9 @@ namespace NetGenCAD.Designer.Repositories
         public static Task<ObjectDimensions?> GetByIdAsync(this ObjectDimensions _, SqliteConnection connection, int id) =>
             connection.QuerySingleOrDefaultAsync<ObjectDimensions>("SELECT * FROM ObjectDimensions WHERE Id = @Id", new { Id = id });
 
+        public static Task<ObjectDimensions?> GetSummaryByIdAsync(this ObjectDimensions _, SqliteConnection connection, int id) =>
+            connection.QuerySingleOrDefaultAsync<ObjectDimensions>("SELECT Id, ObjectName, ObjectDescription FROM ObjectDimensions WHERE Id = @Id", new { Id = id });
+
         public static Task<ObjectDimensions?> GetByNameAsync(this ObjectDimensions _, SqliteConnection connection, string name) =>
             connection.QuerySingleOrDefaultAsync<ObjectDimensions>("SELECT * FROM ObjectDimensions WHERE ObjectName = @Name", new { Name = name });
     }

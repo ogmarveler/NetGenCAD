@@ -539,6 +539,10 @@ namespace NetGenCAD.Designer.Repositories
             return await connection.QueryAsync<SolidDimensions>(SqlQueries.GetByNameWithAxis, new { Name = name });
         }
 
+        public static Task<IEnumerable<SolidDimensions>> GetSummariesByObjectIdAsync(this SolidDimensions _, SqliteConnection connection, int objectId) =>
+            connection.QueryAsync<SolidDimensions>(@"SELECT Id, Name, Description, SolidType, OperationType, ModuleDimensionsId, ShapeName, Layer
+                FROM SolidDimensions WHERE ObjectDimensionsId = @ObjectId ORDER BY Id", new { ObjectId = objectId });
+
         // Get by Name with joined AxisDimensions OSCADMethod AND ModuleDimensions Name
         public static async Task<IEnumerable<SolidDimensions>> GetByNameWithAxisAndModuleAsync(this SolidDimensions _, SqliteConnection connection, string name)
         {

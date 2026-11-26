@@ -19,7 +19,7 @@ public sealed class ProtobufJsonMiddleware(RequestDelegate next, ILogger<Protobu
         var isGet = HttpMethods.IsGet(method);
         var isPost = HttpMethods.IsPost(method);
         var isDelete = HttpMethods.IsDelete(method);
-        if (!(isGet && (path == "/v1/axes" || path == "/v1/axes/convertunits")) &&
+        if (!(isGet && (path == "/v1/axes" || path == "/v1/axes/convertunits" || path == "/v1/object/get")) &&
             !(isPost && (path == "/v1/axes/createupdate" || path == "/v1/object/solid/createupdate" || path == "/v1/object/createupdate" || path == "/v1/object/copy")) &&
             !(isDelete && (path == "/v1/axes/deleteaxis" || path == "/v1/object/solid/deleteitem")))
         {
@@ -37,6 +37,7 @@ public sealed class ProtobufJsonMiddleware(RequestDelegate next, ILogger<Protobu
                 "/v1/axes/deleteaxis" => await axes.DeleteAxisAsync(await ReadAsync<DeleteAxisRequest>(context)),
                 "/v1/object/solid/createupdate" => await objects.CreateUpdateSolidAsync(await ReadAsync<CreateUpdateSolidRequest>(context)),
                 "/v1/object/solid/deleteitem" => await objects.DeleteItemAsync(await ReadAsync<DeleteItemRequest>(context)),
+                "/v1/object/get" => await objects.GetObjectAsync(new GetObjectRequest { ObjectId = ReadObjectId(context) }),
                 "/v1/object/copy" => await objects.CopyObjectAsync(await ReadAsync<CopyObjectRequest>(context)),
                 "/v1/object/createupdate" => throw new RpcException(new Status(StatusCode.Unimplemented, "Method is unimplemented.")),
                 _ => throw new InvalidOperationException("Unknown API route.")
@@ -84,6 +85,16 @@ public sealed class ProtobufJsonMiddleware(RequestDelegate next, ILogger<Protobu
         if (values.Length != 1 || !int.TryParse(values[0], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var axisId) || axisId <= 0)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "axis_id must be a single positive integer."));
         return axisId;
+    }
+
+    private static int ReadObjectId(HttpContext context)
+    {
+        var values = context.Request.Query.Where(pair =>
+            string.Equals(pair.Key, "objectId", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(pair.Key, "object_id", StringComparison.OrdinalIgnoreCase)).SelectMany(pair => pair.Value).ToArray();
+        if (values.Length != 1 || !int.TryParse(values[0], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var objectId) || objectId <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "object_id must be a single positive integer."));
+        return objectId;
     }
 
     private static async Task<T> ReadAsync<T>(HttpContext context) where T : IMessage<T>, new()

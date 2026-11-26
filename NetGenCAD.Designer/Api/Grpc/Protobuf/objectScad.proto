@@ -163,9 +163,22 @@ service ObjectScadService {
     };
   }
 
+  rpc GetObject (GetObjectRequest) returns (GetObjectResponse) {
+    option (google.api.http) = {
+      get: "/v1/object/get"
+    };
+  }
+
   rpc CopyObject (CopyObjectRequest) returns (CopyObjectResponse) {
     option (google.api.http) = {
       post: "/v1/object/copy"
+      body: "*"
+    };
+  }
+
+   rpc ExportToStl (CopyObjectRequest) returns (CopyObjectResponse) {
+    option (google.api.http) = {
+      post: "/v1/object/exportToStl"
       body: "*"
     };
   }
@@ -235,6 +248,38 @@ message CreateUpdateObjectResponse {
   string axis_used_calling_method = 6;
   string axis_display_name = 7;
   ModuleObject object_module = 8;
+}
+
+// Retrieves object contents without dimensions or OpenSCAD bodies.
+message GetObjectRequest {
+  int32 object_id = 1;
+}
+
+message ObjectSolidSummary {
+  int32 id = 1;
+  string name = 2;
+  string description = 3;
+  string solid_type = 4;
+  string operation_type = 5;
+  optional int32 module_id = 6;
+  string shape_name = 7;
+  int32 layer = 8;
+}
+
+message ObjectModuleSummary {
+  int32 id = 1;
+  string name = 2;
+  string module_type = 3;
+  string solid_type = 4;
+  int32 layer = 5;
+}
+
+message GetObjectResponse {
+  int32 object_dimensions_id = 1;
+  string object_name = 2;
+  string object_description = 3;
+  repeated ObjectSolidSummary solids = 4;
+  repeated ObjectModuleSummary modules = 5;
 }
 
 message CopyObjectRequest {
