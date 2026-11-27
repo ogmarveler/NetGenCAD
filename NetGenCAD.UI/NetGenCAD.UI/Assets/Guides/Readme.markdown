@@ -44,9 +44,9 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 * **Convert inches to mm** - Enter inputs in Imperial (in) first, then select Metric (mm)
 
 ###### 
-#### Layout of Custom Axes Builder
-* Customize axes with your own color, as well as the ability to preview the axis and/or colors before calling it in your SCAD project.
-* Mirror functionality is available for all axes, and the ability to preview the mirrored axis before calling it in your SCAD project.
+#### Custom Axes Builder
+* Customize axes with your own color. Preview the axis and/or colors in your SCAD project.
+* Mirror functionality available for all axes. Preview mirrored axes in your SCAD project.
 
 ###### 
 ![Axis Creation](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/axisCreationNew.png)
@@ -75,10 +75,10 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 | --------------------------------------- |:------------------------------------------------------:|:-------------------:|
 | Scad/Axes/axes.scad                     | holds all stored axes used in 3D models                |                     |
 | Scad/Axes/axis_preview.scad             | preview a newly created axis and mirror                | colorVal, alpha     |
-| Scad/Axes/custom_axis_name.scad         | use <Axes/axes.scad>; Get_Custom_Axis_Name();          | colorVal, alpha     |
+| Scad/Axes/custom_axis_name.scad         | Get_Custom_Axis_Name();                                | colorVal, alpha     |
 | Scad/Solids/moduleType_name_object.scad | include <object_name_type.scad>;                       |                     |
 | Scad/Solids/object.scad                 | main object file for 3D model                          |                     |	
 | Scad/Solids/object.stl                  | exported STL file for 3D model                         |                     |
 | Scad/Solids/polyhedronName_shape.scad   | polyhedron shape preview file                          |                     |
 | Scad/Images/image_surface.png           | imported image used for a Surface                      |                     |
-| Scad/Images/image_surface_**frmt**.png  | **formatted** image used for a Surface                 | format box checked  |
+| Scad/Images/image_surface_**frmt**.png  | **formatted** image used for a Surface                 | format checkbox     |
