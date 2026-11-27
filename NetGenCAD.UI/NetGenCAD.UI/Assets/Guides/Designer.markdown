@@ -47,7 +47,7 @@
 * If building a ruler or some form of 1D or 2D measurement, then this is would be an example of why you would include the axis in rendering before final output.
 ###### 
 ###### 
-![DesignerObject](Assets/Images/bullionBarsCreateDark.png)
+![DesignerObject](Assets/Images/hydraCollectorCreate.png)
 ###### 
 ###### 
 ## Apply a Custom Axis

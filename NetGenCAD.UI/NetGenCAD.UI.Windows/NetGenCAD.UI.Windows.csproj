@@ -11,7 +11,7 @@
 		<!-- Enable trimming -->
 		<PublishTrimmed>true</PublishTrimmed>
 		<!-- Use 'link' mode for aggressive trimming, or 'copyused' for safer trimming -->
-		<TrimMode>copyused</TrimMode>
+		<TrimMode>link</TrimMode>
 		<!-- Treat trimming warnings as errors to prevent trimming code with warnings -->
 		<TrimmerSingleWarn>false</TrimmerSingleWarn>
 		<ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
@@ -81,8 +81,14 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia" Version="12.1.6" />
-		<PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
+	  <None Remove="NetGenCAD-0.0.5-winx64.7z" />
+	  <None Remove="NetGenCAD-0.0.6-winx64.7z" />
+	  <None Remove="NetGenCAD-0.0.9-winx64.7z" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Avalonia" Version="12.2.0" />
+		<PackageReference Include="Avalonia.Desktop" Version="12.2.0" />
 		<PackageReference Include="Tmds.DBus.Protocol" Version="0.95.2" />
 		<FrameworkReference Include="Microsoft.Windows.SDK.NET.Ref" />
 	</ItemGroup>

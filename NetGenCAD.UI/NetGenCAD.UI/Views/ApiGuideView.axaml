@@ -15,7 +15,15 @@
     Background="{DynamicResource WindowBackground}"
     mc:Ignorable="d">
 
-	    <StackPanel MaxWidth="1920" Margin="20" HorizontalAlignment="Stretch" Background="{DynamicResource CardBackground}">
+	<Border
+            Margin="10"
+            VerticalAlignment="Top"
+            BorderThickness="2"
+            BoxShadow="1 1 2 0 Gray"
+			MaxWidth="1920"
+			CornerRadius="12"
+            Classes="card_main">
+		<StackPanel MaxWidth="1920" Margin="20" HorizontalAlignment="Stretch" Background="{DynamicResource CardBackground}">
 			<md:MarkdownScrollViewer
 			    x:Name="MarkdownView"
 			    Margin="20"
@@ -27,6 +35,6 @@
 					<StyleInclude Source="/Styles/MarkdownCodeStyles.axaml" />
 				</md:MarkdownScrollViewer.Styles>
 			</md:MarkdownScrollViewer>
-	    </StackPanel>
-
+		</StackPanel>
+	</Border>
 </UserControl>

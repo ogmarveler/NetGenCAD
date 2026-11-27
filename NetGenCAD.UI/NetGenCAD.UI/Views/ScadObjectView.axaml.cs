@@ -901,23 +901,23 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
     private void ClearButton_Click(object? sender, RoutedEventArgs e) => ViewModel.ClearInputs();
     private async void CreateButton_Click(object? sender, RoutedEventArgs e) => await ViewModel.CreateObjectAsync();
     private void ClearObjectButton_Click(object? sender, RoutedEventArgs e) => ViewModel.ClearObject();
-    private void CreateModulesButton_Click(object? sender, RoutedEventArgs e)
+    private async void CreateModulesButton_Click(object? sender, RoutedEventArgs e)
     {
         ViewModel.ClearInputs();  // Prevent conversions from inputs from the previous solid created or selected in the datagrid from being applied to the new modules created
-        ViewModel.GetDimensionsParts(); // Refresh the datagrids first
+        await ViewModel.GetDimensionsParts();
 
         if (ViewModel.SolidDimensions.Any())
         {
-            ViewModel.CreateUnionModule();
-            ViewModel.CreateDifferenceModule();
-            ViewModel.CreateIntersectionModule();
+            await ViewModel.CreateUnionModuleAndRefreshAsync();
+            await ViewModel.CreateDifferenceModuleAndRefreshAsync();
+            await ViewModel.CreateIntersectionModuleAndRefreshAsync();
         }
     }
 
-    private void RemoveApplyAxisButton_Click(object? sender, RoutedEventArgs e)
+    private async void RemoveApplyAxisButton_Click(object? sender, RoutedEventArgs e)
     {
         ViewModel.RemoveAxis = !ViewModel.RemoveAxis;
-        ViewModel.UpdateAxisTranslate();
+        await ViewModel.UpdateAxisTranslateAsync();
     }
 
     private async void ObjectToScadFilesButton_Click(object? sender, RoutedEventArgs e)
@@ -935,9 +935,9 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
 
     private async void ApplyAxisButton_Click(object? sender, RoutedEventArgs e) => await ViewModel.CreateAxis();
 
-    private void GetObjectButton_Click(object? sender, RoutedEventArgs e) => ViewModel.GetDimensionsParts();
+    private async void GetObjectButton_Click(object? sender, RoutedEventArgs e) => await ViewModel.GetDimensionsParts();
 
-    private void UpdateAxisPositionButton_Click(object? sender, RoutedEventArgs e) => ViewModel.UpdateAxisTranslate();
+    private async void UpdateAxisPositionButton_Click(object? sender, RoutedEventArgs e) => await ViewModel.UpdateAxisTranslateAsync();
 
     private void ChangeAxisButton_Click(object? sender, RoutedEventArgs e)
     {
@@ -1016,7 +1016,7 @@ public partial class ScadObjectView : UserControl, INotifyPropertyChanged
         {
             files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                SuggestedStartLocation = await topLevel.StorageProvider.TryGetFolderFromPathAsync(Path.GetDirectoryName(_surfaceFilePath)),
+                SuggestedStartLocation = await topLevel.StorageProvider.TryGetFolderFromPathAsync(Path.GetDirectoryName(_surfaceFilePath)!),
                 Title = "Select Surface File",
                 AllowMultiple = false,
                 FileTypeFilter = new[]

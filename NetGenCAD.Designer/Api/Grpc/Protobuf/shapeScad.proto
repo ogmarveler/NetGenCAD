@@ -5,7 +5,7 @@ package shapeScad;
 option csharp_namespace = "NetGenCAD.Designer.Api.Grpc.Protobuf";
 
 import "Api/Grpc/Protobuf/createAxes.proto";
-import "Api/Grpc/Protobuf/objectScad.proto";
+//import "Api/Grpc/Protobuf/objectScad.proto";
 import "google/api/annotations.proto";
 
 // ShapeDimensions from NetGenCAD.Designer.Repositories.ShapeDimensions

@@ -178,22 +178,38 @@ namespace NetGenCAD.UI.ViewModels
             ServerRackSizes = [.. Enumerable.Range(1, 12).Select(ServerRackDimensions.GetByRackUnits).OfType<ServerRack>()]; // OfType automatically filters nulls AND casts
         }
 
-        public async void GetPolyhedronsList() =>
-            // Get the current list of polyhedrons available to be used in solids
-            AvailablePolyhedrons = new ObservableCollection<ShapeDimensions>(await ShapeDimensionsExtensions.GetShapesList(DbConnection!));
+        public async Task GetPolyhedronsList()
+        {
+            try
+            {
+                AvailablePolyhedrons = new ObservableCollection<ShapeDimensions>(await ShapeDimensionsExtensions.GetShapesList(DbConnection!));
+            }
+            catch (Exception exception)
+            {
+                ModalTitle = "Data Load Error";
+                ModalContent = exception.Message;
+                IsModalOpen = true;
+            }
+        }
 
         /**** Dimensions DataGrids ****/
-        public async void GetDimensionsParts()
+        public async Task GetDimensionsParts()
         {
-            // Call the static function to retrieve dimensions
-            var (solidDimensions, moduleDimensions) = await GetDimensionsPartsAsync(
-                DbConnection!,
-                Name);
+            try
+            {
+                var (solidDimensions, moduleDimensions) = await GetDimensionsPartsAsync(DbConnection!, Name);
 
-            // Update ObservableCollections - Order by Layer and then Operation type, L0, L1... then Union, Intersection, Difference (matching descending order in OSCAD functions)
-            ModuleDimensions = new ObservableCollection<ModuleDimensions>(moduleDimensions.OrderBy(md => md.Layer).ThenByDescending(md => md.ModuleType));
-            SolidDimensions = new ObservableCollection<SolidDimensions>(solidDimensions.OrderBy(sd => sd.Layer).ThenByDescending(sd => sd.OperationType));
-            GetPolyhedronsList();
+                ModuleDimensions = new ObservableCollection<ModuleDimensions>(moduleDimensions.OrderBy(md => md.Layer).ThenByDescending(md => md.ModuleType));
+                SolidDimensions = new ObservableCollection<SolidDimensions>(solidDimensions.OrderBy(sd => sd.Layer).ThenByDescending(sd => sd.OperationType));
+                await GetPolyhedronsList();
+            }
+            catch (Exception exception)
+            {
+                ModalTitle = "Data Load Error";
+                ModalContent = exception.Message;
+                IsModalOpen = true;
+                return;
+            }
 
             // Update UI selection buttons to reflect current state
             IsCubeSelected = _isCubeSelected;
@@ -286,7 +302,7 @@ namespace NetGenCAD.UI.ViewModels
             XMirror = 0;
             YMirror = 0;
             ZMirror = 0;
-            GetDimensionsParts(); // Refresh the DataGrid
+            _ = GetDimensionsParts(); // Refresh the DataGrid
         }
 
         // Create object and save to database
@@ -380,11 +396,7 @@ namespace NetGenCAD.UI.ViewModels
             };
 
             // Define the callback for refreshing dimensions
-            Func<Task> refreshDimensionsCallback = async () =>
-            {
-                GetDimensionsParts();
-                await Task.CompletedTask;
-            };
+            Func<Task> refreshDimensionsCallback = GetDimensionsParts;
 
             // Define the callback that updates the ViewModel properties
             CreateObjectAsyncCallbackAsync onObjectCreated = async (
@@ -401,20 +413,20 @@ namespace NetGenCAD.UI.ViewModels
                 switch (SelectedOperationType)
                 {
                     case OperationType.Union:
-                        CreateDifferenceModule(); // Union module created within DifferenceModule for proper layering
+                        await CreateDifferenceModuleAndRefreshAsync(); // Union module created within DifferenceModule for proper layering
                         break;
                     case OperationType.Difference:
-                        CreateDifferenceModule();
+                        await CreateDifferenceModuleAndRefreshAsync();
                         break;
                     case OperationType.Intersection:
-                        CreateIntersectionModule();
+                        await CreateIntersectionModuleAndRefreshAsync();
                         break;
                 }
 
                 // Clear inputs for next object
                 ClearInputs();
 
-                GetDimensionsParts();
+                await GetDimensionsParts();
             };
 
             // Call the static function with all callbacks and polyhedron parameters
@@ -481,11 +493,11 @@ namespace NetGenCAD.UI.ViewModels
             if (result > 0)
                 ClearInputs();
 
-            GetDimensionsParts();
+            await GetDimensionsParts();
             return result;
         }
 
-        public async void UpdateAxisTranslate()
+        public async Task UpdateAxisTranslateAsync()
         {
             if (!AxisStored) return;
 
@@ -566,7 +578,6 @@ namespace NetGenCAD.UI.ViewModels
                 AxisStored = true;
                 RemoveAxis = false;
                 AxesSelectEnabled = false;
-                GetDimensionsParts();
 
                 ObjectAxisDisplay = objectAxisDisplay;
                 ObjectAxisUnitDisplay = objectAxisUnitDisplay;
@@ -576,6 +587,7 @@ namespace NetGenCAD.UI.ViewModels
                 AxisZPositionMM = axisZPositionMM;
 
                 SelectedUnitValue = selectedUnitValue;
+                await GetDimensionsParts();
             };
 
             // Call the static function with the callback
@@ -594,7 +606,7 @@ namespace NetGenCAD.UI.ViewModels
         public async Task PartsToScadFilesAsync()
         {
             // Get latest data from DB
-            GetDimensionsParts();
+            await GetDimensionsParts();
 
             // Call the static function
             await ObjectScadFunctions.PartsToScadFilesAsync(
@@ -605,7 +617,7 @@ namespace NetGenCAD.UI.ViewModels
                 ModuleDimensions);
 
             // Refresh the DataGrid
-            GetDimensionsParts();
+            await GetDimensionsParts();
         }
 
         /// <summary>
@@ -699,28 +711,25 @@ namespace NetGenCAD.UI.ViewModels
 
             // Handle STL export if enabled
             if (ExportToStl)
-                ExportToSTLAsync();
+                await ExportToSTLAsync();
         }
 
         // Simplified version using ScadFileOperations
-        public async void ExportToSTLAsync()
+        public async Task ExportToSTLAsync()
         {
-            // Remove axis first before exporting
             var tempRemoveAxis = _removeAxis;
-            RemoveAxis = true;
-            UpdateAxisTranslate();
-
-            // Then export to STL
-            await ExportToStlAsync(
-                _objectFilePath,
-                tempRemoveAxis);
-
-            // Then restore axis if needed
-            RemoveAxis = tempRemoveAxis;
-            UpdateAxisTranslate();
-
-            // Set ExportToStl back to false
-            ExportToStl = false;
+            try
+            {
+                RemoveAxis = true;
+                await UpdateAxisTranslateAsync();
+                await ExportToStlAsync(_objectFilePath, tempRemoveAxis);
+            }
+            finally
+            {
+                RemoveAxis = tempRemoveAxis;
+                await UpdateAxisTranslateAsync();
+                ExportToStl = false;
+            }
         }
 
         public ObservableCollection<ModuleDimensions> AllModuleDimensions
@@ -812,42 +821,39 @@ namespace NetGenCAD.UI.ViewModels
             _selectedAxis = updatedAxis;
         }
 
-        public async void CreateUnionModule()
+        public async Task CreateUnionModuleAndRefreshAsync()
         {
-            await CreateUnionModuleAsync(
+            await ObjectScadFunctions.CreateUnionModuleAsync(
                 Name,
                 SolidDimensions,
                 ModuleDimensions,
                 DbConnection!,
                 _isPreRendered);
 
-            GetDimensionsParts(); // Refresh the datagrids
             await PartsToScadFilesAsync(); // Only update parts file
         }
 
-        public async void CreateDifferenceModule()
+        public async Task CreateDifferenceModuleAndRefreshAsync()
         {
-            await CreateDifferenceModuleAsync(
+            await ObjectScadFunctions.CreateDifferenceModuleAsync(
                 Name,
                 SolidDimensions,
                 ModuleDimensions,
                 DbConnection!,
                 _isPreRendered);
 
-            GetDimensionsParts(); // Refresh the datagrids
             await PartsToScadFilesAsync(); // Only update parts file
         }
 
-        public async void CreateIntersectionModule()
+        public async Task CreateIntersectionModuleAndRefreshAsync()
         {
-            await CreateIntersectionModuleAsync(
+            await ObjectScadFunctions.CreateIntersectionModuleAsync(
                 Name,
                 SolidDimensions,
                 ModuleDimensions,
                 DbConnection!,
                 _isPreRendered);
 
-            GetDimensionsParts(); // Refresh the datagrids
             await PartsToScadFilesAsync(); // Only update parts file
         }
 
@@ -993,9 +999,9 @@ namespace NetGenCAD.UI.ViewModels
         public double SurfaceScaleZ { get => _surfaceScaleZ; set { if (value > 0.0) this.RaiseAndSetIfChanged(ref _surfaceScaleZ, value); } }
         public int LayerIntValue { get => _layerIntValue; set => this.RaiseAndSetIfChanged(ref _layerIntValue, value); }
         public double AlphaIntValue { get => _alphaIntValue; set => this.RaiseAndSetIfChanged(ref _alphaIntValue, value); }
-        public double AxisXPositionMM { get => _axisXPositionMM; set { this.RaiseAndSetIfChanged(ref _axisXPositionMM, value); if (AxisStored) UpdateAxisTranslate(); } }
-        public double AxisYPositionMM { get => _axisYPositionMM; set { this.RaiseAndSetIfChanged(ref _axisYPositionMM, value); if (AxisStored) UpdateAxisTranslate(); } }
-        public double AxisZPositionMM { get => _axisZPositionMM; set { this.RaiseAndSetIfChanged(ref _axisZPositionMM, value); if (AxisStored) UpdateAxisTranslate(); } }
+        public double AxisXPositionMM { get => _axisXPositionMM; set { this.RaiseAndSetIfChanged(ref _axisXPositionMM, value); if (AxisStored) _ = UpdateAxisTranslateAsync(); } }
+        public double AxisYPositionMM { get => _axisYPositionMM; set { this.RaiseAndSetIfChanged(ref _axisYPositionMM, value); if (AxisStored) _ = UpdateAxisTranslateAsync(); } }
+        public double AxisZPositionMM { get => _axisZPositionMM; set { this.RaiseAndSetIfChanged(ref _axisZPositionMM, value); if (AxisStored) _ = UpdateAxisTranslateAsync(); } }
         public bool UnitHasChanged { get => _unitHasChanged; set => this.RaiseAndSetIfChanged(ref _unitHasChanged, value); }
         public bool IsMetric { get => _isMetric; set => this.RaiseAndSetIfChanged(ref _isMetric, value); }
         public bool IsImperial { get => _isImperial; set => this.RaiseAndSetIfChanged(ref _isImperial, value); }
@@ -1465,39 +1471,49 @@ namespace NetGenCAD.UI.ViewModels
                 AxisYPositionMM = _selectedAxis != null ? _selectedAxis.MinY : 0;
                 AxisZPositionMM = _selectedAxis != null ? _selectedAxis.MinZ : 0;
                 if (AxisStored)
-                    UpdateAxisTranslate();
+                    _ = UpdateAxisTranslateAsync();
                 else if (_selectedAxis is not null)
+                    _ = UpdateSelectedAxisAsync(_selectedAxis);
+            }
+        }
+
+        private async Task UpdateSelectedAxisAsync(GeneratedModule selectedAxis)
+        {
+            try
+            {
+                var axisId = await AxisDimensionsExtensions.GetIdByCallingMethodAsync(
+                    new AxisDimensionsEntity(), DbConnection!, selectedAxis.CallingMethod!);
+                if (SelectedAxisValue != selectedAxis.CallingMethod)
+                    return;
+
+                if (axisId is null or 0)
                 {
-                    var axisId = AxisDimensionsExtensions.GetIdByCallingMethodAsync(new AxisDimensionsEntity(), DbConnection!, _selectedAxis.CallingMethod!).Result;
-                    if (_axisId is null || _axisId == 0)
-                    {
-                        _ = CreateAxis();
-                    }
-                    else
-                    {
-                        // Update the display
-                        _axisId = axisId;
-
-                        if (_selectedAxis?.CallingMethod?.Contains("Mirror") == true)
-                        {
-                            var objectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
-                            var mirrorIndex = objectAxisDisplay.IndexOf("Mirror", StringComparison.Ordinal);
-                            var trimmedDisplay = mirrorIndex >= 0
-                                ? objectAxisDisplay[..(mirrorIndex + "Mirror".Length)]
-                                : objectAxisDisplay;
-
-                            ObjectAxisDisplay = trimmedDisplay.Replace("in ", "").Replace("mm ", "");
-                        }
-                        else
-                        {
-                            ObjectAxisDisplay = StringFunctions.FormatAxisDisplay(_selectedAxis?.CallingMethod);
-                        }
-
-                        ObjectAxisUnitDisplay = _selectedAxis?.Unit == "in" ? $"{UnitSystem.Imperial.ToString()} (in)" : $"{UnitSystem.Metric.ToString()} (mm)";
-                        AxisStored = true;
-                        AxesSelectEnabled = false; // Disable the ComboBox after axis is created
-                    }
+                    await CreateAxis();
+                    return;
                 }
+
+                _axisId = axisId;
+                var objectAxisDisplay = StringFunctions.FormatAxisDisplay(selectedAxis.CallingMethod);
+                if (selectedAxis.CallingMethod?.Contains("Mirror", StringComparison.Ordinal) == true)
+                {
+                    var mirrorIndex = objectAxisDisplay.IndexOf("Mirror", StringComparison.Ordinal);
+                    if (mirrorIndex >= 0)
+                        objectAxisDisplay = objectAxisDisplay[..(mirrorIndex + "Mirror".Length)];
+                    objectAxisDisplay = objectAxisDisplay.Replace("in ", "").Replace("mm ", "");
+                }
+
+                ObjectAxisDisplay = objectAxisDisplay;
+                ObjectAxisUnitDisplay = selectedAxis.Unit == "in"
+                    ? $"{UnitSystem.Imperial} (in)"
+                    : $"{UnitSystem.Metric} (mm)";
+                AxisStored = true;
+                AxesSelectEnabled = false;
+            }
+            catch (Exception exception)
+            {
+                ModalTitle = "Axis Selection Error";
+                ModalContent = exception.Message;
+                IsModalOpen = true;
             }
         }
 

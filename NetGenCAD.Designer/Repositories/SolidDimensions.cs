@@ -93,11 +93,6 @@ namespace NetGenCAD.Designer.Repositories
 
         public string OSCADMethod { get; set; } = string.Empty;
 
-        public async Task<string> RenderToStlAsync(string outputPath)
-        {
-            throw new NotImplementedException();
-        }
-
         // Join statement to include axis if available
         // Backing field for AxisOSCADMethod
         private string? _axisOSCADMethod;
@@ -251,7 +246,7 @@ namespace NetGenCAD.Designer.Repositories
             { "TextHAlign", TextHAlign },
             { "TextVAlign", TextVAlign },
             { "FontStyle", FontStyle },
-            { "LanguageInput", LanguageInput }
+            { "LanguageInput", LanguageInput! }
         };
     }
 

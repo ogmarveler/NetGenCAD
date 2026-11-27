@@ -24,13 +24,11 @@ namespace NetGenCAD.Designer.Api.Services
         private readonly string? _axesPath;
         private readonly object _dbLock = new object(); // Lock for thread-safe database access
 
-        // Constructor serves as DB initializer, and table dependency ensures tables exist before any calls are applied
         public AxesServiceImpl(SqliteConnection db, IScadPathProvider pathProvider)
         {
             _db = db;
             _pathProvider = pathProvider;
             _axesPath = Path.Combine(pathProvider.ScadPath, "Axes");  // Use compatible Windows or Unix format as standard response
-            ObjectScadFunctions.GetDimensionsPartsAsync(_db, string.Empty).Wait(); // Make sure tables exist in the database before any calls are applied, patience can be a virtue
         }
 
         public override Task<AxisConversionResult> ConvertUnits(ConvertUnitsRequest request, ServerCallContext context) => ConvertUnitsAsync(request);

@@ -1,4 +1,4 @@
-# ![Logo](Assets/Images/logo.png) NetGenCAD Local API Documentation
+# ![Logo](Assets/Images/logo.png) NetGenCAD API Documentation
 ###### 
 #### Description
 * Welcome to the NetGenCAD API Documentation! The API is used for creating and managing custom axes, solids, and objects used in OpenSCAD, a solid 3D CAD modeler. 
@@ -11,9 +11,10 @@
 #### Getting Started
 * The API is available in both REST and gRPC formats. The server automatically starts when NetGenCAD is running at `http://localhost:5000`. 
 * Open the top-bar API indicator on the right side to see this address and the Windows named pipe or Linux Unix socket. 
-* 🔴 **Offline** (Red) means it is starting, stopped, or unreachable.
-* 🟠 **Local** (Orange) means the localhost server responded.
-* 🟢 **Online** (Green) is reserved for future network access and is not currently used. 
+###### 
+* ![Logo](Assets/Images/offline.png) **Offline** means it is starting, stopped, or unreachable.
+* ![Logo](Assets/Images/local.png) **Local** means the localhost server responded.
+* ![Logo](Assets/Images/online.png) **Online** is reserved for future network access and is not currently used.
 ###### 
 #### Understanding the Documentation
 * The tables below list all fields in each request message. Optional fields may be omitted. 
@@ -68,15 +69,15 @@
 | fromUnit | enum | METRIC or IMPERIAL. | "fromUnit": "METRIC" |
 
 ```json
-{
-  // Request Body ConvertUnitsRequest
-  "minX": 0, "maxX": 13,
-  "minY": 0, "maxY": 13,
-  "minZ": 0, "maxZ": 13,
-  "volume": 0, "volumeScale": 0,
-  "decimalPlaces": 3,
-  "fromUnit": "METRIC"
-}
+    {
+      // Request Body ConvertUnitsRequest
+      "minX": 0, "maxX": 13,
+      "minY": 0, "maxY": 13,
+      "minZ": 0, "maxZ": 13,
+      "volume": 0, "volumeScale": 0,
+      "decimalPlaces": 3,
+      "fromUnit": "METRIC"
+    }
 ```
 ###### 
 ###### 
@@ -102,18 +103,18 @@
 | axisColorAlpha | number | Optional opacity from 0 to 1; defaults to 1. | "axisColorAlpha": 1 |
 
 ```json
-{
-  // Request Body CreateCustomAxisRequest
-  "minX": 0, "maxX": 100,
-  "minY": 0, "maxY": 100,
-  "minZ": 0, "maxZ": 100,
-  "selectedUnit": "METRIC",
-  "selectedBackground": "LIGHT",
-  "decimalPlaces": 3,
-  "colorHex": "#336699",
-  "oscadColor": "Black",
-  "axisColorAlpha": 1
-}
+    {
+      // Request Body CreateCustomAxisRequest
+      "minX": 0, "maxX": 100,
+      "minY": 0, "maxY": 100,
+      "minZ": 0, "maxZ": 100,
+      "selectedUnit": "METRIC",
+      "selectedBackground": "LIGHT",
+      "decimalPlaces": 3,
+      "colorHex": "#336699",
+      "oscadColor": "Black",
+      "axisColorAlpha": 1
+    }
 ```
 ###### 
 ###### 
@@ -133,11 +134,11 @@
 | axisCallingMethod | string | Optional axis calling method. | "axisCallingMethod": "axis_name" |
 
 ```json
-{
-  // Request Body DeleteAxisRequest
-  "axisId": 1,
-  "axisCallingMethod": "axis_name"
-}
+    {
+      // Request Body DeleteAxisRequest
+      "axisId": 1,
+      "axisCallingMethod": "axis_name"
+    }
 ```
 ###### 
 ###### 
@@ -194,46 +195,46 @@
 | oscadColor | string | Optional named OpenSCAD color. | "oscadColor": "Silver" |
 
 ```json
-{
-  // Request Body CreateUpdateSolidRequest
-  "selectedSolidType": "CUBE",
-  "objectName": "Example",
-  "description": "Example cube",
-  "axisId": 1,
-  "selectedFilament": "Other",
-  "selectedOperationType": "UNION",
-  "dimensions": {
-    "id": 0, "axisDimensionsId": 0,
-    "objectModuleId": 0,
-    "objectModuleName": "", "solidCallMethod": "",
-    "shapeName": "", "material": "",
-    "operationType": "UNION", "solidType": "CUBE",
-    "description": "",
-    "length": 10, "width": 10, "height": 10,
-    "thickness": 0,
-    "radius": 0, "radius1": 0, "radius2": 0,
-    "cylinderHeight": 0,
-    "xOffset": 0, "yOffset": 0, "zOffset": 0,
-    "xRotate": 0, "yRotate": 0, "zRotate": 0,
-    "roundR": 0, "roundH": 0, "resolution": 0,
-    "surfaceFilePath": "", "surfaceFileFormat": false,
-    "surfaceCenter": false, "surfaceInvert": false,
-    "surfaceConvexity": 1,
-    "surfaceScaleX": 1, "surfaceScaleY": 1,
-    "surfaceScaleZ": 1,
-    "textInput": "", "textSize": 10, "textDepth": 0,
-    "fontInput": "Sans", "textAlign": "Left",
-    "verticalAlign": "Baseline", "textDirection": "L-to-R",
-    "languageInput": "EN",
-    "volumeCm3": 0, "volumeIn3": 0,
-    "oscadMethod": "", "createdAt": ""
-  },
-  "layer": 0, "alpha": 1,
-  "selectedUnit": "METRIC", "decimalPlaces": 2,
-  "axisUsedCallingMethod": "axis_name",
-  "appendObject": false, "isPreRendered": true,
-  "colorHex": "#336699", "oscadColor": "Silver"
-}
+    {
+      // Request Body CreateUpdateSolidRequest
+      "selectedSolidType": "CUBE",
+      "objectName": "Example",
+      "description": "Example cube",
+      "axisId": 1,
+      "selectedFilament": "Other",
+      "selectedOperationType": "UNION",
+      "dimensions": {
+        "id": 0, "axisDimensionsId": 0,
+        "objectModuleId": 0,
+        "objectModuleName": "", "solidCallMethod": "",
+        "shapeName": "", "material": "",
+        "operationType": "UNION", "solidType": "CUBE",
+        "description": "",
+        "length": 10, "width": 10, "height": 10,
+        "thickness": 0,
+        "radius": 0, "radius1": 0, "radius2": 0,
+        "cylinderHeight": 0,
+        "xOffset": 0, "yOffset": 0, "zOffset": 0,
+        "xRotate": 0, "yRotate": 0, "zRotate": 0,
+        "roundR": 0, "roundH": 0, "resolution": 0,
+        "surfaceFilePath": "", "surfaceFileFormat": false,
+        "surfaceCenter": false, "surfaceInvert": false,
+        "surfaceConvexity": 1,
+        "surfaceScaleX": 1, "surfaceScaleY": 1,
+        "surfaceScaleZ": 1,
+        "textInput": "", "textSize": 10, "textDepth": 0,
+        "fontInput": "Sans", "textAlign": "Left",
+        "verticalAlign": "Baseline", "textDirection": "L-to-R",
+        "languageInput": "EN",
+        "volumeCm3": 0, "volumeIn3": 0,
+        "oscadMethod": "", "createdAt": ""
+      },
+      "layer": 0, "alpha": 1,
+      "selectedUnit": "METRIC", "decimalPlaces": 2,
+      "axisUsedCallingMethod": "axis_name",
+      "appendObject": false, "isPreRendered": true,
+      "colorHex": "#336699", "oscadColor": "Silver"
+    }
 ```
 ###### 
 ###### 
@@ -251,11 +252,11 @@
 | itemId | integer | ID of the item to delete. | "itemId": 1 |
 
 ```json
-{
-  // Request Body DeleteItemRequest
-  "itemType": "SOLID",
-  "itemId": 1
-}
+    {
+      // Request Body DeleteItemRequest
+      "itemType": "SOLID",
+      "itemId": 1
+    }
 ```
 ###### 
 ###### 
@@ -276,12 +277,12 @@
 | targetObjectName | string | New name; omitted or empty chooses a name automatically. | "targetObjectName": "New example" |
 
 ```json
-{
-  // Request Body CopyObjectRequest
-  "sourceObjectId": 1,
-  "sourceObjectName": "Example",
-  "targetObjectName": "New example"
-}
+    {
+      // Request Body CopyObjectRequest
+      "sourceObjectId": 1,
+      "sourceObjectName": "Example",
+      "targetObjectName": "New example"
+    }
 ```
 ###### 
 ###### 

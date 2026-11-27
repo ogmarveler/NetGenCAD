@@ -37,11 +37,6 @@ namespace NetGenCAD.Designer.Repositories
         // Output OpenSCAD method for rendering this shape
         public string OSCADMethod { get; set; } = string.Empty;
 
-        public async Task<string> RenderToStlAsync(string outputPath)
-        {
-            throw new NotImplementedException();
-        }
-
         public Dictionary<string, object> ToDbDictionary() => new()
         {
             { "Id", Id },

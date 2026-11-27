@@ -24,12 +24,10 @@ namespace NetGenCAD.Designer.Api.Services
         private readonly SqliteConnection _db;
         private readonly string _objectFilePath;
 
-        // Constructor serves as DB initializer, and table dependency ensures tables exist before any calls are applied
         public ObjectScadServiceImpl(SqliteConnection db, IScadPathProvider scadPathProvider)
         {
             _db = db;
             _objectFilePath = scadPathProvider.ScadPath;
-            ObjectScadFunctions.GetDimensionsPartsAsync(_db, string.Empty).Wait(); // Make sure tables exist in the database before any calls are applied, patience can be a virtue
         }
 
         // Hierarchy of CAD structures: File -> (module Axis, module Set) -> Object -> Module -> Solid.  Each level can be created, updated, or deleted. The gRPC service methods are implemented here to handle these operations.

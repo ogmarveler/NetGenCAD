@@ -54,11 +54,6 @@ namespace NetGenCAD.Designer.Repositories
             { "ModuleColor", ModuleColor },
             { "Layer", Layer },
         };
-
-        public async Task<string> RenderToStlAsync(string outputPath)
-        {
-            throw new NotImplementedException();
-        }
     }
 
     // Extension methods for ModuleDimensions CRUD operations

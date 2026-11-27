@@ -167,7 +167,7 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
     // Calling functions from View to ViewModel
     private void ClearButton_Click(object? sender, RoutedEventArgs e) => ViewModel.ClearInputs();
     private void ClearShapeButton_Click(object? sender, RoutedEventArgs e) => ViewModel.ClearShape();
-    private void ImportShapeButton_Click(object? sender, RoutedEventArgs e) => ViewModel.GetDimensionPolyhedronParts();
+    private async void ImportShapeButton_Click(object? sender, RoutedEventArgs e) => await ViewModel.RefreshDimensionPolyhedronPartsAsync();
     private void ViewPointsFacesButton_Click(object? sender, RoutedEventArgs e) => ViewModel.ShowShapeScadCode();
     private async void PreviewShapeButton_Click(object? sender, RoutedEventArgs e) => await ViewModel.ShowShapePreviewAsync();
     private void UpdatePointsFaceIdsButton_Click(object? sender, RoutedEventArgs e) => ViewModel.UpdatePolyhedronIds();
@@ -194,7 +194,7 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
         }
     }
 
-    private void UpdateAxisPositionButton_Click(object? sender, RoutedEventArgs e) => ViewModel.UpdateAxisTranslate();
+    private async void UpdateAxisPositionButton_Click(object? sender, RoutedEventArgs e) => await ViewModel.UpdateAxisTranslateAsync();
 
     private void ChangeAxisButton_Click(object? sender, RoutedEventArgs e)
     {
@@ -460,10 +460,7 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
             button.Click += async (s, e) =>
             {
                 if (item is PolyhedronDimensions polyhedronItem)
-                {
                     await ViewModel.DeleteSelectedItemAsync(polyhedronItem);
-                    ViewModel.GetDimensionPolyhedronParts(); // Refresh datagrids
-                }
             };
 
             return button;
@@ -510,10 +507,7 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
             button.Click += async (s, e) =>
             {
                 if (item is PolyhedronDimensions polyhedronItem)
-                {
                     await ViewModel.DeleteSelectedItemAsync(polyhedronItem);
-                    ViewModel.GetDimensionPolyhedronParts(); // Refresh datagrids
-                }
             };
 
             return button;
@@ -561,10 +555,7 @@ public partial class ScadShapeView : UserControl, INotifyPropertyChanged
             button.Click += async (s, e) =>
             {
                 if (item is PolyhedronDimensions polyhedronItem)
-                {
                     await ViewModel.DeleteSelectedItemAsync(polyhedronItem);
-                    ViewModel.GetDimensionPolyhedronParts(); // Refresh datagrids
-                }
             };
 
             return button;

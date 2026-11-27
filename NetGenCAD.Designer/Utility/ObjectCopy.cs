@@ -33,6 +33,9 @@ namespace NetGenCAD.Designer.Utility
             if (solids.Count == 0 && modules.Count == 0)
                 throw new InvalidOperationException($"Object '{sourceName}' has no solids or modules to copy.");
 
+            var objectColumns = await GetColumnsAsync(connection, transaction, "ObjectDimensions");
+            var solidColumns = await GetColumnsAsync(connection, transaction, "SolidDimensions");
+            var moduleColumns = await GetColumnsAsync(connection, transaction, "ModuleDimensions");
             var copyName = targetName ?? sourceName + "_copy";
             for (var index = 2; await connection.ExecuteScalarAsync<long>(
                 "SELECT COUNT(*) FROM ObjectDimensions WHERE ObjectName = @copyName", new { copyName }, transaction) != 0; index++)
@@ -41,12 +44,12 @@ namespace NetGenCAD.Designer.Utility
                     throw new ObjectNameAlreadyExistsException(targetName);
                 copyName = $"{sourceName}_copy_{index}";
             }
-            var newId = await CloneRowAsync(connection, transaction, "ObjectDimensions", source.Id,
+            var newId = await CloneRowAsync(connection, transaction, "ObjectDimensions", objectColumns, source.Id,
                 new Dictionary<string, object?> { ["ObjectName"] = copyName, ["CreatedAt"] = DateTime.UtcNow });
             var moduleIds = new Dictionary<int, int>();
             foreach (var module in modules)
             {
-                var newModuleId = await CloneRowAsync(connection, transaction, "ModuleDimensions", module.Id,
+                var newModuleId = await CloneRowAsync(connection, transaction, "ModuleDimensions", moduleColumns, module.Id,
                     new Dictionary<string, object?>
                     {
                         ["ObjectName"] = copyName,
@@ -60,7 +63,7 @@ namespace NetGenCAD.Designer.Utility
             {
                 if (solid.ModuleDimensionsId is int moduleId && !moduleIds.ContainsKey(moduleId))
                     throw new InvalidOperationException($"Solid {solid.Id} references a module outside object '{sourceName}'.");
-                await CloneRowAsync(connection, transaction, "SolidDimensions", solid.Id,
+                await CloneRowAsync(connection, transaction, "SolidDimensions", solidColumns, solid.Id,
                     new Dictionary<string, object?>
                     {
                         ["Name"] = copyName,
@@ -74,14 +77,16 @@ namespace NetGenCAD.Designer.Utility
                 "SELECT * FROM SolidDimensions WHERE ObjectDimensionsId = @newId ORDER BY Id", new { newId }, transaction)).ToList();
             var copiedModules = (await connection.QueryAsync<ModuleDimensions>(
                 "SELECT * FROM ModuleDimensions WHERE ObjectDimensionsId = @newId ORDER BY Id", new { newId }, transaction)).ToList();
+            var unionLayers = copiedSolids.Where(s => s.OperationType == "Union").Select(s => s.Layer).ToHashSet();
+            var solidOperationsByLayer = copiedSolids.Select(s => (s.Layer, s.OperationType)).ToHashSet();
             foreach (var solid in copiedSolids.Where(s => s.OperationType is "Difference" or "Intersection"))
             {
-                if (!copiedSolids.Any(s => s.OperationType == "Union" && s.Layer == solid.Layer))
+                if (!unionLayers.Contains(solid.Layer))
                     throw new InvalidOperationException($"Cannot rebuild layer {solid.Layer} without a union solid.");
             }
             foreach (var module in copiedModules.Where(m => m.SolidType == "Object"))
             {
-                if (!copiedSolids.Any(s => s.OperationType == module.ModuleType && s.Layer == module.Layer))
+                if (!solidOperationsByLayer.Contains((module.Layer, module.ModuleType)))
                     throw new InvalidOperationException($"Cannot rebuild object module {module.Id} without matching solids.");
             }
 
@@ -94,10 +99,13 @@ namespace NetGenCAD.Designer.Utility
             return copyName;
         }
 
+        private static async Task<string[]> GetColumnsAsync(SqliteConnection connection, SqliteTransaction transaction, string table) =>
+            (await connection.QueryAsync<string>(
+                $"SELECT name FROM pragma_table_info('{table}') WHERE name <> 'Id'", transaction: transaction)).ToArray();
+
         private static async Task<int> CloneRowAsync(SqliteConnection connection, SqliteTransaction transaction,
-            string table, int id, Dictionary<string, object?> overrides)
+            string table, IReadOnlyList<string> columns, int id, Dictionary<string, object?> overrides)
         {
-            var columns = (await connection.QueryAsync<string>($"SELECT name FROM pragma_table_info('{table}') WHERE name <> 'Id'", transaction: transaction)).ToArray();
             var parameters = new DynamicParameters();
             parameters.Add("SourceId", id);
             var expressions = new List<string>();

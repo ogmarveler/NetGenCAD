@@ -5,7 +5,7 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 ###### 
 #### Prerequisites
 * **You need a CAD renderer installed (OpenSCAD recommended):** [OpenSCAD](https://openscad.org/downloads.html)
-* [NetGenCAD for Windows (x64)](NetGenCAD.UI/NetGenCAD.UI.Windows/NetGenCAD-0.0.6-win-x64.7z)
+* [NetGenCAD for Windows (x64)](NetGenCAD.UI/NetGenCAD.UI.Windows/NetGenCAD-0.1.0-winx64.7z)
 * **NetGenCAD for Linux (x64 & arm64)** Coming Soon!
 * **NetGenCAD for MacOS (x64 & arm64)** Coming Soon!
 
@@ -19,24 +19,6 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 * **Sphere** - all spheres are aligned on the 0,0,0 axes, with center point of the sphere at 0,0,0.
 * **Surface** - import from png or dat file. Default aligned on 0,0,0 axes or can be offset with translate.
 * **Text** - create 3D text using OpenSCAD text function with approximate bounding box dimensions.
-
-###### 
-#### Examples of Objects Created
-###### 
-![Bullion](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/bullionBars.png)
-![Bullion Create Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/bullionBarsCreateDark.png)
-
-###### 
-![Coin](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/coin.png)
-![Coin Create Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/coinCreateDark.png)
-
-###### 
-![Coil Create Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/dataPyramid.png)
-![Polyhedron Inputs Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/polyhedronInputsDark.png)
-
-###### 
-![Coil](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/redAlertTeslaCoil.png)
-![Coil Create Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/coilCreateDark.png)
 
 ###### 
 #### Solid Adjustments Available
@@ -54,27 +36,49 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 * **Render** - applies optimized rendering of solids before viewing or exporting the object
 * **Export** - export the object as an STL file for 3D printing or other uses
 
-###### 
-#### Layout of Custom Axes Builder
-The Custom Axes Builder has 2 main visual sections: Custom Axis and Generated Axes. The outputs of newly created axes will show up in the tables next to the Custom Axis section.
-###### 
-![Axis Creation](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/axisCreation.png)
-###### 
+######
 #### Types of Measurements
-Varying axes of different sizes, measurement types, colors, and combinations of both metric and imperial measurements can be applied within the same SCAD project. Axes are managed in an aggregate SCAD file and are called as modules within your SCAD project. The app manages updates to existing axes as well as provides the ability for multiple axis types to be used in your project. Axis increments are as follows:
-###### 
 * **Metric axis** - 20mm, 10mm, 5mm, and 1mm increments
 * **Imperial axis** - 1/4", 1/8", 1/16", and 1/32" increments
 * **Convert mm to inches** - Enter inputs in Metric (mm) first, then select Imperial (in)
 * **Convert inches to mm** - Enter inputs in Imperial (in) first, then select Metric (mm)
 
 ###### 
+#### Layout of Custom Axes Builder
+* Customize axes with your own color, as well as the ability to preview the axis and/or colors before calling it in your SCAD project.
+* Mirror functionality is available for all axes, and the ability to preview the mirrored axis before calling it in your SCAD project.
+
+###### 
+![Axis Creation](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/axisCreationNew.png)
+
+######
+#### Examples of Objects Created
+###### 
+![Hydra](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/hydraCollector.PNG)
+![Hydra Create Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/hydraCollectorCreate.PNG)
+
+###### 
+![Coin](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/coin.png)
+![Coin Create Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/coinCreateDark.png)
+
+###### 
+![Coil Create Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/dataPyramid.png)
+![Polyhedron Inputs Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/polyhedronInputsDark.png)
+
+###### 
+![Coil](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/redAlertTeslaCoil.png)
+![Coil Create Dark](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/coilCreateDark.png)
+
+###### 
 #### Generated SCAD Files
-| Files                                   | Usage In Your SCAD File / Description                  | Optional parameters | Render |
-| --------------------------------------- |:------------------------------------------------------:|:-------------------:|:------:|
-| Scad/Axes/axes.scad                     | Description: holds all stored axes used in 3D models   |                     |	No    |
-| Scad/Axes/custom_axis_name.scad         | Syntax: use <Axes/axes.scad>; Get_Custom_Axis_Name();  | colorVal, alpha     |	No    |
-| Scad/Solids/moduleType_name_object.scad | Syntax: include <object_name_type.scad>;               |                     |	Yes   |
-| Scad/Solids/object.scad                 | Description: main object file for 3D model             |                     |	No    |	
-| Scad/Solids/object.stl                  | Description: exported STL file for 3D model            |                     |  Yes   |
-| Scad/Solids/polyhedronName_shape.scad   | Description: polyhedron shape preview file             |                     |	No    | 
+| Files                                   | Usage In Your SCAD File / Description                  | Optional parameters |
+| --------------------------------------- |:------------------------------------------------------:|:-------------------:|
+| Scad/Axes/axes.scad                     | holds all stored axes used in 3D models                |                     |
+| Scad/Axes/axis_preview.scad             | preview a newly created axis and mirror                | colorVal, alpha     |
+| Scad/Axes/custom_axis_name.scad         | use <Axes/axes.scad>; Get_Custom_Axis_Name();          | colorVal, alpha     |
+| Scad/Solids/moduleType_name_object.scad | include <object_name_type.scad>;                       |                     |
+| Scad/Solids/object.scad                 | main object file for 3D model                          |                     |	
+| Scad/Solids/object.stl                  | exported STL file for 3D model                         |                     |
+| Scad/Solids/polyhedronName_shape.scad   | polyhedron shape preview file                          |                     |
+| Scad/Images/image_surface.png           | imported image used for a Surface                      |                     |
+| Scad/Images/image_surface_**frmt**.png  | **formatted** image used for a Surface                 | format box checked  |

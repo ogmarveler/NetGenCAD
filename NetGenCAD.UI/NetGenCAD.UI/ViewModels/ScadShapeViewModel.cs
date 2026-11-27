@@ -127,7 +127,7 @@ namespace NetGenCAD.UI.ViewModels
                     ModalTitle = "Success";
                     ModalContent = $"Shape '{Name}' saved successfully with ID: {shapeId}";
                     IsModalOpen = false;
-                    GetDimensionPolyhedronParts(); // Refresh datagrids
+                    await RefreshDimensionPolyhedronPartsAsync(); // Refresh datagrids
                 }
                 else
                 {
@@ -203,13 +203,13 @@ namespace NetGenCAD.UI.ViewModels
 
             // Update ScadObjectViewModel - regenerate scad code from updated polyhedrons
             var scObjectVM = App.Services!.GetRequiredService<ScadObjectViewModel>();
-            scObjectVM.GetDimensionsParts(); // Refresh the datagrids first
+            await scObjectVM.GetDimensionsParts();
 
             if (scObjectVM.SolidDimensions.Any())
             {
-                scObjectVM.CreateUnionModule();
-                scObjectVM.CreateDifferenceModule();
-                scObjectVM.CreateIntersectionModule();
+                await scObjectVM.CreateUnionModuleAndRefreshAsync();
+                await scObjectVM.CreateDifferenceModuleAndRefreshAsync();
+                await scObjectVM.CreateIntersectionModuleAndRefreshAsync();
             }
         }
 
@@ -244,7 +244,7 @@ namespace NetGenCAD.UI.ViewModels
             PolyhedronDimensionsPoints = [];
             PolyhedronDimensionsFaces = [];
             SelectedUnitValue = UnitSystem.Metric;
-            GetDimensionPolyhedronParts();
+            _ = RefreshDimensionPolyhedronPartsAsync();
         }
 
         public void ConvertInputs(int decimalPlaces)
@@ -398,9 +398,9 @@ namespace NetGenCAD.UI.ViewModels
                 AxisYPositionMM = _selectedAxis != null ? _selectedAxis.MinY : 0;
                 AxisZPositionMM = _selectedAxis != null ? _selectedAxis.MinZ : 0;
                 if (AxisStored)
-                    UpdateAxisTranslate();
+                    _ = UpdateAxisTranslateAsync();
                 else if (_selectedAxis != null)
-                    _ = CreateAxis();
+                        _ = CreateAxis();
             }
         }
 
@@ -523,7 +523,7 @@ namespace NetGenCAD.UI.ViewModels
                 onAxisCreated);
         }
 
-        public async void UpdateAxisTranslate()
+        public async Task UpdateAxisTranslateAsync()
         {
             if (!AxisStored) return;
 
@@ -658,16 +658,19 @@ namespace NetGenCAD.UI.ViewModels
         }
 
         /**** Dimensions DataGrids ****/
-        public async void GetDimensionPolyhedronParts()
+        public async Task RefreshDimensionPolyhedronPartsAsync()
         {
-            // Call the static function to retrieve polyhedron dimensions
-            var polyhedronDimensions = await GetDimensionPolyhedronPartsAsync(DbConnection!,Name);
-
-            // Update ObservableCollection
-            PolyhedronDimensions = polyhedronDimensions;
-
-            // Retrieve the saved shape from ShapeDimensions if it exists
-            await GetShapeDimensionsAsync();
+            try
+            {
+                PolyhedronDimensions = await GetDimensionPolyhedronPartsAsync(DbConnection!, Name);
+                await GetShapeDimensionsAsync();
+            }
+            catch (Exception exception)
+            {
+                ModalTitle = "Data Load Error";
+                ModalContent = exception.Message;
+                IsModalOpen = true;
+            }
         }
 
         public void ShowOSCADMethod(PolyhedronDimensions polyhedron)
@@ -693,7 +696,7 @@ namespace NetGenCAD.UI.ViewModels
                 await polyhedron.DeleteAsync(DbConnection);
 
                 // Refresh the collection
-                GetDimensionPolyhedronParts();
+                await RefreshDimensionPolyhedronPartsAsync();
                 var scadCode = ShapeScadFunctions.GenerateOSCADShapeAsync(Name, PolyhedronDimensions);
                 ShapeScad = scadCode;
             }

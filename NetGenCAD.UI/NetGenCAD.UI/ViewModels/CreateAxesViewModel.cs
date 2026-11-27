@@ -80,6 +80,8 @@ namespace NetGenCAD.UI.ViewModels
         private bool _savingMirroredAxis;
         private string _mirrorSaveError = string.Empty;
         private readonly SemaphoreSlim _previewLock = new(1, 1);
+        private readonly object _previewRefreshSync = new();
+        private CancellationTokenSource? _previewRefreshCancellation;
         private GeneratedModule? _mirroredAxis;
         private GeneratedModule? _selectedAxis;
         private string? _unitAbbrev;
@@ -239,8 +241,8 @@ namespace NetGenCAD.UI.ViewModels
             UnitAbbrev = selected.Unit;
             SetSelectedOrientation(selected.CallingMethod);
             PreviewAxisCallingMethod = selected.CallingMethod ?? string.Empty;
-            IsPreviewColorFromHex = (bool)selected!.ColorFromHex;
-            PreviewColorHex = (bool)selected!.ColorFromHex ? selected!.AxisColor : string.Empty;
+            IsPreviewColorFromHex = (bool)selected!.ColorFromHex!;
+            PreviewColorHex = (bool)selected!.ColorFromHex! ? selected!.AxisColor! : string.Empty;
             SelectedUnitValue = unit == "mm" ? UnitSystem.Metric : UnitSystem.Imperial;
             MinXValue = selected.MinX;
             MaxXValue = selected.MaxX;
@@ -307,8 +309,31 @@ namespace NetGenCAD.UI.ViewModels
 
         public async Task RefreshPreviewColorAsync()
         {
-            if (!HasInvalidPreviewColorHex && !HasInvalidAlpha && (_previewOpened || _previewOpening) && CanPreviewAxis)
-                await UpdateAxisPreviewAsync(openFile: false);
+            var cancellation = new CancellationTokenSource();
+            lock (_previewRefreshSync)
+            {
+                _previewRefreshCancellation?.Cancel();
+                _previewRefreshCancellation = cancellation;
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(150), cancellation.Token);
+                if (!HasInvalidPreviewColorHex && !HasInvalidAlpha && (_previewOpened || _previewOpening) && CanPreviewAxis)
+                    await UpdateAxisPreviewAsync(openFile: false);
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                lock (_previewRefreshSync)
+                {
+                    if (ReferenceEquals(_previewRefreshCancellation, cancellation))
+                        _previewRefreshCancellation = null;
+                }
+                cancellation.Dispose();
+            }
         }
 
         public string PreviewAxisCallingMethod

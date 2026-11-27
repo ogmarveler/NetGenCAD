@@ -31,6 +31,7 @@ namespace NetGenCAD.UI.ViewModels
         private string _apiStatus = "Local API starting";
         private string _selectedApiAddress = LocalApiAddress;
 
+
         [RequiresUnreferencedCode("MainWindowViewModel may use code that is not referenced directly and could be trimmed by the linker.")]
         [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
         public MainWindowViewModel()
@@ -38,7 +39,7 @@ namespace NetGenCAD.UI.ViewModels
             MainViewContent = _mainViewContent; // Start with this view
             // Initialize menu commands
             NewAxesCommand = ReactiveCommand.Create(LoadCreateAxesView);
-            NewObjectCommand = ReactiveCommand.Create(LoadScadObjectView);
+            NewObjectCommand = ReactiveCommand.CreateFromTask(LoadScadObjectView);
             NewShapeCommand = ReactiveCommand.Create(LoadScadShapeView);
             OpenFolderCommand = ReactiveCommand.CreateFromTask(MainWindow.OpenFolderAsync);
             ToggleCommand = ReactiveCommand.Create(ToggleTheme);
@@ -68,10 +69,11 @@ namespace NetGenCAD.UI.ViewModels
         public bool IsApiOnline => _apiAvailability != ApiAvailabilityState.Offline;
         public IBrush ApiStatusBrush => _apiAvailability switch
         {
-            ApiAvailabilityState.Local => Brushes.DarkOrange,
+            ApiAvailabilityState.Local => Brushes.RoyalBlue,
             ApiAvailabilityState.Online => Brushes.ForestGreen,
             _ => Brushes.Firebrick
         };
+            
         public string ApiStatus => _apiStatus;
         public string ApiStatusLabel => _apiAvailability.ToString();
 
@@ -150,11 +152,12 @@ namespace NetGenCAD.UI.ViewModels
             App.Services!.GetRequiredService<ScadShapeViewModel>().GetAxesList();  // Refresh Axes List if using singleton or scoped services
             MainViewContent = App.Services!.GetRequiredService<ScadShapeView>();
         }
-        public void LoadScadObjectView()
+        public async Task LoadScadObjectView()
         {
-            App.Services!.GetRequiredService<ScadObjectViewModel>().GetAxesList();  // Refresh Axes List if using singleton or scoped services
-            App.Services!.GetRequiredService<ScadObjectViewModel>().GetPolyhedronsList(); // Refresh AvailablePolyhedrons List if using singleton
+            var viewModel = App.Services!.GetRequiredService<ScadObjectViewModel>();
+            viewModel.GetAxesList();  // Refresh Axes List if using singleton or scoped services
             MainViewContent = App.Services!.GetRequiredService<ScadObjectView>();
+            await viewModel.GetPolyhedronsList(); // Refresh AvailablePolyhedrons List if using singleton
         }
 
         public async Task RefreshFromApiAsync()
@@ -165,7 +168,7 @@ namespace NetGenCAD.UI.ViewModels
             App.Services!.GetRequiredService<ScadShapeViewModel>().GetAxesList();  // Refresh Axes List on Create Shape View
 
             // Refresh Objects List for all views that depend on it
-            App.Services!.GetRequiredService<ScadObjectViewModel>().GetDimensionsParts(); // Refresh Object List on Create Object View
+            await App.Services!.GetRequiredService<ScadObjectViewModel>().GetDimensionsParts(); // Refresh Object List on Create Object View
         }
 
         // Menu Commands

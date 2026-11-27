@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NetGenCAD.Axis.Scad.Models;
@@ -41,6 +42,17 @@ namespace NetGenCAD.UI
         [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
         public override async void OnFrameworkInitializationCompleted()
         {
+            Exception? databaseInitializationException = null;
+            try
+            {
+                await ObjectDimensionsExtensions.EnsureSchemaAsync(Services!.GetRequiredService<SqliteConnection>());
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine($"Database initialization failed: {exception}");
+                databaseInitializationException = exception;
+            }
+
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 desktop.MainWindow = new MainWindow
@@ -60,6 +72,13 @@ namespace NetGenCAD.UI
                 desktopLifetime.Exit += (_, _) => apiShutdown.Cancel();
 
             base.OnFrameworkInitializationCompleted();
+
+            if (databaseInitializationException is not null)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => Services!.GetRequiredService<MainWindowViewModel>()
+                    .SetApiUnavailable($"Database initialization failed: {databaseInitializationException.Message}"));
+                return;
+            }
 
             try
             {

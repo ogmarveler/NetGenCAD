@@ -75,8 +75,4 @@
 	  <ProjectReference Include="..\NetGenCAD.Core\NetGenCAD.Core.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-	  <Folder Include="Repositories\Logs\" />
-	</ItemGroup>
-
 </Project>

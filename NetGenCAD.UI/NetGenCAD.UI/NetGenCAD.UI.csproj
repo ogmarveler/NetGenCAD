@@ -52,13 +52,23 @@
 
 	<ItemGroup>
 		<AvaloniaResource Remove="Assets\Guides\Readme.markdown" />
+		<AvaloniaResource Remove="Assets\Images\axisCreation.png" />
+		<AvaloniaResource Remove="Assets\Images\axisCreationDark.png" />
+		<AvaloniaResource Remove="Assets\Images\bullionBars.png" />
+		<AvaloniaResource Remove="Assets\Images\bullionBarsCreateDark.png" />
+		<AvaloniaResource Remove="Assets\Images\coilCreateDark.png" />
+		<AvaloniaResource Remove="Assets\Images\coin.png" />
+		<AvaloniaResource Remove="Assets\Images\coinCreateDark.png" />
+		<AvaloniaResource Remove="Assets\Images\dataPyramid.png" />
+		<AvaloniaResource Remove="Assets\Images\hydraCollector.PNG" />
+		<AvaloniaResource Remove="Assets\Images\redAlertTeslaCoil.png" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia" Version="12.1.6" />
+		<PackageReference Include="Avalonia" Version="12.2.0" />
 		<PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
-		<PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
-		<PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.6" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="12.2.0" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="12.2.0" />
 		<PackageReference Include="Markdown.Avalonia.Tight" Version="12.0.2" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
@@ -87,13 +97,30 @@
 		<None Update="Scad\Axes\axes.scad">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
+		<None Update="Scad\Images\logo-large.png">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
 		<None Update="Scad\Solids\object.scad">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="Scad\Images\" />
+	  <None Update="Assets\Images\bullionBarsCreateDark.png">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Assets\Images\coin.png">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Assets\Images\dataPyramid.png">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="Assets\Images\axisCreationDark.png">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </None>
 	</ItemGroup>
 
 </Project>

@@ -62,9 +62,9 @@
 						</StackPanel>
 					</Flyout>
 				</Button.Flyout>
-				<StackPanel Orientation="Horizontal" Spacing="5">
-					<Ellipse Width="12" Height="12" Fill="{Binding ApiStatusBrush}" VerticalAlignment="Center" />
-					<TextBlock Text="{Binding ApiStatusLabel}" VerticalAlignment="Center" />
+				<StackPanel Orientation="Horizontal" Spacing="10">
+					<Ellipse Width="19" Height="19" Fill="{Binding ApiStatusBrush}" VerticalAlignment="Center" />
+					<TextBlock FontWeight="SemiBold" Text="{Binding ApiStatusLabel}" VerticalAlignment="Center" />
 				</StackPanel>
 			</Button>
 		</StackPanel>

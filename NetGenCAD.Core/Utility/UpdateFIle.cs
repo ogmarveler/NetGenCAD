@@ -7,10 +7,7 @@
             try
             {
                 string content = File.ReadAllText(filePath);
-                if (!content.Contains(codeBlock)) return false;
-                content = content.Replace(codeBlock, codeBlock);
-                File.WriteAllText(filePath, content);
-                Console.WriteLine("Replacement successful.");
+                if (!content.Contains(codeBlock, StringComparison.Ordinal)) return false;
                 return true;
             }
             catch (Exception ex)
@@ -25,9 +22,10 @@
             try
             {
                 string content = File.ReadAllText(filePath);
-                if (!content.Contains(oldCodeBlock)) return false;
-                content = content.Replace(oldCodeBlock, newCodeBlock);
-                File.WriteAllText(filePath, content);
+                if (!content.Contains(oldCodeBlock, StringComparison.Ordinal)) return false;
+                var updatedContent = content.Replace(oldCodeBlock, newCodeBlock, StringComparison.Ordinal);
+                if (updatedContent.Equals(content, StringComparison.Ordinal)) return true;
+                File.WriteAllText(filePath, updatedContent);
                 Console.WriteLine("Replacement successful.");
                 return true;
             }
