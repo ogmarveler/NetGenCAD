@@ -45,8 +45,8 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 
 ###### 
 #### Custom Axes Builder
-* Customize axes with your own color, as well as the ability to preview the axis and/or colors before calling it in your SCAD project.
-* Mirror functionality is available for all axes, and the ability to preview the mirrored axis before calling it in your SCAD project.
+* Customize axes with your own color. Preview the axis and/or colors in your SCAD project.
+* Mirror functionality available for all axes. Preview mirrored axes in your SCAD project.
 
 ###### 
 ![Axis Creation](NetGenCAD.UI/NetGenCAD.UI/Assets/Images/axisCreationNew.png)
