@@ -81,4 +81,4 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 | Scad/Solids/object.stl                  | exported STL file for 3D model                         |                     |
 | Scad/Solids/polyhedronName_shape.scad   | polyhedron shape preview file                          |                     |
 | Scad/Images/image_surface.png           | imported image used for a Surface                      |                     |
-| Scad/Images/image_surface_**frmt**.png  | **formatted** image used for a Surface                 | format box checked  |
+| Scad/Images/image_surface_**frmt**.png  | **formatted** image used for a Surface                 | format checkbox     |
