@@ -75,7 +75,7 @@ This application is a no-code tool for generating custom objects used in OpenSCA
 | --------------------------------------- |:------------------------------------------------------:|:-------------------:|
 | Scad/Axes/axes.scad                     | holds all stored axes used in 3D models                |                     |
 | Scad/Axes/axis_preview.scad             | preview a newly created axis and mirror                | colorVal, alpha     |
-| Scad/Axes/custom_axis_name.scad         | use <Axes/axes.scad>; Get_Custom_Axis_Name();          | colorVal, alpha     |
+| Scad/Axes/custom_axis_name.scad         | Get_Custom_Axis_Name();                                | colorVal, alpha     |
 | Scad/Solids/moduleType_name_object.scad | include <object_name_type.scad>;                       |                     |
 | Scad/Solids/object.scad                 | main object file for 3D model                          |                     |	
 | Scad/Solids/object.stl                  | exported STL file for 3D model                         |                     |
